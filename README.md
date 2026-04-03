@@ -45,21 +45,21 @@ Club management in the DACH region is stuck in the past — spreadsheets, paper 
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    unefy platform                    │
+│                    unefy platform                   │
 ├──────────┬──────────┬───────────┬───────────────────┤
 │  Web     │  iOS     │  Android  │  Public API       │
 │  Next.js │  Swift   │  Kotlin   │  REST + API Keys  │
 │  BFF     │  Native  │  Native   │                   │
 ├──────────┴──────────┴───────────┴───────────────────┤
-│                  FastAPI Backend                      │
-│          PostgreSQL  ·  Redis  ·  JWT                │
+│                  FastAPI Backend                    │
+│          PostgreSQL  ·  Redis  ·  JWT               |
 └─────────────────────────────────────────────────────┘
 ```
 
 | Component | Stack |
 |-----------|-------|
 | **Backend** | FastAPI, SQLAlchemy 2.0, PostgreSQL, Redis, Alembic |
-| **Web** | Next.js 16, React 19, Tailwind v4, shadcn/ui, better-auth |
+| **Web** | Next.js 16, React 19, Tailwind v4, shadcn/ui |
 | **iOS** | Swift 6.2, SwiftUI, Liquid Glass, Core ML, Foundation Models |
 | **Android** | Kotlin, Jetpack Compose, Material 3, CameraX, MediaPipe |
 

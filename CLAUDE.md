@@ -1,6 +1,6 @@
 # Project: unefy — Modern Club & Association Management
 
-Open-source, self-hostable Vereinsverwaltung with optional SaaS deployment. Built with a Next.js frontend, FastAPI backend, and native mobile apps (iOS/Android).
+Open-source, self-hostable club and association management platform with optional SaaS deployment. Built with a Next.js frontend, FastAPI backend, and native mobile apps (iOS/Android).
 
 ## Architecture Principles
 
@@ -43,7 +43,7 @@ unefy/
 
 | Client | Auth Method | Session/Token Storage |
 |--------|------------|----------------------|
-| **Web** | better-auth (Next.js) — manages session cookies | Opaque session cookie (httpOnly, Secure, SameSite=Lax) → session state in DB/Redis |
+| **Web** | Backend-issued session cookie (httpOnly, Secure, SameSite=Lax) | Session state in Redis |
 | **Mobile** | OAuth 2.0 + PKCE → JWT access + refresh tokens | iOS Keychain / Android Keystore |
 | **Public API** | API key (`X-API-Key` header) | Consumer-managed |
 
@@ -61,7 +61,7 @@ unefy/
 - Device management & trusted devices
 - Impersonation (admin feature for SaaS support)
 
-**Key principle:** Web auth is handled by `better-auth` in the Next.js layer. The backend trusts the session and provides a verified user context. Mobile and Public API authenticate directly against the backend's JWT/API-key endpoints.
+**Key principle:** All auth logic lives in the backend — one system for all clients. The backend issues session cookies (web) and JWTs (mobile). The Next.js frontend simply forwards the session cookie to the backend on every request.
 
 ## Git Conventions
 
