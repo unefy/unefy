@@ -82,10 +82,15 @@
     "website": "Webseite",
     "websitePlaceholder": "https://ihr-verein.de",
     "street": "Straße",
+    "streetPlaceholder": "Musterstraße 1",
     "zip": "PLZ",
+    "zipPlaceholder": "12345",
     "city": "Ort",
+    "cityPlaceholder": "Musterstadt",
     "state": "Bundesland",
-    "country": "Land"
+    "statePlaceholder": "Bayern",
+    "country": "Land",
+    "countryPlaceholder": "Deutschland"
   },
   "tenant": {
     "freePlan": "Kostenlos"

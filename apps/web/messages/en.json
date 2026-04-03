@@ -82,10 +82,15 @@
     "website": "Website",
     "websitePlaceholder": "https://your-club.de",
     "street": "Street",
+    "streetPlaceholder": "123 Main Street",
     "zip": "ZIP",
+    "zipPlaceholder": "12345",
     "city": "City",
+    "cityPlaceholder": "Springfield",
     "state": "State",
-    "country": "Country"
+    "statePlaceholder": "Bavaria",
+    "country": "Country",
+    "countryPlaceholder": "Germany"
   },
   "tenant": {
     "freePlan": "Free plan"

@@ -78,7 +78,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
   }
 
   return (
-    <TooltipProvider delayDuration={0}>
+    <TooltipProvider delay={0}>
       <aside
         className={cn(
           "flex shrink-0 flex-col bg-card transition-all duration-200",
@@ -162,7 +162,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
               <div key={item.href} className="mb-0.5">
                 {collapsed ? (
                   <Tooltip>
-                    <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+                    <TooltipTrigger>{linkEl}</TooltipTrigger>
                     <TooltipContent side="right">{t(`nav.${item.key}`)}</TooltipContent>
                   </Tooltip>
                 ) : (

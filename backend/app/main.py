@@ -32,9 +32,32 @@ def configure_logging(log_level: str) -> None:
     )
 
 
+async def run_migrations() -> None:
+    """Run Alembic migrations on startup using async engine."""
+    import structlog
+    from alembic.config import Config
+
+    from alembic import command
+
+    logger = structlog.get_logger()
+
+    try:
+        alembic_cfg = Config("alembic.ini")
+        alembic_cfg.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
+        # Run in thread to avoid blocking and async event loop issues
+        import asyncio
+
+        await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+        logger.info("migrations_applied")
+    except Exception as e:
+        logger.error("migration_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     logger = structlog.get_logger()
+
+    await run_migrations()
 
     await init_redis()
     logger.info("redis_connected")

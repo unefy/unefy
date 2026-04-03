@@ -38,7 +38,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # Web App (for OAuth redirect after login)
+    # URLs
+    BACKEND_URL: str = "http://localhost:8008"  # Public URL of the backend (for OAuth redirects)
+    COOKIE_DOMAIN: str | None = None  # e.g. ".unefy.app" for cross-subdomain cookies
     WEB_APP_URL: str = "http://localhost:3008"
 
     # CORS

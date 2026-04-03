@@ -65,6 +65,7 @@ export function ContactForm() {
               id="street"
               value={form.street as string}
               onChange={(e) => handleChange("street", e.target.value)}
+              placeholder={t("streetPlaceholder")}
             />
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -74,6 +75,7 @@ export function ContactForm() {
                 id="zip_code"
                 value={form.zip_code as string}
                 onChange={(e) => handleChange("zip_code", e.target.value)}
+                placeholder={t("zipPlaceholder")}
               />
             </div>
             <div className="col-span-2 space-y-2">
@@ -82,6 +84,7 @@ export function ContactForm() {
                 id="city"
                 value={form.city as string}
                 onChange={(e) => handleChange("city", e.target.value)}
+                placeholder={t("cityPlaceholder")}
               />
             </div>
           </div>
@@ -92,6 +95,7 @@ export function ContactForm() {
                 id="state"
                 value={form.state as string}
                 onChange={(e) => handleChange("state", e.target.value)}
+                placeholder={t("statePlaceholder")}
               />
             </div>
             <div className="space-y-2">
@@ -100,7 +104,7 @@ export function ContactForm() {
                 id="country"
                 value={form.country as string}
                 onChange={(e) => handleChange("country", e.target.value)}
-                placeholder="DE"
+                placeholder={t("countryPlaceholder")}
               />
             </div>
           </div>

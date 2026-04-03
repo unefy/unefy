@@ -1,8 +1,8 @@
-import { useTranslations } from "next-intl"
+import { getTranslations } from "next-intl/server"
 import { LoginForm } from "@/components/auth/login-form"
 
-export default function LoginPage() {
-  const t = useTranslations("auth")
+export default async function LoginPage() {
+  const t = await getTranslations("auth")
 
   return (
     <div className="flex min-h-screen items-center justify-center">

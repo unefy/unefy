@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { getTranslations } from "next-intl/server"
 import { getSession } from "@/lib/auth"
 import { OnboardingForm } from "@/components/auth/onboarding-form"
 
 export default async function OnboardingPage() {
   const session = await getSession()
-  const t = useTranslations("auth")
+  const t = await getTranslations("auth")
 
   if (!session) {
     redirect("/login")

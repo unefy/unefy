@@ -88,16 +88,17 @@ async def get_session_data(
 def _set_session_cookie(
     response: RedirectResponse | Response,
     session_token: str,
-    debug: bool,
+    settings: Settings,
 ) -> None:
     response.set_cookie(
         key=COOKIE_NAME,
         value=session_token,
         httponly=True,
-        secure=not debug,
+        secure=not settings.DEBUG,
         samesite="lax",
         max_age=SESSION_TTL,
         path="/",
+        domain=settings.COOKIE_DOMAIN,
     )
 
 
@@ -191,8 +192,7 @@ async def google_login(
 ) -> RedirectResponse:
     """Start Google OAuth flow — redirects user to Google."""
     _ensure_google_registered(settings)
-    backend_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{backend_url}/api/v1/auth/oauth/google/callback"
+    redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/oauth/google/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -272,7 +272,7 @@ async def google_callback(
         redirect_url = f"{settings.WEB_APP_URL}/onboarding"
 
     response = RedirectResponse(url=redirect_url, status_code=302)
-    _set_session_cookie(response, session_token, settings.DEBUG)
+    _set_session_cookie(response, session_token, settings)
 
     # Set locale cookie from user preference if available
     if user.locale:
@@ -371,7 +371,10 @@ async def create_club(
 
 
 @router.post("/logout")
-async def logout(request: Request) -> JSONResponse:
+async def logout(
+    request: Request,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> JSONResponse:
     """Invalidate session and clear cookie."""
     session_token = request.cookies.get(COOKIE_NAME)
     if session_token:
@@ -379,5 +382,5 @@ async def logout(request: Request) -> JSONResponse:
         await redis.delete(f"session:{session_token}")
 
     response = JSONResponse(content={"data": {"message": "Logged out"}})
-    response.delete_cookie(COOKIE_NAME, path="/")
+    response.delete_cookie(COOKIE_NAME, path="/", domain=settings.COOKIE_DOMAIN)
     return response
