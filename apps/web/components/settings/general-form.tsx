@@ -1,13 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Switch } from "@/components/ui/switch"
 import { SectionHeading } from "@/components/layout/section-heading"
 import { useSettingsForm } from "@/components/settings/settings-shell"
+import { toast } from "sonner"
+import { API_URL } from "@/lib/constants"
 
 export function GeneralForm() {
   const t = useTranslations("settings")
@@ -140,6 +144,93 @@ export function GeneralForm() {
             </div>
           )}
         </div>
+      </div>
+
+      <DangerZoneSection />
+    </div>
+  )
+}
+
+function DangerZoneSection() {
+  const t = useTranslations("settings")
+  const tc = useTranslations("common")
+  const [confirming, setConfirming] = useState(false)
+  const [confirmText, setConfirmText] = useState("")
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      const res = await fetch(`${API_URL}/api/v1/club`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error?.message || tc("error"))
+        return
+      }
+      window.location.href = "/onboarding"
+    } catch {
+      toast.error(tc("error"))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading
+        title={t("dangerZone")}
+        description={t("dangerZoneDescription")}
+      />
+      <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-5">
+        <p className="text-sm font-medium text-destructive">
+          {t("deleteClub")}
+        </p>
+        <p className="text-muted-foreground mt-1 text-sm">
+          {t("deleteClubDescription")}
+        </p>
+
+        {!confirming ? (
+          <Button
+            variant="outline"
+            className="mt-4 border-destructive/30 text-destructive hover:bg-destructive/10"
+            onClick={() => setConfirming(true)}
+          >
+            {t("deleteClub")}
+          </Button>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm">
+              {t("deleteClubConfirmPrompt")}
+            </p>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={t("deleteClubConfirmPlaceholder")}
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="border-destructive/30 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={confirmText !== t("deleteClubConfirmWord") || deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? tc("loading") : t("deleteClubConfirm")}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfirming(false)
+                  setConfirmText("")
+                }}
+              >
+                {tc("cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

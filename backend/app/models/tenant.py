@@ -26,7 +26,7 @@ class Tenant(Base, TimestampMixin):
     zip_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     city: Mapped[str | None] = mapped_column(String(255), nullable=True)
     state: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    country: Mapped[str | None] = mapped_column(String(100), nullable=True, default="DE")
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True, default="Deutschland")
 
     # Club details
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -38,3 +38,12 @@ class Tenant(Base, TimestampMixin):
     tax_office: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_nonprofit: Mapped[bool] = mapped_column(default=False, nullable=False)
     nonprofit_since: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Member number format
+    # Template with variables: {PREFIX}, {YEAR}, {NUM:3} (zero-padded to N digits)
+    # Examples: "{PREFIX}-{YEAR}-{NUM:3}" → "ESV-2026-001"
+    member_number_format: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="{NUM:3}"
+    )
+    member_number_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    member_number_next: Mapped[int] = mapped_column(default=1, nullable=False)

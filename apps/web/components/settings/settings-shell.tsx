@@ -42,7 +42,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
     zip_code: club.zip_code || "",
     city: club.city || "",
     state: club.state || "",
-    country: club.country || "DE",
+    country: club.country || "Deutschland",
     description: club.description || "",
     founded_at: club.founded_at || "",
     registration_number: club.registration_number || "",
@@ -51,6 +51,8 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
     tax_office: club.tax_office || "",
     is_nonprofit: club.is_nonprofit || false,
     nonprofit_since: club.nonprofit_since || "",
+    member_number_format: club.member_number_format || "{NUM:3}",
+    member_number_next: String(club.member_number_next || 1),
   })
 
   function handleChange(name: string, value: string | boolean) {
@@ -67,6 +69,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
   const navItems = [
     { label: t("general"), href: "/settings" },
     { label: t("contactAndAddress"), href: "/settings/contact" },
+    { label: t("defaults"), href: "/settings/defaults" },
   ]
 
   return (

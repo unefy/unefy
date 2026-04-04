@@ -20,4 +20,7 @@ export interface Club {
   tax_office: string | null
   is_nonprofit: boolean
   nonprofit_since: string | null
+  member_number_format: string
+  member_number_prefix: string | null
+  member_number_next: number
 }

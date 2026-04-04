@@ -35,6 +35,10 @@ class ClubResponse(BaseSchema):
     is_nonprofit: bool = False
     nonprofit_since: date | None = None
 
+    # Member numbers
+    member_number_format: str = "{NUM:3}"
+    member_number_next: int = 1
+
 
 class ClubUpdate(BaseSchema):
     name: str | None = Field(default=None, min_length=2, max_length=255)
@@ -62,3 +66,7 @@ class ClubUpdate(BaseSchema):
     tax_office: str | None = Field(default=None, max_length=255)
     is_nonprofit: bool | None = None
     nonprofit_since: date | None = None
+
+    # Member numbers
+    member_number_format: str | None = Field(default=None, max_length=100)
+    member_number_next: int | None = Field(default=None, ge=1)
