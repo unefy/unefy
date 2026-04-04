@@ -60,7 +60,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
   }
 
   function handleSubmit() {
-    updateClub.mutate(form, {
+    updateClub.mutate({ ...form, member_number_next: Number(form.member_number_next) }, {
       onSuccess: () => toast.success(tc("saved")),
       onError: (err) => toast.error(err.message),
     })
