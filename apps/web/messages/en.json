@@ -20,6 +20,14 @@
     "back": "Back",
     "columns": "Columns"
   },
+  "errors": {
+    "notFound": "Resource not found.",
+    "forbidden": "You don't have permission for this action.",
+    "conflict": "The action conflicts with the current data.",
+    "validation": "The input is invalid.",
+    "internal": "A server error occurred. Please try again.",
+    "unknown": "Something went wrong. Please try again."
+  },
   "nav": {
     "dashboard": "Dashboard",
     "members": "Members",

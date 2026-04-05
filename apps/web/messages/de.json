@@ -20,6 +20,14 @@
     "back": "Zurück",
     "columns": "Spalten"
   },
+  "errors": {
+    "notFound": "Ressource nicht gefunden.",
+    "forbidden": "Sie haben keine Berechtigung für diese Aktion.",
+    "conflict": "Die Aktion steht im Konflikt mit dem aktuellen Datenstand.",
+    "validation": "Die Eingabe ist ungültig.",
+    "internal": "Ein Serverfehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
   "nav": {
     "dashboard": "Dashboard",
     "members": "Mitglieder",

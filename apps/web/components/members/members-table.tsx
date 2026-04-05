@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { useErrorMessage } from "@/lib/errors"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete02Icon,
@@ -136,6 +137,7 @@ export function MembersTable({ selectedId, onSelect }: MembersTableProps) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [persistedColumns, updatePersistedColumns] = usePersistedColumnState()
+  const getErrorMessage = useErrorMessage()
 
   const columns = useMemo(
     () => buildMembersColumns({ t, memberStatuses, locale }),
@@ -227,7 +229,7 @@ export function MembersTable({ selectedId, onSelect }: MembersTableProps) {
       setConfirmBulkDelete(false)
       if (selectedId && selectedIds.includes(selectedId)) onSelect(null)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
+      toast.error(getErrorMessage(err))
     }
   }
 

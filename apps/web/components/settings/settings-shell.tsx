@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/layout/page-header"
 import { SubNavLayout } from "@/components/layout/sub-nav-layout"
 import { useUpdateClub } from "@/hooks/use-club"
+import { useErrorMessage } from "@/lib/errors"
 import { toast } from "sonner"
 import type { Club } from "@/lib/types/club"
 
@@ -31,6 +32,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
   const t = useTranslations("settings")
   const tc = useTranslations("common")
   const updateClub = useUpdateClub()
+  const getErrorMessage = useErrorMessage()
 
   const [form, setForm] = useState({
     name: club.name || "",
@@ -63,7 +65,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
   function handleSubmit() {
     updateClub.mutate({ ...form, member_number_next: Number(form.member_number_next) }, {
       onSuccess: () => toast.success(tc("saved")),
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 

@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DatePicker } from "@/components/ui/date-picker"
 import { useCreateMember } from "@/hooks/use-members"
 import { toast } from "sonner"
+import { useErrorMessage } from "@/lib/errors"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   UserIcon,
@@ -53,6 +54,7 @@ export function MemberCreateDialog() {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>("personal")
   const createMember = useCreateMember()
+  const getErrorMessage = useErrorMessage()
   const [form, setForm] = useState<MemberCreate>({ ...EMPTY_FORM })
 
   const stepIndex = STEPS.indexOf(step)
@@ -77,7 +79,7 @@ export function MemberCreateDialog() {
         toast.success(tc("saved"))
         handleClose()
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 

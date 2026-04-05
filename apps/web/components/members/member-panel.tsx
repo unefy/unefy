@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useMember, useUpdateMember } from "@/hooks/use-members"
+import { useErrorMessage } from "@/lib/errors"
 import { useClub } from "@/hooks/use-club"
 import { getStatusLabel, parseMemberStatuses } from "@/lib/types/club"
 import { toast } from "sonner"
@@ -37,6 +38,7 @@ export function MemberPanel({ memberId, onClose }: MemberPanelProps) {
   const router = useRouter()
   const { data: member, isLoading } = useMember(memberId)
   const updateMember = useUpdateMember()
+  const getErrorMessage = useErrorMessage()
   const [form, setForm] = useState<Record<string, string | null>>({})
   const [dirty, setDirty] = useState(false)
   useEffect(() => {
@@ -76,7 +78,7 @@ export function MemberPanel({ memberId, onClose }: MemberPanelProps) {
           toast.success(tc("saved"))
           setDirty(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
   }

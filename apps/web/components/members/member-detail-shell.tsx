@@ -9,6 +9,7 @@ import { SubNavLayout } from "@/components/layout/sub-nav-layout"
 import { useMember, useUpdateMember, useDeleteMember } from "@/hooks/use-members"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { MemberSwitcher } from "@/components/members/member-switcher"
+import { useErrorMessage } from "@/lib/errors"
 import { toast } from "sonner"
 import type { Member } from "@/lib/types/member"
 
@@ -43,6 +44,7 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
   const [form, setForm] = useState<Record<string, string | null>>({})
   const [dirty, setDirty] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const getErrorMessage = useErrorMessage()
 
   useEffect(() => {
     if (member) {
@@ -82,7 +84,7 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
           toast.success(tc("saved"))
           setDirty(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(getErrorMessage(err)),
       },
     )
   }
