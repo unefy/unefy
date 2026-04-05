@@ -16,8 +16,10 @@ function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client: queryClient }, children)
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return createElement(QueryClientProvider, { client: queryClient }, children)
+  }
+  return Wrapper
 }
 
 describe("useUpdateClub", () => {
@@ -27,7 +29,7 @@ describe("useUpdateClub", () => {
 
   it("sends a PATCH request with the provided data", async () => {
     const updatedClub = { id: "1", name: "Updated Club" }
-    mockedApiFetch.mockResolvedValueOnce(updatedClub)
+    mockedApiFetch.mockResolvedValueOnce({ data: updatedClub })
 
     const { result } = renderHook(() => useUpdateClub(), {
       wrapper: createWrapper(),
@@ -45,7 +47,7 @@ describe("useUpdateClub", () => {
 
   it("converts empty strings to null", async () => {
     const updatedClub = { id: "1", name: "Club", email: null }
-    mockedApiFetch.mockResolvedValueOnce(updatedClub)
+    mockedApiFetch.mockResolvedValueOnce({ data: updatedClub })
 
     const { result } = renderHook(() => useUpdateClub(), {
       wrapper: createWrapper(),
@@ -63,7 +65,7 @@ describe("useUpdateClub", () => {
 
   it("preserves boolean values (does not convert false to null)", async () => {
     const updatedClub = { id: "1", is_nonprofit: false }
-    mockedApiFetch.mockResolvedValueOnce(updatedClub)
+    mockedApiFetch.mockResolvedValueOnce({ data: updatedClub })
 
     const { result } = renderHook(() => useUpdateClub(), {
       wrapper: createWrapper(),
@@ -79,9 +81,9 @@ describe("useUpdateClub", () => {
     })
   })
 
-  it("updates query cache on success", async () => {
+  it("updates query cache on success with unwrapped data", async () => {
     const updatedClub = { id: "1", name: "New Name" }
-    mockedApiFetch.mockResolvedValueOnce(updatedClub)
+    mockedApiFetch.mockResolvedValueOnce({ data: updatedClub })
 
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -99,6 +101,7 @@ describe("useUpdateClub", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
+    // Cache should contain the unwrapped club, not the envelope
     expect(queryClient.getQueryData(clubKeys.detail())).toEqual(updatedClub)
   })
 })

@@ -10,7 +10,10 @@ export const clubKeys = {
 export function useClub() {
   return useQuery({
     queryKey: clubKeys.detail(),
-    queryFn: () => apiFetch<Club>("/api/v1/club"),
+    queryFn: async () => {
+      const res = await apiFetch<{ data: Club }>("/api/v1/club")
+      return res.data
+    },
   })
 }
 
@@ -18,8 +21,8 @@ export function useUpdateClub() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: Partial<Club>) =>
-      apiFetch<Club>("/api/v1/club", {
+    mutationFn: async (data: Partial<Club>) => {
+      const res = await apiFetch<{ data: Club }>("/api/v1/club", {
         method: "PATCH",
         body: JSON.stringify(
           Object.fromEntries(
@@ -29,7 +32,9 @@ export function useUpdateClub() {
             ]),
           ),
         ),
-      }),
+      })
+      return res.data
+    },
     onSuccess: (updatedClub) => {
       queryClient.setQueryData(clubKeys.detail(), updatedClub)
     },

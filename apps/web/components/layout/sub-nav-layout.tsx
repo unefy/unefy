@@ -18,7 +18,7 @@ export function SubNavLayout({ items, children }: SubNavLayoutProps) {
   const pathname = usePathname()
 
   return (
-    <div className="flex gap-10">
+    <div className="flex gap-16">
       <nav className="w-48 shrink-0 space-y-1">
         {items.map((item) => {
           // Exact match for the first item (root), startsWith for the rest

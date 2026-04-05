@@ -12,7 +12,7 @@ afterEach(() => {
 })
 
 describe("apiFetch", () => {
-  it("returns data from a successful response", async () => {
+  it("returns the full JSON response without unwrapping", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ data: { id: "1", name: "Test" } }),
@@ -20,18 +20,22 @@ describe("apiFetch", () => {
 
     const result = await apiFetch("/api/v1/club")
 
-    expect(result).toEqual({ id: "1", name: "Test" })
+    expect(result).toEqual({ data: { id: "1", name: "Test" } })
   })
 
-  it("returns the full JSON when no data key is present", async () => {
+  it("returns list response with data and meta", async () => {
+    const listResponse = {
+      data: [{ id: "1" }],
+      meta: { total: 1, page: 1, per_page: 20, total_pages: 1 },
+    }
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ id: "1", name: "Test" }),
+      json: () => Promise.resolve(listResponse),
     })
 
-    const result = await apiFetch("/api/v1/something")
+    const result = await apiFetch("/api/v1/members")
 
-    expect(result).toEqual({ id: "1", name: "Test" })
+    expect(result).toEqual(listResponse)
   })
 
   it("always sends credentials: include", async () => {

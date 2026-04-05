@@ -1,4 +1,4 @@
-import { Fira_Sans, Geist_Mono } from "next/font/google"
+import { Fira_Sans } from "next/font/google"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages } from "next-intl/server"
 
@@ -10,11 +10,6 @@ const firaSans = Fira_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sans",
-})
-
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
 })
 
 export default async function RootLayout({
@@ -29,7 +24,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       suppressHydrationWarning
-      className={cn("antialiased", firaSans.variable, fontMono.variable)}
+      className={cn("antialiased", firaSans.variable)}
     >
       <body>
         <NextIntlClientProvider messages={messages}>

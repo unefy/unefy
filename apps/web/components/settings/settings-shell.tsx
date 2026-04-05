@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import type { Club } from "@/lib/types/club"
 
 interface SettingsContextValue {
-  form: Record<string, any>
+  form: Record<string, string | boolean>
   handleChange: (name: string, value: string | boolean) => void
 }
 
@@ -53,6 +53,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
     nonprofit_since: club.nonprofit_since || "",
     member_number_format: club.member_number_format || "{NUM:3}",
     member_number_next: String(club.member_number_next || 1),
+    member_statuses: club.member_statuses || "",
   })
 
   function handleChange(name: string, value: string | boolean) {
