@@ -50,6 +50,24 @@ interface PersistedColumnState {
 
 const EMPTY_COLUMN_STATE: PersistedColumnState = { visibility: {}, order: [] }
 
+function isPersistedColumnState(value: unknown): value is PersistedColumnState {
+  if (typeof value !== "object" || value === null) return false
+  const v = value as Record<string, unknown>
+  if (
+    typeof v.visibility !== "object" ||
+    v.visibility === null ||
+    Array.isArray(v.visibility)
+  ) {
+    return false
+  }
+  if (!Array.isArray(v.order)) return false
+  const visibility = v.visibility as Record<string, unknown>
+  for (const key of Object.keys(visibility)) {
+    if (typeof visibility[key] !== "boolean") return false
+  }
+  return v.order.every((item) => typeof item === "string")
+}
+
 function usePersistedColumnState(): [
   PersistedColumnState,
   (next: Partial<PersistedColumnState>) => void,
@@ -61,9 +79,14 @@ function usePersistedColumnState(): [
     // so server and client hydrate to the same output before the effect runs.
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
+      if (!raw) return
+      const parsed: unknown = JSON.parse(raw)
+      if (isPersistedColumnState(parsed)) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setState(JSON.parse(raw))
+        setState(parsed)
+      } else {
+        // Invalid shape — clear the corrupted entry so we stop re-reading it.
+        localStorage.removeItem(STORAGE_KEY)
       }
     } catch {
       // localStorage unavailable or parse error — fall back to defaults.
