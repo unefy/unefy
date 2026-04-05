@@ -40,6 +40,10 @@ export async function apiFetch<T>(
     )
   }
 
-  const json = await res.json()
-  return json.data !== undefined ? json.data : json
+  // 204 No Content and empty bodies have no JSON to parse
+  if (res.status === 204 || res.headers.get("Content-Length") === "0") {
+    return undefined as T
+  }
+
+  return res.json() as Promise<T>
 }
