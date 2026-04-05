@@ -1,38 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useActionState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
+import { requestMagicLinkAction, type ActionResult } from "@/actions/auth"
 import { API_URL } from "@/lib/constants"
 
 export function LoginForm() {
   const t = useTranslations("auth")
-  const [email, setEmail] = useState("")
-  const [sent, setSent] = useState(false)
+  const te = useTranslations("errors")
 
+  const [state, formAction, pending] = useActionState<
+    ActionResult | undefined,
+    FormData
+  >(async (prev, formData) => {
+    const result = await requestMagicLinkAction(prev, formData)
+    if (!result.success) {
+      toast.error(te("unknown"))
+    }
+    return result
+  }, undefined)
+
+  // Google OAuth must be a top-level browser redirect (cross-origin flow),
+  // so it intentionally does not go through a Server Action.
   function handleGoogleSignIn() {
     window.location.href = `${API_URL}/api/v1/auth/oauth/google`
   }
 
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/magic-link/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
-      if (!res.ok) {
-        toast.error(t("error"))
-        return
-      }
-      setSent(true)
-    } catch {
-      toast.error(t("error"))
-    }
-  }
+  const sent = state?.success === true
 
   return (
     <div className="space-y-4">
@@ -52,15 +50,14 @@ export function LoginForm() {
       </div>
 
       {!sent ? (
-        <form onSubmit={handleMagicLink} className="space-y-3">
+        <form action={formAction} className="space-y-3">
           <Input
             type="email"
+            name="email"
             placeholder={t("emailAddress")}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={pending}>
             {t("sendMagicLink")}
           </Button>
         </form>

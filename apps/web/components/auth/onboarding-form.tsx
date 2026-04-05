@@ -1,67 +1,56 @@
 "use client"
 
-import { useState } from "react"
+import { useActionState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
-import { API_URL } from "@/lib/constants"
+import { createClubAction, type ActionResult } from "@/actions/auth"
 
 export function OnboardingForm() {
   const t = useTranslations("auth")
-  const [clubName, setClubName] = useState("")
-  const [loading, setLoading] = useState(false)
+  const te = useTranslations("errors")
   const router = useRouter()
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const res = await fetch(
-        `${API_URL}/api/v1/auth/onboarding/create-club`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ club_name: clubName }),
-        },
-      )
-
-      if (!res.ok) {
-        const data = await res.json()
-        toast.error(data.error?.message || t("error"))
-        return
-      }
-
+  const [state, formAction, pending] = useActionState<
+    ActionResult<{ tenant_id: string; slug: string }> | undefined,
+    FormData
+  >(async (prev, formData) => {
+    const result = await createClubAction(prev, formData)
+    if (result.success) {
       router.push("/")
       router.refresh()
-    } catch {
-      toast.error(t("error"))
-    } finally {
-      setLoading(false)
+    } else {
+      toast.error(te(result.error === "validation" ? "validation" : "unknown"))
     }
-  }
+    return result
+  }, undefined)
+
+  const fieldError = state && !state.success ? state.fieldErrors?.club_name?.[0] : undefined
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="club-name">{t("clubName")}</Label>
         <Input
           id="club-name"
+          name="club_name"
           placeholder={t("clubNamePlaceholder")}
-          value={clubName}
-          onChange={(e) => setClubName(e.target.value)}
           required
           minLength={2}
           maxLength={255}
+          aria-invalid={!!fieldError}
         />
+        {fieldError && (
+          <p className="text-destructive text-xs">{te("validation")}</p>
+        )}
       </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? t("creating") : t("createClubButton")}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? t("creating") : t("createClubButton")}
       </Button>
     </form>
   )
