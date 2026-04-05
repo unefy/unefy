@@ -10,5 +10,11 @@ export default function MemberDetailLayout({
 }) {
   const { id } = useParams<{ id: string }>()
 
-  return <MemberDetailShell memberId={id}>{children}</MemberDetailShell>
+  // key={id} forces a remount when navigating between members so form state
+  // is reinitialized cleanly from the new member's data.
+  return (
+    <MemberDetailShell key={id} memberId={id}>
+      {children}
+    </MemberDetailShell>
+  )
 }

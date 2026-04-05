@@ -48,6 +48,8 @@ export function useMembers(params: MemberListParams = {}) {
 }
 
 export function useMember(id: string) {
+  const queryClient = useQueryClient()
+
   return useQuery({
     queryKey: memberKeys.detail(id),
     queryFn: async () => {
@@ -55,6 +57,20 @@ export function useMember(id: string) {
       return res.data
     },
     enabled: !!id,
+    // Seed from any cached list so navigating between members shows data
+    // instantly instead of briefly flickering the skeleton.
+    initialData: () => {
+      const caches = queryClient.getQueriesData<MemberListResponse>({
+        queryKey: memberKeys.all,
+      })
+      for (const [, list] of caches) {
+        const hit = list?.data?.find((m) => m.id === id)
+        if (hit) return hit
+      }
+      return undefined
+    },
+    // Always refetch in the background to get fresh data after seeding.
+    staleTime: 0,
   })
 }
 

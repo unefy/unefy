@@ -101,9 +101,11 @@ function ariaSortFor(
 function DraggableHeader<TData>({
   header,
   locked,
+  onTransformChange,
 }: {
   header: Header<TData, unknown>
   locked: boolean
+  onTransformChange: (id: string, x: number, transition: string | undefined) => void
 }) {
   const {
     attributes,
@@ -117,6 +119,14 @@ function DraggableHeader<TData>({
   const canSort = header.column.getCanSort()
   const sorted = header.column.getIsSorted()
   const width = header.getSize()
+
+  // Propagate the per-column horizontal transform so body cells of the same
+  // column can mirror it (including cells of columns being displaced).
+  const transformX = transform?.x ?? 0
+  const columnId = header.column.id
+  React.useEffect(() => {
+    onTransformChange(columnId, transformX, transition)
+  }, [columnId, transformX, transition, onTransformChange])
 
   const style: React.CSSProperties = {
     width: width ? `${width}px` : undefined,
@@ -138,7 +148,7 @@ function DraggableHeader<TData>({
       className={cn(
         header.column.columnDef.meta?.headerClassName,
         !locked && "cursor-grab touch-none select-none active:cursor-grabbing",
-        isDragging && "bg-accent",
+        isDragging && "bg-accent/60",
       )}
       {...(!locked ? attributes : {})}
       {...(!locked ? listeners : {})}
@@ -257,6 +267,22 @@ export function DataTable<TData>({
     null,
   )
   const [dragOffsetX, setDragOffsetX] = React.useState(0)
+  const [columnTransforms, setColumnTransforms] = React.useState<
+    Record<string, { x: number; transition: string | undefined }>
+  >({})
+
+  const handleColumnTransform = React.useCallback(
+    (id: string, x: number, transition: string | undefined) => {
+      setColumnTransforms((prev) => {
+        const current = prev[id]
+        if (current && current.x === x && current.transition === transition) {
+          return prev
+        }
+        return { ...prev, [id]: { x, transition } }
+      })
+    },
+    [],
+  )
 
   const headerGroups = table.getHeaderGroups()
   const visibleLeafColumnsCount = table.getVisibleLeafColumns().length
@@ -329,6 +355,7 @@ export function DataTable<TData>({
                       !dragEnabled ||
                       lockedColumnIds.includes(header.column.id)
                     }
+                    onTransformChange={handleColumnTransform}
                   />
                 ))}
               </SortableContext>
@@ -381,18 +408,26 @@ export function DataTable<TData>({
                         {row.getVisibleCells().map((cell) => {
                           const isDragged =
                             draggedColumnId === cell.column.id
+                          // Dragged column uses the live pointer offset; other
+                          // columns mirror their header's sortable transform
+                          // (including when it animates back to 0) so the body
+                          // stays in sync with the header's shift and return.
+                          const columnTransform = columnTransforms[cell.column.id]
+                          const shiftX = isDragged
+                            ? dragOffsetX
+                            : (columnTransform?.x ?? 0)
+                          const cellStyle: React.CSSProperties = {
+                            transform: `translate3d(${shiftX}px, 0, 0)`,
+                            transition: isDragged
+                              ? undefined
+                              : columnTransform?.transition,
+                            zIndex: isDragged ? 1 : undefined,
+                            position: isDragged ? "relative" : undefined,
+                          }
                           return (
                             <TableCell
                               key={cell.id}
-                              style={
-                                isDragged
-                                  ? {
-                                      transform: `translateX(${dragOffsetX}px)`,
-                                      zIndex: 1,
-                                      position: "relative",
-                                    }
-                                  : undefined
-                              }
+                              style={cellStyle}
                               className={cn(
                                 "truncate",
                                 cell.column.columnDef.meta?.cellClassName,
