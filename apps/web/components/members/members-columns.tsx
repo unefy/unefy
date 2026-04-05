@@ -3,6 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { formatDate } from "@/lib/date"
 import {
   getStatusLabel,
   type MemberStatusOption,
@@ -127,7 +128,7 @@ export function buildMembersColumns({
       header: t("joinedAt"),
       cell: ({ getValue }) => (
         <span className="text-muted-foreground">
-          {new Date(getValue<string>()).toLocaleDateString(locale)}
+          {formatDate(getValue<string>(), locale)}
         </span>
       ),
       meta: {

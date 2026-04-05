@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { format, parse, isValid } from "date-fns"
-import { de } from "date-fns/locale"
+import { de, enUS } from "date-fns/locale"
+import { useLocale } from "next-intl"
 import { Calendar03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -12,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { getDateFormat } from "@/lib/date"
 
 interface DatePickerProps {
   value?: string // ISO date string "YYYY-MM-DD"
@@ -19,10 +21,15 @@ interface DatePickerProps {
   placeholder?: string
 }
 
-const INPUT_FORMAT = "dd.MM.yyyy"
-
 function parseInput(input: string): Date | null {
-  const formats = ["dd.MM.yyyy", "dd/MM/yyyy", "dd.MM.yy", "dd/MM/yy", "yyyy-MM-dd"]
+  const formats = [
+    "dd.MM.yyyy",
+    "dd/MM/yyyy",
+    "dd.MM.yy",
+    "dd/MM/yy",
+    "yyyy-MM-dd",
+    "yyyy/MM/dd",
+  ]
 
   for (const fmt of formats) {
     const d = parse(input.trim(), fmt, new Date())
@@ -43,27 +50,32 @@ function parseInput(input: string): Date | null {
 export function DatePicker({
   value,
   onChange,
-  placeholder = "dd.mm.yyyy",
+  placeholder,
 }: DatePickerProps) {
+  const locale = useLocale()
+  const isGerman = locale.toLowerCase().startsWith("de")
+  const inputFormat = getDateFormat(locale)
+  const resolvedPlaceholder = placeholder ?? inputFormat.toLowerCase()
+  const dateFnsLocale = isGerman ? de : enUS
   const [open, setOpen] = React.useState(false)
 
   const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined
   const validDate = date && isValid(date) ? date : undefined
 
   const [inputValue, setInputValue] = React.useState(
-    validDate ? format(validDate, INPUT_FORMAT) : ""
+    validDate ? format(validDate, inputFormat) : ""
   )
 
-  // Sync input when value changes externally.
+  // Sync input when value or locale changes externally.
   // validDate is derived from value, so tracking value alone is sufficient.
   React.useEffect(() => {
     if (validDate) {
-      setInputValue(format(validDate, INPUT_FORMAT))
+      setInputValue(format(validDate, inputFormat))
     } else if (!value) {
       setInputValue("")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
+  }, [value, inputFormat])
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setInputValue(e.target.value)
@@ -77,23 +89,23 @@ export function DatePicker({
 
     // Only try to parse if input looks like a complete date (min 8 chars: dd.MM.yy)
     if (inputValue.length < 8) {
-      setInputValue(validDate ? format(validDate, INPUT_FORMAT) : "")
+      setInputValue(validDate ? format(validDate, inputFormat) : "")
       return
     }
 
     const parsed = parseInput(inputValue)
     if (parsed) {
-      setInputValue(format(parsed, INPUT_FORMAT))
+      setInputValue(format(parsed, inputFormat))
       onChange?.(format(parsed, "yyyy-MM-dd"))
     } else {
-      setInputValue(validDate ? format(validDate, INPUT_FORMAT) : "")
+      setInputValue(validDate ? format(validDate, inputFormat) : "")
     }
   }
 
   function handleCalendarSelect(day: Date | undefined) {
     if (day) {
       onChange?.(format(day, "yyyy-MM-dd"))
-      setInputValue(format(day, INPUT_FORMAT))
+      setInputValue(format(day, inputFormat))
     }
     setOpen(false)
   }
@@ -105,7 +117,7 @@ export function DatePicker({
         value={inputValue}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className="h-9 w-full rounded-3xl border border-transparent bg-input/50 px-3 pr-10 text-sm transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
       />
       <Popover open={open} onOpenChange={setOpen}>
@@ -122,7 +134,7 @@ export function DatePicker({
             captionLayout="dropdown"
             selected={validDate}
             onSelect={handleCalendarSelect}
-            locale={de}
+            locale={dateFnsLocale}
             defaultMonth={validDate}
             startMonth={new Date(1900, 0)}
             endMonth={new Date(2100, 11)}
