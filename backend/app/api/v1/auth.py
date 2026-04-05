@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse, Response
 
 from app.config import Settings, get_settings
+from app.core.rate_limit import RateLimit
 from app.database import get_db_session
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
@@ -105,7 +106,11 @@ def _set_session_cookie(
 # --- Endpoints ---
 
 
-@router.get("/me")
+@router.get(
+    "/me",
+    # High limit because /me is polled from the BFF on every page navigation.
+    dependencies=[Depends(RateLimit(limit=300, window=60, scope="auth-me"))],
+)
 async def get_me(
     request: Request,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
@@ -185,7 +190,10 @@ async def update_locale(
     return {"data": {"locale": data.locale}}
 
 
-@router.get("/oauth/google")
+@router.get(
+    "/oauth/google",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="oauth-start"))],
+)
 async def google_login(
     request: Request,
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -196,7 +204,10 @@ async def google_login(
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-@router.get("/oauth/google/callback")
+@router.get(
+    "/oauth/google/callback",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="oauth-callback"))],
+)
 async def google_callback(
     request: Request,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
@@ -274,13 +285,20 @@ async def google_callback(
     response = RedirectResponse(url=redirect_url, status_code=302)
     _set_session_cookie(response, session_token, settings)
 
-    # Set locale cookie from user preference if available
+    # Set locale cookie from user preference if available.
+    # Not sensitive, but we still harden it — no JS access, HTTPS-only
+    # outside dev, and lax SameSite to survive top-level navigation from
+    # the OAuth redirect.
     if user.locale:
         response.set_cookie(
             key="locale",
             value=user.locale,
             max_age=60 * 60 * 24 * 365,
             path="/",
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="lax",
+            domain=settings.COOKIE_DOMAIN,
         )
 
     logger.info("user_logged_in", user_id=str(user.id), method="google", new=is_new_user)
@@ -291,13 +309,18 @@ class CreateClubRequest(BaseModel):
     club_name: str = Field(min_length=2, max_length=255)
 
 
-@router.post("/onboarding/create-club")
+@router.post(
+    "/onboarding/create-club",
+    dependencies=[
+        Depends(RateLimit(limit=5, window=3600, by="user", scope="create-club")),
+    ],
+)
 async def create_club(
     data: CreateClubRequest,
     request: Request,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
-) -> dict[str, Any]:
+) -> JSONResponse:
     """Create a new club/tenant during onboarding."""
     from app.dependencies import _resolve_auth
 
@@ -348,22 +371,15 @@ async def create_club(
     session.add(membership)
     await session.flush()
 
-    # Update session in Redis with tenant context
-    session_token = request.cookies.get(COOKIE_NAME)
-    if session_token:
+    # Rotate the session token on this privilege upgrade (user is now an
+    # owner of a tenant). Old token is invalidated so a leaked pre-onboarding
+    # cookie can't be used to access the new tenant.
+    old_session_token = request.cookies.get(COOKIE_NAME)
+    if old_session_token:
         redis = get_redis()
-        session_data = json.dumps(
-            {
-                "user_id": str(auth.user_id),
-                "tenant_id": str(tenant.id),
-                "role": "owner",
-            }
-        )
-        await redis.set(
-            f"session:{session_token}",
-            session_data,
-            ex=SESSION_TTL,
-        )
+        await redis.delete(f"session:{old_session_token}")
+
+    new_session_token = await create_session(auth.user_id, tenant_id=tenant.id, role="owner")
 
     logger.info(
         "club_created",
@@ -372,16 +388,23 @@ async def create_club(
         name=data.club_name,
     )
 
-    return {
-        "data": {
-            "tenant_id": str(tenant.id),
-            "name": tenant.name,
-            "slug": tenant.slug,
+    response = JSONResponse(
+        content={
+            "data": {
+                "tenant_id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+            }
         }
-    }
+    )
+    _set_session_cookie(response, new_session_token, settings)
+    return response
 
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="logout"))],
+)
 async def logout(
     request: Request,
     settings: Settings = Depends(get_settings),  # noqa: B008
