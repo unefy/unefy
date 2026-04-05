@@ -4,6 +4,20 @@ from app.models.member import Member
 from app.repositories.base import BaseRepository
 from app.schemas.member import MemberCreate, MemberUpdate
 
+# Allowlist of columns safe to sort by. Keys are the public sort names
+# exposed in the API; values are the actual SQLAlchemy column attributes.
+# Any sort_by input not in this map is ignored (falls back to last_name).
+SORTABLE_COLUMNS = {
+    "last_name": Member.last_name,
+    "first_name": Member.first_name,
+    "member_number": Member.member_number,
+    "email": Member.email,
+    "status": Member.status,
+    "category": Member.category,
+    "joined_at": Member.joined_at,
+    "created_at": Member.created_at,
+}
+
 
 class MemberRepository(
     BaseRepository[Member, MemberCreate, MemberUpdate],
@@ -38,8 +52,8 @@ class MemberRepository(
                 )
             )
 
-        # Sorting
-        sort_col = getattr(Member, sort_by, Member.last_name)
+        # Sorting — allowlist check prevents attribute injection.
+        sort_col = SORTABLE_COLUMNS.get(sort_by, Member.last_name)
         if sort_order == "desc":
             query = query.order_by(sort_col.desc())
         else:

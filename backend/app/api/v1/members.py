@@ -33,7 +33,12 @@ async def list_members(
     status: str | None = Query(default=None),
     category: str | None = Query(default=None),
     search: str | None = Query(default=None),
-    sort_by: str = Query(default="last_name"),
+    sort_by: str = Query(
+        default="last_name",
+        pattern=(
+            "^(last_name|first_name|member_number|email|status|category|joined_at|created_at)$"
+        ),
+    ),
     sort_order: str = Query(default="asc", pattern="^(asc|desc)$"),
 ) -> dict:
     """List members with pagination, filtering, and search."""

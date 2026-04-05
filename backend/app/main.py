@@ -88,8 +88,16 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            # BFF trust headers (Next.js → backend)
+            "X-User-Id",
+            "X-Tenant-Id",
+            "X-Internal-Secret",
+        ],
     )
 
     # SessionMiddleware for OAuth state (CSRF token during OAuth redirect flow)
