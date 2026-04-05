@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { SubNavLayout } from "@/components/layout/sub-nav-layout"
 import { useMember, useUpdateMember, useDeleteMember } from "@/hooks/use-members"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { MemberSwitcher } from "@/components/members/member-switcher"
 import { toast } from "sonner"
 import type { Member } from "@/lib/types/member"
 
@@ -115,8 +116,13 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
     <MemberDetailContext.Provider value={{ form, handleChange, member }}>
       <div className="space-y-6">
         <PageHeader
-          title={`${member.first_name} ${member.last_name}`}
-          description={`${t("memberNumber")}: ${member.member_number}`}
+          title={
+            <MemberSwitcher
+              currentId={memberId}
+              currentLabel={`${member.first_name} ${member.last_name}`}
+            />
+          }
+          description={t("memberLabel", { number: member.member_number })}
         >
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push("/members")}>
