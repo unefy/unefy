@@ -84,7 +84,7 @@ describe("apiFetch", () => {
 
     try {
       await apiFetch("/api/v1/club")
-    } catch (e) {
+    } catch {
       // Need a fresh call for the assertion since the first consumed the mock
     }
 

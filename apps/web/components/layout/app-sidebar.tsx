@@ -183,6 +183,8 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
               )}
             >
               {user.image ? (
+                // OAuth provider avatars (Google) — small, already optimized.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.image}
                   alt={user.name}

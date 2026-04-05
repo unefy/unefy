@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
             {t("createClub")}
           </p>
         </div>
-        <OnboardingForm userName={session.user.name} />
+        <OnboardingForm />
       </div>
     </div>
   )

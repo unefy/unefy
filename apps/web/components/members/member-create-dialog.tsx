@@ -276,10 +276,8 @@ export function MemberCreateDialog() {
                   </Button>
                 )}
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleClose}>
-                  {tc("cancel")}
-                </Button>
+              {/* Reversed DOM order so Tab reaches primary action first. */}
+              <div className="flex flex-row-reverse gap-2">
                 {isLast ? (
                   <Button
                     onClick={handleSubmit}
@@ -294,6 +292,9 @@ export function MemberCreateDialog() {
                     {tc("next")} →
                   </Button>
                 )}
+                <Button variant="outline" onClick={handleClose}>
+                  {tc("cancel")}
+                </Button>
               </div>
             </div>
           </DialogFooter>

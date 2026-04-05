@@ -9,11 +9,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { API_URL } from "@/lib/constants"
 
-interface OnboardingFormProps {
-  userName: string
-}
-
-export function OnboardingForm({ userName }: OnboardingFormProps) {
+export function OnboardingForm() {
   const t = useTranslations("auth")
   const [clubName, setClubName] = useState("")
   const [loading, setLoading] = useState(false)

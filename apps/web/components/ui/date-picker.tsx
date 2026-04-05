@@ -6,7 +6,6 @@ import { de } from "date-fns/locale"
 import { Calendar03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
@@ -55,13 +54,15 @@ export function DatePicker({
     validDate ? format(validDate, INPUT_FORMAT) : ""
   )
 
-  // Sync input when value changes externally
+  // Sync input when value changes externally.
+  // validDate is derived from value, so tracking value alone is sufficient.
   React.useEffect(() => {
     if (validDate) {
       setInputValue(format(validDate, INPUT_FORMAT))
     } else if (!value) {
       setInputValue("")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -109,6 +110,8 @@ export function DatePicker({
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
+          tabIndex={-1}
+          aria-label="Open calendar"
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
         >
           <HugeiconsIcon icon={Calendar03Icon} size={16} />
