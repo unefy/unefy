@@ -39,6 +39,9 @@ class ClubResponse(BaseSchema):
     member_number_format: str = "{NUM:3}"
     member_number_next: int = 1
 
+    # Member statuses
+    member_statuses: str | None = None  # JSON string
+
 
 class ClubUpdate(BaseSchema):
     name: str | None = Field(default=None, min_length=2, max_length=255)
@@ -70,3 +73,6 @@ class ClubUpdate(BaseSchema):
     # Member numbers
     member_number_format: str | None = Field(default=None, max_length=100)
     member_number_next: int | None = Field(default=None, ge=1)
+
+    # Member statuses
+    member_statuses: str | None = None  # JSON string

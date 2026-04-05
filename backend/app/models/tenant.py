@@ -47,3 +47,10 @@ class Tenant(Base, TimestampMixin):
     )
     member_number_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
     member_number_next: Mapped[int] = mapped_column(default=1, nullable=False)
+
+    # Configurable member status list (JSON array of {key, label} objects)
+    member_statuses: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default='[{"key":"active","label":"Aktiv"},{"key":"inactive","label":"Inaktiv"},{"key":"resigned","label":"Ausgetreten"},{"key":"terminated","label":"Gekündigt"},{"key":"deceased","label":"Verstorben"}]',
+    )

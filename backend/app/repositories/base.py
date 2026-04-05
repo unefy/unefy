@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import BaseModel as PydanticModel
@@ -88,3 +89,28 @@ class BaseRepository[
             await self.session.flush()
             return True
         return False
+
+    async def soft_delete_many(self, entity_ids: Sequence[uuid.UUID]) -> int:
+        """Soft-delete multiple entities in a single UPDATE.
+
+        Returns the number of rows actually affected (tenant-scoped).
+        """
+        if not entity_ids:
+            return 0
+        if not hasattr(self.model_class, "deleted_at"):
+            return 0
+
+        from datetime import UTC, datetime
+
+        from sqlalchemy import update
+
+        stmt = (
+            update(self.model_class)
+            .where(self.model_class.tenant_id == self.tenant_id)
+            .where(self.model_class.id.in_(entity_ids))
+            .where(self.model_class.deleted_at.is_(None))
+            .values(deleted_at=datetime.now(UTC))
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount or 0
