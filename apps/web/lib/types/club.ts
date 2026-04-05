@@ -46,12 +46,15 @@ export const STATUS_TRANSLATIONS: Record<string, string> = {
   inactive: "statusInactive",
 }
 
+// Fallback list used when a tenant's member_statuses cannot be parsed.
+// Labels here are intentionally neutral English; real tenants receive
+// locale-appropriate labels from the backend (see backend/app/core/seeds.py).
 export const DEFAULT_MEMBER_STATUSES: MemberStatusOption[] = [
-  { key: "active", label: "Aktiv" },
-  { key: "inactive", label: "Inaktiv" },
-  { key: "resigned", label: "Ausgetreten" },
-  { key: "terminated", label: "Gekündigt" },
-  { key: "deceased", label: "Verstorben" },
+  { key: "active", label: "Active" },
+  { key: "inactive", label: "Inactive" },
+  { key: "resigned", label: "Resigned" },
+  { key: "terminated", label: "Terminated" },
+  { key: "deceased", label: "Deceased" },
 ]
 
 export function parseMemberStatuses(json: string | null): MemberStatusOption[] {

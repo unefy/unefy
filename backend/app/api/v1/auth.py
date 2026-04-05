@@ -320,10 +320,21 @@ async def create_club(
 
         raise ConflictError("User already has a club")
 
+    # Seed member_statuses using the owner's locale so labels are sensible
+    # in their language out of the box.
+    from app.core.seeds import member_statuses_seed
+    from app.models.user import User as UserModel
+
+    user_stmt = select(UserModel).where(UserModel.id == auth.user_id)
+    user_result = await session.execute(user_stmt)
+    owner = user_result.scalar_one_or_none()
+    owner_locale = owner.locale if owner else None
+
     # Create tenant
     tenant = Tenant(
         name=data.club_name.strip(),
         slug=f"club-{uuid.uuid4().hex[:8]}",
+        member_statuses=member_statuses_seed(owner_locale),
     )
     session.add(tenant)
     await session.flush()

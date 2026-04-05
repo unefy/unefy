@@ -48,9 +48,17 @@ class Tenant(Base, TimestampMixin):
     member_number_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
     member_number_next: Mapped[int] = mapped_column(default=1, nullable=False)
 
-    # Configurable member status list (JSON array of {key, label} objects)
+    # Configurable member status list (JSON array of {key, label} objects).
+    # The DB-level default is English for neutrality; new tenants are seeded
+    # with locale-appropriate labels at creation time (see core/seeds.py).
     member_statuses: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        default='[{"key":"active","label":"Aktiv"},{"key":"inactive","label":"Inaktiv"},{"key":"resigned","label":"Ausgetreten"},{"key":"terminated","label":"Gekündigt"},{"key":"deceased","label":"Verstorben"}]',
+        default=(
+            '[{"key":"active","label":"Active"},'
+            '{"key":"inactive","label":"Inactive"},'
+            '{"key":"resigned","label":"Resigned"},'
+            '{"key":"terminated","label":"Terminated"},'
+            '{"key":"deceased","label":"Deceased"}]'
+        ),
     )
