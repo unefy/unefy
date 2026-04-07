@@ -1,0 +1,4 @@
+// Production configuration — override this when a real production URL exists.
+API_BASE_URL = https:/$()/api.unefy.de
+
+SWIFT_OPTIMIZATION_LEVEL = -O

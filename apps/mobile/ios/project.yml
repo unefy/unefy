@@ -1,0 +1,119 @@
+name: unefy
+options:
+  bundleIdPrefix: de.unefy
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: de
+  groupSortPosition: top
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Dev.xcconfig
+  Release: Config/Prod.xcconfig
+
+targets:
+  unefy:
+    type: application
+    platform: iOS
+    sources:
+      - path: unefy
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: unefy/Resources
+    info:
+      path: unefy/Supporting/Info.plist
+      properties:
+        CFBundleDisplayName: unefy
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: "unefy benötigt Kamerazugriff um Schießscheiben zu fotografieren und Treffer zu erkennen."
+        NSPhotoLibraryUsageDescription: "unefy benötigt Zugriff auf deine Fotos um Schießscheiben-Bilder zu analysieren."
+        NSSupportsLiveActivities: true
+        API_BASE_URL: $(API_BASE_URL)
+        NSAppTransportSecurity:
+          # Dev-only: HTTP erlaubt für localhost + lokales Netz.
+          # Für Release-Builds sollte dies auf HTTPS umgestellt werden.
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
+            127.0.0.1:
+              NSExceptionAllowsInsecureHTTPLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.unefy.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: unefy/Supporting/Info.plist
+    dependencies:
+      - target: unefySyncWidget
+
+  unefySyncWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: unefySyncWidget
+      - path: unefy/Core/LiveActivity/SyncActivityAttributes.swift
+    info:
+      path: unefySyncWidget/Info.plist
+      properties:
+        CFBundleDisplayName: "Sync Status"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.unefy.app.sync-widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: unefySyncWidget/Info.plist
+    dependencies:
+      - sdk: SwiftUI.framework
+      - sdk: WidgetKit.framework
+    entitlements:
+      path: unefySyncWidget/SyncWidget.entitlements
+
+schemes:
+  unefy-Dev:
+    build:
+      targets:
+        unefy: all
+    run:
+      config: Debug
+    archive:
+      config: Debug
+  unefy-Prod:
+    build:
+      targets:
+        unefy: all
+    run:
+      config: Release
+    archive:
+      config: Release

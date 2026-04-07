@@ -1,0 +1,16 @@
+# XcodeGen-generated — regenerate via `xcodegen generate`
+unefy.xcodeproj/
+
+# Xcode user-specific
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+.build/
+
+# macOS
+.DS_Store
+
+# SPM
+.swiftpm/
+Package.resolved
