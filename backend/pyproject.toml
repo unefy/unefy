@@ -38,6 +38,9 @@ target-version = "py313"
 line-length = 100
 extend-exclude = ["alembic/versions"]
 
+[tool.ruff.lint.per-file-ignores]
+"app/core/discipline_seeds.py" = ["E501"]
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH", "RUF"]
 

@@ -62,6 +62,14 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     await init_redis()
     logger.info("redis_connected")
 
+    # Seed global data (idempotent).
+    from app.core.seed_disciplines import seed_disciplines
+    from app.database import async_session_factory
+
+    async with async_session_factory() as session:
+        await seed_disciplines(session)
+        await session.commit()
+
     yield
 
     await close_redis()
