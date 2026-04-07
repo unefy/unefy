@@ -199,17 +199,16 @@ async def refresh(
     except ValueError as exc:
         raise ForbiddenError("Malformed refresh token") from exc
 
+    # Rotate: invalidate old jti immediately to prevent reuse during load
+    await _delete_refresh_jti(jti)
+
     stmt = select(User).where(User.id == user_id)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
     if user is None:
-        await _delete_refresh_jti(jti)
         raise ForbiddenError("User not found")
 
     tenant, membership = await _load_first_active_tenant(session, user.id)
-
-    # Rotate: invalidate old jti, mint new pair
-    await _delete_refresh_jti(jti)
     payload = await _issue_token_pair(user, tenant, membership)
 
     logger.info("mobile_refresh", user_id=str(user.id), old_jti=jti)

@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.competition import Competition, Entry, Session
@@ -20,6 +21,7 @@ class CompetitionRepository(
     BaseRepository[Competition, CompetitionCreate, CompetitionUpdate],  # type: ignore[type-var]
 ):
     """Competition repository with idempotent create for offline sync."""
+
     model_class = Competition
 
     def _base_query(self) -> Any:
@@ -40,7 +42,14 @@ class CompetitionRepository(
             **data.model_dump(exclude={"id"}),
         )
         self.session.add(entity)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            existing = await self.get_by_id(comp_id)
+            if existing:
+                return existing
+            raise
         await self.session.refresh(entity)
         return entity
 
@@ -124,7 +133,14 @@ class SessionRepository:
             **data.model_dump(exclude={"id"}),
         )
         self.session.add(entity)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            existing = await self.get_by_id(sess_id)
+            if existing:
+                return existing
+            raise
         await self.session.refresh(entity)
         return entity
 
@@ -160,6 +176,7 @@ class EntryRepository:
             select(Entry)
             .where(Entry.tenant_id == self.tenant_id)
             .where(Entry.session_id == self.session_id)
+            .where(Entry.deleted_at.is_(None))
         )
 
     async def get_by_id(self, entry_id: uuid.UUID) -> Entry | None:
@@ -187,6 +204,7 @@ class EntryRepository:
             .select_from(Entry)
             .where(Entry.tenant_id == self.tenant_id)
             .where(Entry.session_id == self.session_id)
+            .where(Entry.deleted_at.is_(None))
         )
         if member_id:
             query = query.where(Entry.member_id == member_id)
@@ -216,7 +234,14 @@ class EntryRepository:
             notes=data.notes,
         )
         self.session.add(entity)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            existing = await self.get_by_id(entry_id)
+            if existing:
+                return existing, False
+            raise
         await self.session.refresh(entity)
         return entity, True
 
@@ -230,11 +255,13 @@ class EntryRepository:
         await self.session.refresh(entity)
         return entity
 
-    async def delete(self, entry_id: uuid.UUID) -> bool:
+    async def soft_delete(self, entry_id: uuid.UUID) -> bool:
         entity = await self.get_by_id(entry_id)
         if entity is None:
             return False
-        await self.session.delete(entity)
+        from datetime import UTC, datetime
+
+        entity.deleted_at = datetime.now(UTC)
         await self.session.flush()
         return True
 
@@ -263,6 +290,7 @@ class ScoreboardRepository:
             .where(Session.competition_id == competition_id)
             .where(Entry.tenant_id == self.tenant_id)
             .where(Session.deleted_at.is_(None))
+            .where(Entry.deleted_at.is_(None))
         )
         if discipline:
             query = query.where(

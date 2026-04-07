@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user
 from app.models.discipline import Discipline
@@ -34,14 +35,15 @@ async def list_disciplines(
     if category:
         query = query.where(Discipline.category == category)
     if search:
-        like = f"%{search}%"
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
         query = query.where(
-            Discipline.name.ilike(like)
-            | Discipline.short_name.ilike(like)
-            | Discipline.federation.ilike(like)
-            | Discipline.category.ilike(like)
-            | Discipline.caliber.ilike(like)
-            | Discipline.distance.ilike(like)
+            Discipline.name.ilike(like, escape="\\")
+            | Discipline.short_name.ilike(like, escape="\\")
+            | Discipline.federation.ilike(like, escape="\\")
+            | Discipline.category.ilike(like, escape="\\")
+            | Discipline.caliber.ilike(like, escape="\\")
+            | Discipline.distance.ilike(like, escape="\\")
         )
 
     count_query = select(func.count()).select_from(query.subquery())
@@ -90,8 +92,6 @@ async def get_discipline(
     result = await session.execute(select(Discipline).where(Discipline.slug == slug))
     d = result.scalar_one_or_none()
     if d is None:
-        from app.core.exceptions import NotFoundError
-
         raise NotFoundError("Discipline not found")
     return {
         "data": {

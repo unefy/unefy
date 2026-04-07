@@ -51,6 +51,20 @@ class CompetitionUpdate(BaseSchema):
     scoring_unit: str | None = Field(default=None, max_length=50)
     disciplines: list[str] | None = None
 
+    @field_validator("competition_type")
+    @classmethod
+    def validate_type(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_TYPES:
+            raise ValueError(f"Must be one of {VALID_TYPES}")
+        return v
+
+    @field_validator("scoring_mode")
+    @classmethod
+    def validate_scoring_mode(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_SCORING_MODES:
+            raise ValueError(f"Must be one of {VALID_SCORING_MODES}")
+        return v
+
 
 class CompetitionResponse(BaseSchema):
     id: uuid.UUID

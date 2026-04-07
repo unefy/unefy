@@ -81,7 +81,7 @@ class Session(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     )
 
 
-class Entry(Base, AuditMixin, TenantMixin):
+class Entry(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     """One participant's result in a session.
 
     Sport-agnostic core: `score_value` is the single ranking number.

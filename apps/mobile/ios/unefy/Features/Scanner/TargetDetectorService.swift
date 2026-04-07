@@ -42,7 +42,6 @@ nonisolated final class TargetDetectorService: @unchecked Sendable {
         }
 
         guard let url = modelURL else {
-            print("[TargetDetector] Model not found in bundle")
             return
         }
 
@@ -50,9 +49,7 @@ nonisolated final class TargetDetectorService: @unchecked Sendable {
             let config = MLModelConfiguration()
             config.computeUnits = .all
             mlModel = try MLModel(contentsOf: url, configuration: config)
-            print("[TargetDetector] Model loaded")
         } catch {
-            print("[TargetDetector] Load error: \(error)")
         }
     }
 
@@ -87,7 +84,6 @@ nonisolated final class TargetDetectorService: @unchecked Sendable {
                 }
 
                 let detections = self.postProcess(results: request.results ?? [])
-                print("[TargetDetector] Detections: \(detections.count)")
                 continuation.resume(returning: ScanResult(detections: detections, imageSize: imageSize))
             }
             request.imageCropAndScaleOption = .scaleFill
@@ -118,7 +114,6 @@ nonisolated final class TargetDetectorService: @unchecked Sendable {
             $0.featureValue.multiArrayValue?.shape.count == 3
             && $0.featureValue.multiArrayValue?.shape[2].intValue ?? 0 > 1000
         })?.featureValue.multiArrayValue else {
-            print("[TargetDetector] Detection tensor not found")
             return []
         }
 
@@ -129,7 +124,6 @@ nonisolated final class TargetDetectorService: @unchecked Sendable {
         let inputSize: Float = 1280.0
 
         guard rows >= 4 + numClasses else {
-            print("[TargetDetector] Unexpected tensor shape: \(shape)")
             return []
         }
 

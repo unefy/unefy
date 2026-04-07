@@ -114,8 +114,11 @@ async def _resolve_auth(
         if not hmac.compare_digest(x_secret, settings.INTERNAL_API_SECRET):
             return None
 
-        user_id = uuid.UUID(x_user_id)
-        tenant_id = uuid.UUID(x_tenant_id)
+        try:
+            user_id = uuid.UUID(x_user_id)
+            tenant_id = uuid.UUID(x_tenant_id)
+        except ValueError:
+            return None
 
         stmt = (
             select(TenantMembership)

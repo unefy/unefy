@@ -280,6 +280,6 @@ async def delete_entry(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     repo = _entry_repo(session, auth, session_id)
-    if not await repo.delete(entry_id):
+    if not await repo.soft_delete(entry_id):
         raise NotFoundError("Entry not found")
     return {"data": {"message": "Deleted"}}

@@ -148,7 +148,6 @@ class LiveCameraUIView: UIView {
     private func setupCamera() {
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device) else {
-            print("[LiveScanner] No camera")
             return
         }
 
@@ -190,7 +189,6 @@ class LiveCameraUIView: UIView {
             self.previewLayer = preview
         }
 
-        print("[LiveScanner] Camera setup OK")
     }
 }
 
@@ -205,9 +203,11 @@ nonisolated private class CameraDelegate: NSObject, AVCaptureVideoDataOutputSamp
     private let onAutoCaptured: (UIImage, ScanResult) -> Void
 
     private var vnModel: VNCoreMLModel?
+    /// Lock protecting mutable state accessed from multiple queues.
+    private let stateLock = NSLock()
     private var frameCount = 0
-    private var isProcessingFrame = false
-    private var isCapturing = false
+    private var _isProcessingFrame = false
+    private var _isCapturing = false
     private var targetStableFrames = 0
     private var lastTargetBBox: CGRect = .zero
     private let requiredStableFrames = 20
@@ -241,12 +241,23 @@ nonisolated private class CameraDelegate: NSObject, AVCaptureVideoDataOutputSamp
                     config.computeUnits = .all
                     if let ml = try? MLModel(contentsOf: url, configuration: config) {
                         vnModel = try? VNCoreMLModel(for: ml)
-                        print("[LiveScanner] Model loaded")
                         return
                     }
                 }
             }
         }
+    }
+
+    // MARK: - Thread-safe accessors
+
+    private var isCapturing: Bool {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _isCapturing }
+        set { stateLock.lock(); defer { stateLock.unlock() }; _isCapturing = newValue }
+    }
+
+    private var isProcessingFrame: Bool {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _isProcessingFrame }
+        set { stateLock.lock(); defer { stateLock.unlock() }; _isProcessingFrame = newValue }
     }
 
     // MARK: - Video Frame
