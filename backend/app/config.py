@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # Security — required in production, see validators below.
     INTERNAL_API_SECRET: str = PLACEHOLDER_SECRET
     SESSION_SECRET: str = PLACEHOLDER_SECRET
+    JWT_SECRET: str = PLACEHOLDER_SECRET
+
+    # Mobile JWT lifetimes
+    JWT_ACCESS_TTL_SECONDS: int = 900  # 15 min
+    JWT_REFRESH_TTL_SECONDS: int = 2592000  # 30 days
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -51,7 +56,7 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3008"]
 
-    @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET")
+    @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET")
     @classmethod
     def _validate_secret_length(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]
         # In DEBUG mode we allow the placeholder so `docker compose up` works
@@ -65,7 +70,7 @@ class Settings(BaseSettings):
         if self.DEBUG:
             return self
         problems: list[str] = []
-        for name in ("INTERNAL_API_SECRET", "SESSION_SECRET"):
+        for name in ("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET"):
             value = getattr(self, name)
             if value == PLACEHOLDER_SECRET:
                 problems.append(f"{name} is still set to the placeholder value")
