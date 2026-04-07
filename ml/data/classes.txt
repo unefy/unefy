@@ -1,0 +1,7 @@
+target
+target_center
+hit_small
+hit_medium
+hit_large
+hit_cluster
+patch

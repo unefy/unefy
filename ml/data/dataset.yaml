@@ -1,0 +1,12 @@
+path: .
+train: train/images
+val: val/images
+
+names:
+  0: target
+  1: target_center
+  2: hit_small
+  3: hit_medium
+  4: hit_large
+  5: hit_cluster
+  6: patch

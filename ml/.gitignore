@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+data/train/
+data/val/
+models/target_detector/
+models/TargetDetector.mlpackage/
+runs/
+*.pt
+# Keep raw data and labels — they're the training source.
+# data/images/  ← tracked
+# data/labels/  ← tracked
