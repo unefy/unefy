@@ -1,6 +1,6 @@
 interface PageHeaderProps {
   title: React.ReactNode
-  description?: string
+  description?: React.ReactNode
   children?: React.ReactNode // Right-side actions (buttons etc.)
 }
 

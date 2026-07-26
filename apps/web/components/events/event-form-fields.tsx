@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useCompetitions, useCompetitionSessions } from "@/hooks/use-competitions"
-import type { EventType } from "@/lib/types/event"
+import type { ClubEvent, EventType } from "@/lib/types/event"
 
 const NONE = "__none__"
 
@@ -52,6 +52,22 @@ export const EMPTY_EVENT_FORM: EventFormState = {
   max_participants: "",
   competition_id: "",
   session_id: "",
+}
+
+export function eventToFormState(event: ClubEvent): EventFormState {
+  return {
+    title: event.title,
+    event_type: event.event_type,
+    date: event.starts_at.slice(0, 10),
+    time: event.all_day ? "" : event.starts_at.slice(11, 16),
+    end_time: event.ends_at ? event.ends_at.slice(11, 16) : "",
+    location: event.location ?? "",
+    description: event.description ?? "",
+    registration_required: event.registration_required,
+    max_participants: event.max_participants?.toString() ?? "",
+    competition_id: event.competition_id ?? "",
+    session_id: event.session_id ?? "",
+  }
 }
 
 export function eventFormToPayload(form: EventFormState) {

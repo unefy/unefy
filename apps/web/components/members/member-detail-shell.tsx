@@ -66,6 +66,12 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
         status: member.status,
         category: member.category,
         notes: member.notes,
+        member_number: member.member_number,
+        iban: member.iban,
+        bic: member.bic,
+        account_holder: member.account_holder,
+        sepa_mandate_reference: member.sepa_mandate_reference,
+        sepa_mandate_date: member.sepa_mandate_date,
       })
       setDirty(false)
     }
@@ -112,6 +118,7 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
   const navItems = [
     { label: t("personalInfo"), href: `/members/${memberId}` },
     { label: t("membershipInfo"), href: `/members/${memberId}/membership` },
+    { label: t("bankData"), href: `/members/${memberId}/dues` },
   ]
 
   return (

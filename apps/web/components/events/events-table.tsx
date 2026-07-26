@@ -15,11 +15,9 @@ import type { ClubEvent } from "@/lib/types/event"
 
 interface EventsTableProps {
   scope: "upcoming" | "past"
-  selectedId: string | null
-  onSelect: (id: string | null) => void
 }
 
-export function EventsTable({ scope, selectedId, onSelect }: EventsTableProps) {
+export function EventsTable({ scope }: EventsTableProps) {
   const t = useTranslations("events")
   const tc = useTranslations("common")
   const locale = useLocale()
@@ -84,6 +82,24 @@ export function EventsTable({ scope, selectedId, onSelect }: EventsTableProps) {
         ),
       },
       {
+        accessorKey: "competition_name",
+        size: 160,
+        header: t("competition"),
+        enableSorting: false,
+        cell: ({ getValue }) => {
+          const name = getValue<string | null>()
+          return name ? (
+            <Badge variant="outline">{name}</Badge>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )
+        },
+        meta: {
+          headerClassName: "hidden lg:table-cell",
+          cellClassName: "hidden lg:table-cell",
+        },
+      },
+      {
         accessorKey: "location",
         size: 180,
         header: t("location"),
@@ -145,8 +161,7 @@ export function EventsTable({ scope, selectedId, onSelect }: EventsTableProps) {
         error={error ?? null}
         errorStateText={tc("error")}
         getRowId={(row) => row.id}
-        onRowClick={(row) => onSelect(row.id)}
-        isRowSelected={(row) => row.id === selectedId}
+        onRowClick={(row) => router.push(`/events/${row.id}`)}
         emptyState={
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <p className="text-lg font-medium">{t("noEvents")}</p>

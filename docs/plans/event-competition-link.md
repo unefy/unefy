@@ -60,8 +60,9 @@ Teilnahme → Event. `event_type: "competition"` wird primär über den Link ges
 ### 5. Web-UI
 
 - `lib/types/event.ts` + `hooks/use-events.ts`: neue Felder.
-- Event-Panel (`components/events/event-panel.tsx`): Competition-Name als Badge/Link
-  anzeigen, wenn verknüpft.
+- Event-Detailseite (`components/events/event-detail-view.tsx`, `/events/[id]`):
+  Competition-Name als Badge anzeigen, wenn verknüpft. (Das frühere Quick-Look-Panel
+  wurde entfernt — Navigation geht direkt Liste → Detailseite.)
 - Event-Create-Dialog: optionales Select "Mit Wettkampf verknüpfen" (Competitions via
   neuem `hooks/use-competitions.ts`, GET `/api/v1/competitions`), darunter Session-Select.
 - i18n: Namespace `events` in `messages/de.json` + `en.json` ergänzen.

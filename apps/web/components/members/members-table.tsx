@@ -109,12 +109,7 @@ function usePersistedColumnState(): [
   return [state, update]
 }
 
-interface MembersTableProps {
-  selectedId: string | null
-  onSelect: (id: string | null) => void
-}
-
-export function MembersTable({ selectedId, onSelect }: MembersTableProps) {
+export function MembersTable() {
   const t = useTranslations("members")
   const tc = useTranslations("common")
   const locale = useLocale()
@@ -227,7 +222,6 @@ export function MembersTable({ selectedId, onSelect }: MembersTableProps) {
       toast.success(tc("saved"))
       setRowSelection({})
       setConfirmBulkDelete(false)
-      if (selectedId && selectedIds.includes(selectedId)) onSelect(null)
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
@@ -310,8 +304,7 @@ export function MembersTable({ selectedId, onSelect }: MembersTableProps) {
         }
         lockedColumnIds={["select"]}
         getRowId={(row) => row.id}
-        onRowClick={(row) => onSelect(row.id)}
-        isRowSelected={(row) => row.id === selectedId}
+        onRowClick={(row) => router.push(`/members/${row.id}`)}
         emptyState={
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <p className="text-lg font-medium">{t("noMembers")}</p>

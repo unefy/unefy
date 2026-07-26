@@ -32,6 +32,16 @@ export default function MemberMembershipPage() {
       <SectionHeading title={t("membershipInfo")} description="" />
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
+          <Label>{t("memberNumber")}</Label>
+          <Input
+            value={form.member_number || ""}
+            onChange={(e) => handleChange("member_number", e.target.value)}
+            placeholder={t("memberNumberPlaceholder")}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
           <Label>{t("status")}</Label>
           <Select
             items={statusItems}

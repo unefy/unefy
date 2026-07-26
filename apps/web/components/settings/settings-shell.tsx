@@ -76,6 +76,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
     { label: t("general"), href: "/settings" },
     { label: t("contactAndAddress"), href: "/settings/contact" },
     { label: t("payment"), href: "/settings/payment" },
+    { label: t("feeTypes"), href: "/settings/fees" },
     { label: t("defaults"), href: "/settings/defaults" },
   ]
 
