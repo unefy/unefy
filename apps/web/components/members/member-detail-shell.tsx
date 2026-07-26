@@ -96,7 +96,7 @@ export function MemberDetailShell({ memberId, children }: MemberDetailShellProps
         setConfirmDelete(false)
         router.push("/members")
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(getErrorMessage(err)),
     })
   }
 

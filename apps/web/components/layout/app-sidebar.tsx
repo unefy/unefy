@@ -32,6 +32,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useTranslations, useLocale } from "next-intl"
 import { useRouter } from "next/navigation"
 import { API_URL } from "@/lib/constants"
+import { updateLocaleAction } from "@/actions/locale"
 
 interface AppSidebarProps {
   user: {
@@ -221,14 +222,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
               <DropdownMenuItem
                 onClick={async () => {
                   const next = locale === "de" ? "en" : "de"
-                  document.cookie = `locale=${next};path=/;max-age=${60 * 60 * 24 * 365}`
-                  // Persist to backend (fire-and-forget)
-                  fetch(`${API_URL}/api/v1/auth/me/locale`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ locale: next }),
-                  })
+                  await updateLocaleAction(next)
                   router.refresh()
                 }}
               >

@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch"
 import { SectionHeading } from "@/components/layout/section-heading"
 import { useSettingsForm } from "@/components/settings/settings-shell"
 import { toast } from "sonner"
-import { API_URL } from "@/lib/constants"
+import { deleteClubAction } from "@/actions/club"
+import { errorCodeToKey } from "@/lib/errors"
 
 export function GeneralForm() {
   const t = useTranslations("settings")
@@ -154,6 +155,7 @@ export function GeneralForm() {
 function DangerZoneSection() {
   const t = useTranslations("settings")
   const tc = useTranslations("common")
+  const te = useTranslations("errors")
   const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -161,13 +163,9 @@ function DangerZoneSection() {
   async function handleDelete() {
     setDeleting(true)
     try {
-      const res = await fetch(`${API_URL}/api/v1/club`, {
-        method: "DELETE",
-        credentials: "include",
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        toast.error(data.error?.message || tc("error"))
+      const result = await deleteClubAction()
+      if (!result.success) {
+        toast.error(te(errorCodeToKey(result.error)))
         return
       }
       window.location.href = "/onboarding"

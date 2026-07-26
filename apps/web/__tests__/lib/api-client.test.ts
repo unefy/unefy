@@ -11,12 +11,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function okResponse(body: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers(),
+    json: () => Promise.resolve(body),
+  }
+}
+
 describe("apiFetch", () => {
   it("returns the full JSON response without unwrapping", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ data: { id: "1", name: "Test" } }),
-    })
+    mockFetch.mockResolvedValueOnce(okResponse({ data: { id: "1", name: "Test" } }))
 
     const result = await apiFetch("/api/v1/club")
 
@@ -28,10 +34,7 @@ describe("apiFetch", () => {
       data: [{ id: "1" }],
       meta: { total: 1, page: 1, per_page: 20, total_pages: 1 },
     }
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(listResponse),
-    })
+    mockFetch.mockResolvedValueOnce(okResponse(listResponse))
 
     const result = await apiFetch("/api/v1/members")
 
@@ -39,10 +42,7 @@ describe("apiFetch", () => {
   })
 
   it("always sends credentials: include", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ data: {} }),
-    })
+    mockFetch.mockResolvedValueOnce(okResponse({ data: {} }))
 
     await apiFetch("/api/v1/club")
 
@@ -53,10 +53,7 @@ describe("apiFetch", () => {
   })
 
   it("sends Content-Type: application/json by default", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ data: {} }),
-    })
+    mockFetch.mockResolvedValueOnce(okResponse({ data: {} }))
 
     await apiFetch("/api/v1/club")
 

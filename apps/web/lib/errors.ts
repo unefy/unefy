@@ -20,6 +20,11 @@ const ERROR_CODE_TO_KEY: Record<string, string> = {
 
 const FALLBACK_KEY = "unknown"
 
+/** Resolve a backend error code to its i18n key in the `errors.*` namespace. */
+export function errorCodeToKey(code: string): string {
+  return ERROR_CODE_TO_KEY[code] ?? FALLBACK_KEY
+}
+
 /**
  * React hook that returns a function resolving any thrown error into a
  * user-facing, translated message. Raw backend messages are never shown
