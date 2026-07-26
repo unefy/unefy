@@ -71,6 +71,17 @@ class CompetitionRepository(
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def get_session(self, session_id: uuid.UUID) -> Session | None:
+        """Load a session by id, tenant-scoped, across all competitions."""
+        query = (
+            select(Session)
+            .where(Session.tenant_id == self.tenant_id)
+            .where(Session.id == session_id)
+            .where(Session.deleted_at.is_(None))
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
     async def count(self, competition_type: str | None = None) -> int:
         query = (
             select(func.count())
@@ -130,7 +141,7 @@ class SessionRepository:
             id=sess_id,
             tenant_id=self.tenant_id,
             competition_id=self.competition_id,
-            **data.model_dump(exclude={"id"}),
+            **data.model_dump(exclude={"id", "create_calendar_event", "starts_at"}),
         )
         self.session.add(entity)
         try:

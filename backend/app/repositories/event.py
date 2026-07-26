@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import Select, func, select
 
+from app.models.competition import Competition
 from app.models.event import Event, EventRegistration
 from app.models.member import Member
 from app.repositories.base import BaseRepository
@@ -37,8 +38,8 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         starts_after: datetime | None = None,
         starts_before: datetime | None = None,
         sort_order: str = "asc",
-    ) -> list[tuple[Event, int]]:
-        """Events with their active registration count."""
+    ) -> list[tuple[Event, int, str | None]]:
+        """Events with their active registration count and competition name."""
         reg_count = (
             select(func.count())
             .select_from(EventRegistration)
@@ -53,14 +54,18 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
             event_type=event_type,
             starts_after=starts_after,
             starts_before=starts_before,
-        ).add_columns(reg_count.label("registered_count"))
+        ).add_columns(
+            reg_count.label("registered_count"),
+            Competition.name.label("competition_name"),
+        )
+        query = query.outerjoin(Competition, Event.competition_id == Competition.id)
         if sort_order == "desc":
             query = query.order_by(Event.starts_at.desc())
         else:
             query = query.order_by(Event.starts_at.asc())
         query = query.offset(offset).limit(limit)
         result = await self.session.execute(query)
-        return [(row[0], row[1]) for row in result.all()]
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     async def count(  # type: ignore[override]
         self,
@@ -77,6 +82,26 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         count_query = select(func.count()).select_from(query.subquery())
         result = await self.session.execute(count_query)
         return result.scalar_one()
+
+    async def get_by_session(self, session_id: uuid.UUID) -> Event | None:
+        query = self._base_query().where(Event.session_id == session_id)
+        result = await self.session.execute(query)
+        return result.scalars().first()
+
+    async def get_event_ids_by_sessions(
+        self, session_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, uuid.UUID]:
+        """Map session_id -> event_id for all events linked to the given sessions."""
+        if not session_ids:
+            return {}
+        query = (
+            select(Event.session_id, Event.id)
+            .where(Event.tenant_id == self.tenant_id)
+            .where(Event.deleted_at.is_(None))
+            .where(Event.session_id.in_(session_ids))
+        )
+        result = await self.session.execute(query)
+        return {row[0]: row[1] for row in result.all()}
 
 
 class EventRegistrationRepository(

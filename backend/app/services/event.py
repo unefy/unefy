@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.models.event import Event, EventRegistration
+from app.repositories.competition import CompetitionRepository
 from app.repositories.event import EventRegistrationRepository, EventRepository
 from app.repositories.member import MemberRepository
 from app.schemas.event import EventCreate, EventRegistrationCreate, EventUpdate
@@ -19,6 +20,25 @@ class EventService:
         self.events = EventRepository(session, tenant_id)
         self.registrations = EventRegistrationRepository(session, tenant_id)
         self.members = MemberRepository(session, tenant_id)
+        self.competitions = CompetitionRepository(session, tenant_id)
+
+    async def _apply_competition_link(self, event: Event) -> None:
+        """Validate the competition/session link and force event_type when linked."""
+        if event.session_id is not None:
+            comp_session = await self.competitions.get_session(event.session_id)
+            if comp_session is None:
+                raise NotFoundError("Session not found")
+            if (
+                event.competition_id is not None
+                and comp_session.competition_id != event.competition_id
+            ):
+                raise ValidationError("Session does not belong to the given competition")
+            event.competition_id = comp_session.competition_id
+            event.event_type = "competition"
+        elif event.competition_id is not None:
+            if await self.competitions.get_by_id(event.competition_id) is None:
+                raise NotFoundError("Competition not found")
+            event.event_type = "competition"
 
     async def create(self, data: EventCreate, created_by: uuid.UUID) -> Event:
         event = Event(
@@ -27,6 +47,7 @@ class EventService:
             created_by=created_by,
             updated_by=created_by,
         )
+        await self._apply_competition_link(event)
         self.session.add(event)
         await self.session.flush()
         await self.session.refresh(event)
@@ -42,10 +63,17 @@ class EventService:
             setattr(event, field, value)
         if event.ends_at is not None and event.ends_at < event.starts_at:
             raise ValidationError("ends_at must not be before starts_at")
+        await self._apply_competition_link(event)
         event.updated_by = updated_by
         await self.session.flush()
         await self.session.refresh(event)
         return event
+
+    async def competition_name(self, event: Event) -> str | None:
+        if event.competition_id is None:
+            return None
+        comp = await self.competitions.get_by_id(event.competition_id)
+        return comp.name if comp else None
 
     async def register(
         self,

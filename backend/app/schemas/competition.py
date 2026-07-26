@@ -89,6 +89,9 @@ class SessionCreate(BaseSchema):
     date: dt.date
     location: str | None = Field(default=None, max_length=255)
     discipline: str | None = Field(default=None, max_length=100)
+    # Optionally create a linked calendar event for this session.
+    create_calendar_event: bool = False
+    starts_at: dt.datetime | None = None
 
 
 class SessionUpdate(BaseSchema):
@@ -105,6 +108,7 @@ class SessionResponse(BaseSchema):
     date: dt.date
     location: str | None
     discipline: str | None
+    event_id: uuid.UUID | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
 

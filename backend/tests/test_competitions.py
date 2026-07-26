@@ -295,3 +295,135 @@ async def test_competition_tenant_isolation(
 async def test_unauthenticated_rejected(client: AsyncClient) -> None:
     resp = await client.get("/api/v1/competitions")
     assert resp.status_code in (401, 403)
+
+
+# --- Session → Calendar Event ---
+
+
+async def test_session_with_calendar_event(
+    client: AsyncClient,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    h = _bearer(test_user, test_tenant)
+    comp = await _create_competition(client, h, name="Kreisliga")
+    sess = await _create_session(
+        client,
+        h,
+        comp["id"],
+        name="Runde 1",
+        location="Schießstand",
+        create_calendar_event=True,
+        starts_at="2026-06-15T18:30:00+00:00",
+    )
+    assert sess["event_id"] is not None
+
+    resp = await client.get(f"/api/v1/events/{sess['event_id']}", headers=h)
+    assert resp.status_code == 200
+    event = resp.json()["data"]
+    assert event["title"] == "Runde 1"
+    assert event["location"] == "Schießstand"
+    assert event["starts_at"] == "2026-06-15T18:30:00Z"
+    assert event["all_day"] is False
+    assert event["event_type"] == "competition"
+    assert event["session_id"] == sess["id"]
+    assert event["competition_id"] == comp["id"]
+    assert event["competition_name"] == "Kreisliga"
+
+    # Listed sessions include the linked event id.
+    resp = await client.get(f"/api/v1/competitions/{comp['id']}/sessions", headers=h)
+    assert resp.json()["data"][0]["event_id"] == sess["event_id"]
+
+
+async def test_session_calendar_event_all_day_without_time(
+    client: AsyncClient,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    h = _bearer(test_user, test_tenant)
+    comp = await _create_competition(client, h, name="Pokal")
+    # No session name → event falls back to competition name; no time → all-day.
+    sess = await _create_session(client, h, comp["id"], create_calendar_event=True)
+    resp = await client.get(f"/api/v1/events/{sess['event_id']}", headers=h)
+    event = resp.json()["data"]
+    assert event["title"] == "Pokal"
+    assert event["all_day"] is True
+    assert event["starts_at"].startswith("2026-06-15T00:00:00")
+
+
+async def test_session_without_flag_creates_no_event(
+    client: AsyncClient,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    h = _bearer(test_user, test_tenant)
+    comp = await _create_competition(client, h)
+    sess = await _create_session(client, h, comp["id"])
+    assert sess["event_id"] is None
+
+    resp = await client.get("/api/v1/events", headers=h)
+    assert resp.json()["meta"]["total"] == 0
+
+
+async def test_delete_session_soft_deletes_linked_event(
+    client: AsyncClient,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    h = _bearer(test_user, test_tenant)
+    comp = await _create_competition(client, h)
+    sess = await _create_session(client, h, comp["id"], create_calendar_event=True)
+    event_id = sess["event_id"]
+
+    resp = await client.delete(
+        f"/api/v1/competitions/{comp['id']}/sessions/{sess['id']}", headers=h
+    )
+    assert resp.status_code == 200
+
+    resp = await client.get(f"/api/v1/events/{event_id}", headers=h)
+    assert resp.status_code == 404
+
+
+async def test_event_link_to_foreign_tenant_session_404(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    h_a = _bearer(test_user, test_tenant)
+    comp_a = await _create_competition(client, h_a, name="Tenant A")
+    sess_a = await _create_session(client, h_a, comp_a["id"])
+
+    # Tenant B tries to link an event to tenant A's session.
+    tenant_b = Tenant(id=uuid.uuid4(), name="Other", slug="other-evtlink")
+    db_session.add(tenant_b)
+    user_b = User(id=uuid.uuid4(), email="evtlink@test.com", name="B", email_verified=True)
+    db_session.add(user_b)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            id=uuid.uuid4(),
+            user_id=user_b.id,
+            tenant_id=tenant_b.id,
+            role="owner",
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+    h_b = _bearer(user_b, tenant_b)
+
+    resp = await client.post(
+        "/api/v1/events",
+        json={
+            "title": "X",
+            "starts_at": "2026-09-01T10:00:00+00:00",
+            "session_id": sess_a["id"],
+        },
+        headers=h_b,
+    )
+    assert resp.status_code == 404

@@ -222,3 +222,94 @@ async def test_register_unknown_member_not_found(auth_client: AsyncClient) -> No
         json={"member_id": str(uuid.uuid4())},
     )
     assert resp.status_code == 404
+
+
+# --- Competition/Session link ---
+
+
+async def _create_competition_with_session(
+    client: AsyncClient, name: str = "Liga 2026"
+) -> tuple[dict, dict]:
+    resp = await client.post(
+        "/api/v1/competitions",
+        json={"name": name, "start_date": "2026-06-01"},
+    )
+    assert resp.status_code == 200, resp.text
+    comp = resp.json()["data"]
+    resp = await client.post(
+        f"/api/v1/competitions/{comp['id']}/sessions",
+        json={"date": "2026-06-15", "name": "Runde 1", "location": "Schießstand"},
+    )
+    assert resp.status_code == 200, resp.text
+    return comp, resp.json()["data"]
+
+
+async def test_event_with_session_link_sets_type_and_competition(
+    auth_client: AsyncClient,
+) -> None:
+    comp, sess = await _create_competition_with_session(auth_client)
+    created = await _create_event(auth_client, event_type="other", session_id=sess["id"])
+    assert created["session_id"] == sess["id"]
+    assert created["competition_id"] == comp["id"]  # derived from session
+    assert created["event_type"] == "competition"
+    assert created["competition_name"] == "Liga 2026"
+
+    resp = await auth_client.get(f"/api/v1/events/{created['id']}")
+    assert resp.json()["data"]["competition_name"] == "Liga 2026"
+
+    resp = await auth_client.get("/api/v1/events")
+    assert resp.json()["data"][0]["competition_name"] == "Liga 2026"
+
+
+async def test_event_with_competition_link_only(auth_client: AsyncClient) -> None:
+    comp, _sess = await _create_competition_with_session(auth_client)
+    created = await _create_event(auth_client, event_type="other", competition_id=comp["id"])
+    assert created["event_type"] == "competition"
+    assert created["session_id"] is None
+
+
+async def test_event_with_session_from_other_competition_422(
+    auth_client: AsyncClient,
+) -> None:
+    _comp_a, sess_a = await _create_competition_with_session(auth_client, name="Liga A")
+    resp = await auth_client.post(
+        "/api/v1/competitions",
+        json={"name": "Liga B", "start_date": "2026-06-01"},
+    )
+    comp_b = resp.json()["data"]
+
+    resp = await auth_client.post(
+        "/api/v1/events",
+        json={
+            "title": "X",
+            "starts_at": "2026-09-01T10:00:00+00:00",
+            "competition_id": comp_b["id"],
+            "session_id": sess_a["id"],
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_event_with_unknown_session_404(auth_client: AsyncClient) -> None:
+    resp = await auth_client.post(
+        "/api/v1/events",
+        json={
+            "title": "X",
+            "starts_at": "2026-09-01T10:00:00+00:00",
+            "session_id": str(uuid.uuid4()),
+        },
+    )
+    assert resp.status_code == 404
+
+
+async def test_event_update_can_set_session_link(auth_client: AsyncClient) -> None:
+    comp, sess = await _create_competition_with_session(auth_client)
+    created = await _create_event(auth_client, event_type="other")
+    resp = await auth_client.patch(
+        f"/api/v1/events/{created['id']}",
+        json={"session_id": sess["id"]},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["competition_id"] == comp["id"]
+    assert data["event_type"] == "competition"

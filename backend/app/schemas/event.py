@@ -19,6 +19,8 @@ class EventCreate(BaseSchema):
     registration_required: bool = False
     registration_deadline: datetime | None = None
     max_participants: int | None = Field(default=None, ge=1)
+    competition_id: uuid.UUID | None = None
+    session_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def validate_times(self) -> "EventCreate":
@@ -39,6 +41,8 @@ class EventUpdate(BaseSchema):
     registration_deadline: datetime | None = None
     max_participants: int | None = Field(default=None, ge=1)
     status: str | None = Field(default=None, pattern="^(scheduled|cancelled)$")
+    competition_id: uuid.UUID | None = None
+    session_id: uuid.UUID | None = None
 
 
 class EventResponse(BaseSchema):
@@ -54,6 +58,9 @@ class EventResponse(BaseSchema):
     registration_deadline: datetime | None = None
     max_participants: int | None = None
     status: str
+    competition_id: uuid.UUID | None = None
+    session_id: uuid.UUID | None = None
+    competition_name: str | None = None
     registered_count: int = 0
     created_at: datetime
     updated_at: datetime

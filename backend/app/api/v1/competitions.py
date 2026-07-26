@@ -1,5 +1,6 @@
 import math
 import uuid
+from datetime import UTC, datetime, time
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -15,6 +16,7 @@ from app.repositories.competition import (
     ScoreboardRepository,
     SessionRepository,
 )
+from app.repositories.event import EventRepository
 from app.schemas.competition import (
     CompetitionCreate,
     CompetitionResponse,
@@ -25,6 +27,8 @@ from app.schemas.competition import (
     SessionCreate,
     SessionResponse,
 )
+from app.schemas.event import EventCreate
+from app.services.event import EventService
 
 router = APIRouter()
 
@@ -50,8 +54,10 @@ def _comp_response(c: Any) -> dict[str, Any]:
     return CompetitionResponse.model_validate(c).model_dump(mode="json")
 
 
-def _session_response(s: Any) -> dict[str, Any]:
-    return SessionResponse.model_validate(s).model_dump(mode="json")
+def _session_response(s: Any, event_id: uuid.UUID | None = None) -> dict[str, Any]:
+    data = SessionResponse.model_validate(s).model_dump(mode="json")
+    data["event_id"] = str(event_id) if event_id else None
+    return data
 
 
 def _entry_response(e: Any) -> dict[str, Any]:
@@ -183,7 +189,12 @@ async def list_sessions(
     offset = (page - 1) * per_page
     items = await repo.get_all(offset=offset, limit=per_page)
     total = await repo.count()
-    return _paginated([_session_response(s) for s in items], total, page, per_page)
+    event_ids = await EventRepository(session, auth.tenant_id).get_event_ids_by_sessions(
+        [s.id for s in items]
+    )
+    return _paginated(
+        [_session_response(s, event_ids.get(s.id)) for s in items], total, page, per_page
+    )
 
 
 @router.post(
@@ -198,11 +209,33 @@ async def create_session(
 ) -> dict[str, Any]:
     # Verify competition exists.
     comp_repo = _comp_repo(session, auth)
-    if await comp_repo.get_by_id(competition_id) is None:
+    comp = await comp_repo.get_by_id(competition_id)
+    if comp is None:
         raise NotFoundError("Competition not found")
     repo = _session_repo(session, auth, competition_id)
     s = await repo.create(data)
-    return {"data": _session_response(s)}
+
+    event_id: uuid.UUID | None = None
+    event_repo = EventRepository(session, auth.tenant_id)
+    existing_event = await event_repo.get_by_session(s.id)
+    if existing_event is not None:
+        event_id = existing_event.id
+    elif data.create_calendar_event:
+        starts_at = data.starts_at or datetime.combine(s.date, time(0, 0), tzinfo=UTC)
+        event = await EventService(session, auth.tenant_id).create(
+            EventCreate(
+                title=s.name or comp.name,
+                event_type="competition",
+                location=s.location,
+                starts_at=starts_at,
+                all_day=data.starts_at is None,
+                competition_id=competition_id,
+                session_id=s.id,
+            ),
+            created_by=auth.user_id,
+        )
+        event_id = event.id
+    return {"data": _session_response(s, event_id)}
 
 
 @router.delete("/{competition_id}/sessions/{session_id}")
@@ -215,6 +248,10 @@ async def delete_session(
     repo = _session_repo(session, auth, competition_id)
     if not await repo.soft_delete(session_id):
         raise NotFoundError("Session not found")
+    event_repo = EventRepository(session, auth.tenant_id)
+    linked_event = await event_repo.get_by_session(session_id)
+    if linked_event is not None:
+        await event_repo.soft_delete(linked_event.id)
     return {"data": {"message": "Deleted"}}
 
 

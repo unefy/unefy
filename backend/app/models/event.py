@@ -25,7 +25,11 @@ class Event(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     """
 
     __tablename__ = "events"
-    __table_args__ = (Index("ix_events_tenant_starts", "tenant_id", "starts_at"),)
+    __table_args__ = (
+        Index("ix_events_tenant_starts", "tenant_id", "starts_at"),
+        Index("ix_events_tenant_session", "tenant_id", "session_id"),
+        Index("ix_events_tenant_competition", "tenant_id", "competition_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
@@ -50,6 +54,14 @@ class Event(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
 
     # "scheduled" | "cancelled"
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="scheduled")
+
+    # Optional link to the sport layer: a competition and/or one of its sessions.
+    competition_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("competitions.id", ondelete="SET NULL"), nullable=True
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class EventRegistration(Base, AuditMixin, TenantMixin, SoftDeleteMixin):

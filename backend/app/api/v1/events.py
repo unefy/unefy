@@ -54,8 +54,8 @@ async def list_events(
     return {
         "data": [
             EventResponse.model_validate(event).model_dump(mode="json")
-            | {"registered_count": count}
-            for event, count in rows
+            | {"registered_count": count, "competition_name": competition_name}
+            for event, count, competition_name in rows
         ],
         "meta": {
             "total": total,
@@ -84,6 +84,7 @@ async def get_event(
         "data": EventResponse.model_validate(event).model_dump(mode="json")
         | {
             "registered_count": registered_count,
+            "competition_name": await service.competition_name(event),
             "registrations": [
                 EventRegistrationResponse.model_validate(r).model_dump(mode="json")
                 | {"member_name": f"{first} {last}"}
@@ -104,7 +105,7 @@ async def create_event(
     event = await service.create(data, created_by=auth.user_id)
     return {
         "data": EventResponse.model_validate(event).model_dump(mode="json")
-        | {"registered_count": 0}
+        | {"registered_count": 0, "competition_name": await service.competition_name(event)}
     }
 
 
@@ -123,7 +124,10 @@ async def update_event(
     registered_count = await service.registrations.count_registered(event_id)
     return {
         "data": EventResponse.model_validate(event).model_dump(mode="json")
-        | {"registered_count": registered_count}
+        | {
+            "registered_count": registered_count,
+            "competition_name": await service.competition_name(event),
+        }
     }
 
 
