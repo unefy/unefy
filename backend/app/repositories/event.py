@@ -19,6 +19,7 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         event_type: str | None = None,
         starts_after: datetime | None = None,
         starts_before: datetime | None = None,
+        competition_id: uuid.UUID | None = None,
     ) -> Select[tuple[Event]]:
         query = self._base_query()
         if event_type:
@@ -27,6 +28,8 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
             query = query.where(Event.starts_at >= starts_after)
         if starts_before:
             query = query.where(Event.starts_at < starts_before)
+        if competition_id:
+            query = query.where(Event.competition_id == competition_id)
         return query
 
     async def get_all(  # type: ignore[override]
@@ -37,6 +40,7 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         event_type: str | None = None,
         starts_after: datetime | None = None,
         starts_before: datetime | None = None,
+        competition_id: uuid.UUID | None = None,
         sort_order: str = "asc",
     ) -> list[tuple[Event, int, str | None]]:
         """Events with their active registration count and competition name."""
@@ -54,6 +58,7 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
             event_type=event_type,
             starts_after=starts_after,
             starts_before=starts_before,
+            competition_id=competition_id,
         ).add_columns(
             reg_count.label("registered_count"),
             Competition.name.label("competition_name"),
@@ -73,11 +78,13 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         event_type: str | None = None,
         starts_after: datetime | None = None,
         starts_before: datetime | None = None,
+        competition_id: uuid.UUID | None = None,
     ) -> int:
         query = self._filtered_query(
             event_type=event_type,
             starts_after=starts_after,
             starts_before=starts_before,
+            competition_id=competition_id,
         )
         count_query = select(func.count()).select_from(query.subquery())
         result = await self.session.execute(count_query)

@@ -261,6 +261,19 @@ async def test_event_with_session_link_sets_type_and_competition(
     assert resp.json()["data"][0]["competition_name"] == "Liga 2026"
 
 
+async def test_list_events_filters_by_competition(auth_client: AsyncClient) -> None:
+    comp, _sess = await _create_competition_with_session(auth_client)
+    await _create_event(auth_client, title="Ohne Liga")
+    linked = await _create_event(auth_client, title="Mit Liga", competition_id=comp["id"])
+
+    resp = await auth_client.get(f"/api/v1/events?competition_id={comp['id']}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["meta"]["total"] == 1
+    assert len(body["data"]) == 1
+    assert body["data"][0]["id"] == linked["id"]
+
+
 async def test_event_with_competition_link_only(auth_client: AsyncClient) -> None:
     comp, _sess = await _create_competition_with_session(auth_client)
     created = await _create_event(auth_client, event_type="other", competition_id=comp["id"])

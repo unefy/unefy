@@ -33,6 +33,7 @@ async def list_events(
     event_type: str | None = Query(default=None),
     starts_after: datetime | None = Query(default=None),  # noqa: B008
     starts_before: datetime | None = Query(default=None),  # noqa: B008
+    competition_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     sort_order: str = Query(default="asc", pattern="^(asc|desc)$"),
 ) -> dict:
     """List events with registration counts."""
@@ -44,12 +45,14 @@ async def list_events(
         event_type=event_type,
         starts_after=starts_after,
         starts_before=starts_before,
+        competition_id=competition_id,
         sort_order=sort_order,
     )
     total = await service.events.count(
         event_type=event_type,
         starts_after=starts_after,
         starts_before=starts_before,
+        competition_id=competition_id,
     )
     return {
         "data": [
