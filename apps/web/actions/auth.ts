@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import { z } from "zod"
 
@@ -101,6 +102,33 @@ export async function createClubAction(
     success: true,
     data: { tenant_id: body.data.tenant_id, slug: body.data.slug },
   }
+}
+
+// ---------------------------------------------------------------------------
+
+const switchTenantSchema = z.object({
+  tenant_id: z.string().uuid(),
+})
+
+export async function switchTenantAction(
+  tenantId: string,
+): Promise<ActionResult> {
+  const parsed = switchTenantSchema.safeParse({ tenant_id: tenantId })
+  if (!parsed.success) {
+    return { success: false, error: "validation" }
+  }
+
+  const res = await forwardedFetch("/api/v1/auth/switch-tenant", {
+    method: "POST",
+    body: JSON.stringify({ tenant_id: parsed.data.tenant_id }),
+  })
+
+  if (!res.ok) {
+    return { success: false, error: "unknown" }
+  }
+
+  revalidatePath("/", "layout")
+  return { success: true }
 }
 
 // ---------------------------------------------------------------------------

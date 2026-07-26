@@ -20,6 +20,14 @@ export interface Session {
   needs_onboarding: boolean
 }
 
+export interface TenantOption {
+  tenant_id: string
+  name: string
+  short_name: string | null
+  role: string
+  is_current: boolean
+}
+
 /**
  * Get the current session from the backend by forwarding the session cookie.
  * Returns null if not authenticated.
@@ -42,5 +50,30 @@ export async function getSession(): Promise<Session | null> {
     return json.data as Session | null
   } catch {
     return null
+  }
+}
+
+/**
+ * List all active tenant memberships of the current user.
+ * Returns an empty list if not authenticated.
+ */
+export async function getTenants(): Promise<TenantOption[]> {
+  try {
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get(COOKIE_NAME)?.value
+
+    if (!sessionCookie) return []
+
+    const res = await fetch(`${API_BASE}/api/v1/auth/tenants`, {
+      headers: { Cookie: `${COOKIE_NAME}=${sessionCookie}` },
+      cache: "no-store",
+    })
+
+    if (!res.ok) return []
+
+    const json = await res.json()
+    return (json.data ?? []) as TenantOption[]
+  } catch {
+    return []
   }
 }

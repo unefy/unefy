@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { getSession } from "@/lib/auth"
+import { getSession, getTenants } from "@/lib/auth"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 
 export default async function AppLayout({
@@ -7,7 +7,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getSession()
+  const [session, tenants] = await Promise.all([getSession(), getTenants()])
 
   if (!session) {
     redirect("/login")
@@ -22,6 +22,7 @@ export default async function AppLayout({
       <AppSidebar
         user={session.user}
         tenantName={session.tenant_short_name || session.tenant_name || "My Club"}
+        tenants={tenants}
       />
       <main className="flex-1 overflow-auto">
         <div className="px-8 py-8">{children}</div>

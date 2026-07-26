@@ -316,6 +316,117 @@ async def google_callback(
     return response
 
 
+@router.get(
+    "/tenants",
+    dependencies=[Depends(RateLimit(limit=60, window=60, scope="auth-tenants"))],
+)
+async def list_my_tenants(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """List all active tenant memberships of the current user."""
+    from app.core.exceptions import ForbiddenError
+    from app.dependencies import _resolve_auth
+
+    auth = await _resolve_auth(request, session)
+    if auth is None:
+        raise ForbiddenError("Not authenticated")
+
+    stmt = (
+        select(TenantMembership, Tenant)
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .where(TenantMembership.user_id == auth.user_id)
+        .where(TenantMembership.is_active.is_(True))
+        .where(Tenant.is_active.is_(True))
+        .order_by(Tenant.name)
+    )
+    result = await session.execute(stmt)
+
+    return {
+        "data": [
+            {
+                "tenant_id": str(tenant.id),
+                "name": tenant.name,
+                "short_name": tenant.short_name,
+                "role": membership.role,
+                "is_current": tenant.id == auth.tenant_id,
+            }
+            for membership, tenant in result.all()
+        ]
+    }
+
+
+class SwitchTenantRequest(BaseModel):
+    tenant_id: uuid.UUID
+
+
+@router.post(
+    "/switch-tenant",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="switch-tenant"))],
+)
+async def switch_tenant(
+    data: SwitchTenantRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> JSONResponse:
+    """Switch the active tenant of a web session. Rotates the session token."""
+    from app.core.exceptions import ForbiddenError
+    from app.dependencies import _resolve_auth
+
+    auth = await _resolve_auth(request, session)
+    if auth is None:
+        raise ForbiddenError("Not authenticated")
+
+    # Switching rotates the session cookie, so it only works for cookie-based
+    # (web) sessions — mobile clients get a tenant-scoped JWT at login instead.
+    old_session_token = request.cookies.get(COOKIE_NAME)
+    if not old_session_token:
+        raise ForbiddenError("Tenant switching requires a session cookie")
+
+    stmt = (
+        select(TenantMembership, Tenant)
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .where(TenantMembership.user_id == auth.user_id)
+        .where(TenantMembership.tenant_id == data.tenant_id)
+        .where(TenantMembership.is_active.is_(True))
+        .where(Tenant.is_active.is_(True))
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+    if row is None:
+        raise ForbiddenError("No active membership for this tenant")
+
+    membership, tenant = row
+
+    # Rotate the session token: the tenant context (and possibly the role)
+    # changes, so the old token must not remain valid.
+    redis = get_redis()
+    await redis.delete(f"session:{old_session_token}")
+    new_session_token = await create_session(
+        auth.user_id, tenant_id=tenant.id, role=membership.role
+    )
+
+    logger.info(
+        "tenant_switched",
+        user_id=str(auth.user_id),
+        tenant_id=str(tenant.id),
+    )
+
+    response = JSONResponse(
+        content={
+            "data": {
+                "tenant_id": str(tenant.id),
+                "name": tenant.name,
+                "short_name": tenant.short_name,
+                "role": membership.role,
+            }
+        }
+    )
+    _set_session_cookie(response, new_session_token, settings)
+    return response
+
+
 class CreateClubRequest(BaseModel):
     club_name: str = Field(min_length=2, max_length=255)
 
@@ -356,7 +467,8 @@ async def create_club(
 
     # Seed member_statuses using the owner's locale so labels are sensible
     # in their language out of the box.
-    from app.core.seeds import member_statuses_seed
+    from app.core.seeds import MEASUREMENT_UNIT_SEEDS, member_statuses_seed
+    from app.models.catalog import MeasurementUnit
     from app.models.user import User as UserModel
 
     user_stmt = select(UserModel).where(UserModel.id == auth.user_id)
@@ -372,6 +484,19 @@ async def create_club(
     )
     session.add(tenant)
     await session.flush()
+
+    # Seed default measurement units for the new tenant
+    for unit_name, unit_symbol in MEASUREMENT_UNIT_SEEDS:
+        session.add(
+            MeasurementUnit(
+                tenant_id=tenant.id,
+                name=unit_name,
+                symbol=unit_symbol,
+                is_active=True,
+                created_by=auth.user_id,
+                updated_by=auth.user_id,
+            )
+        )
 
     # Create ownership
     membership = TenantMembership(

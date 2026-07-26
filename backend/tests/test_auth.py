@@ -5,7 +5,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.seeds import MEASUREMENT_UNIT_SEEDS
 from app.database import get_db_session
+from app.models.catalog import MeasurementUnit
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 
@@ -101,6 +103,12 @@ async def test_create_club_success(
     membership = result.scalar_one_or_none()
     assert membership is not None
     assert membership.role == "owner"
+
+    # Verify default measurement units were seeded
+    stmt = select(MeasurementUnit).where(MeasurementUnit.tenant_id == tenant_id)
+    result = await db_session.execute(stmt)
+    unit_names = {u.name for u in result.scalars().all()}
+    assert unit_names == {name for name, _ in MEASUREMENT_UNIT_SEEDS}
 
 
 async def test_create_club_fails_without_auth(anon_client: AsyncClient) -> None:
@@ -209,3 +217,183 @@ async def test_logout_without_session(anon_client: AsyncClient) -> None:
     response = await anon_client.post("/api/v1/auth/logout")
     assert response.status_code == 200
     assert response.json() == {"data": {"message": "Logged out"}}
+
+
+# --- GET /api/v1/auth/tenants ---
+
+
+async def test_list_tenants_single_membership(
+    auth_client: AsyncClient,
+    test_tenant: Tenant,
+) -> None:
+    """User with one membership gets a single entry marked as current."""
+    response = await auth_client.get("/api/v1/auth/tenants")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["tenant_id"] == str(test_tenant.id)
+    assert data[0]["role"] == "owner"
+    assert data[0]["is_current"] is True
+
+
+async def test_list_tenants_multiple_memberships(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+) -> None:
+    """All active memberships are listed; only the session tenant is current."""
+    other_tenant = Tenant(id=uuid.uuid4(), name="Other Club", slug="other-club")
+    db_session.add(other_tenant)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            user_id=test_user.id,
+            tenant_id=other_tenant.id,
+            role="member",
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+
+    response = await auth_client.get("/api/v1/auth/tenants")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 2
+    by_id = {entry["tenant_id"]: entry for entry in data}
+    assert by_id[str(test_tenant.id)]["is_current"] is True
+    assert by_id[str(other_tenant.id)]["is_current"] is False
+    assert by_id[str(other_tenant.id)]["role"] == "member"
+
+
+async def test_list_tenants_excludes_inactive_membership(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+) -> None:
+    """Inactive memberships are not listed."""
+    other_tenant = Tenant(id=uuid.uuid4(), name="Left Club", slug="left-club")
+    db_session.add(other_tenant)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            user_id=test_user.id,
+            tenant_id=other_tenant.id,
+            role="member",
+            is_active=False,
+        )
+    )
+    await db_session.flush()
+
+    response = await auth_client.get("/api/v1/auth/tenants")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["tenant_id"] == str(test_tenant.id)
+
+
+async def test_list_tenants_without_auth(anon_client: AsyncClient) -> None:
+    """Unauthenticated request is rejected."""
+    response = await anon_client.get("/api/v1/auth/tenants")
+    assert response.status_code == 403
+
+
+# --- POST /api/v1/auth/switch-tenant ---
+
+
+async def test_switch_tenant_success(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_user: User,
+    test_tenant: Tenant,
+) -> None:
+    """Switching rotates the session cookie and scopes it to the new tenant."""
+    other_tenant = Tenant(id=uuid.uuid4(), name="Other Club", slug="other-club")
+    db_session.add(other_tenant)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            user_id=test_user.id,
+            tenant_id=other_tenant.id,
+            role="board",
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+
+    old_token = auth_client.cookies.get("unefy_session")
+
+    response = await auth_client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(other_tenant.id)},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["tenant_id"] == str(other_tenant.id)
+    assert data["role"] == "board"
+
+    # Old session invalidated
+    assert await fake_redis.get(f"session:{old_token}") is None
+
+    # New session cookie set and scoped to the new tenant
+    new_token = response.cookies.get("unefy_session")
+    assert new_token is not None
+    assert new_token != old_token
+    raw = await fake_redis.get(f"session:{new_token}")
+    session_data = json.loads(raw)
+    assert session_data["tenant_id"] == str(other_tenant.id)
+    assert session_data["role"] == "board"
+    assert session_data["user_id"] == str(test_user.id)
+
+
+async def test_switch_tenant_without_membership(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Switching to a tenant the user is not a member of is rejected."""
+    foreign_tenant = Tenant(id=uuid.uuid4(), name="Foreign Club", slug="foreign-club")
+    db_session.add(foreign_tenant)
+    await db_session.flush()
+
+    response = await auth_client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(foreign_tenant.id)},
+    )
+    assert response.status_code == 403
+
+
+async def test_switch_tenant_inactive_membership(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+) -> None:
+    """Switching to a tenant with an inactive membership is rejected."""
+    other_tenant = Tenant(id=uuid.uuid4(), name="Left Club", slug="left-club")
+    db_session.add(other_tenant)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            user_id=test_user.id,
+            tenant_id=other_tenant.id,
+            role="member",
+            is_active=False,
+        )
+    )
+    await db_session.flush()
+
+    response = await auth_client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(other_tenant.id)},
+    )
+    assert response.status_code == 403
+
+
+async def test_switch_tenant_without_auth(anon_client: AsyncClient) -> None:
+    """Unauthenticated request is rejected."""
+    response = await anon_client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(uuid.uuid4())},
+    )
+    assert response.status_code == 403

@@ -17,23 +17,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Home03Icon,
-  UserGroupIcon,
-  Calendar03Icon,
-  ChampionIcon,
-  Invoice02Icon,
-  Settings02Icon,
-  Logout03Icon,
-  UserCircleIcon,
-  ArrowDown01Icon,
-  LanguageSquareIcon,
-} from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { Home, Users, Calendar, Trophy, Receipt, Settings, LogOut, CircleUserRound, ChevronDown, Languages, Check } from "lucide-react"
 import { useTranslations, useLocale } from "next-intl"
 import { useRouter } from "next/navigation"
 import { API_URL } from "@/lib/constants"
 import { updateLocaleAction } from "@/actions/locale"
+
+import { switchTenantAction } from "@/actions/auth"
+import type { TenantOption } from "@/lib/auth"
 
 interface AppSidebarProps {
   user: {
@@ -43,25 +34,48 @@ interface AppSidebarProps {
     image?: string | null
   }
   tenantName?: string
+  tenants?: TenantOption[]
 }
 
 const navigationItems = [
-  { key: "dashboard" as const, href: "/", icon: Home03Icon },
-  { key: "members" as const, href: "/members", icon: UserGroupIcon },
-  { key: "events" as const, href: "/events", icon: Calendar03Icon },
-  { key: "competitions" as const, href: "/competitions", icon: ChampionIcon },
-  { key: "dues" as const, href: "/dues", icon: Invoice02Icon },
-  { key: "settings" as const, href: "/settings", icon: Settings02Icon },
+  { key: "dashboard" as const, href: "/", icon: Home },
+  { key: "members" as const, href: "/members", icon: Users },
+  { key: "events" as const, href: "/events", icon: Calendar },
+  { key: "competitions" as const, href: "/competitions", icon: Trophy },
+  { key: "dues" as const, href: "/dues", icon: Receipt },
+  { key: "settings" as const, href: "/settings", icon: Settings },
 ]
 
 const MOBILE_BREAKPOINT = 768
 
-export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
+export function AppSidebar({
+  user,
+  tenantName = "My Club",
+  tenants = [],
+}: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const t = useTranslations()
   const locale = useLocale()
   const [collapsed, setCollapsed] = useState(false)
+  const [switching, setSwitching] = useState(false)
+
+  async function handleSwitchTenant(tenantId: string) {
+    if (switching) return
+    setSwitching(true)
+    try {
+      const result = await switchTenantAction(tenantId)
+      if (result.success) {
+        // Hard navigation to the dashboard: clears all client-side caches
+        // (React Query) and avoids staying on a detail page that does not
+        // exist in the new tenant.
+        window.location.href = "/"
+        return
+      }
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   useEffect(() => {
     function handleResize() {
@@ -110,8 +124,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
                       {t("tenant.freePlan")}
                     </p>
                   </div>
-                  <HugeiconsIcon
-                    icon={ArrowDown01Icon}
+                  <ChevronDown
                     size={14}
                     className="text-muted-foreground shrink-0"
                   />
@@ -119,15 +132,37 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
               )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem disabled>
-                <span className="truncate font-medium">{tenantName}</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>
-                <span className="text-muted-foreground text-xs">
-                  {t("common.switchClub")}
-                </span>
-              </DropdownMenuItem>
+              {tenants.length > 1 && (
+                <>
+                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
+                    {t("common.switchClub")}
+                  </div>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {tenants.length > 0 ? (
+                tenants.map((tenant) => (
+                  <DropdownMenuItem
+                    key={tenant.tenant_id}
+                    disabled={tenant.is_current || switching}
+                    onClick={() => handleSwitchTenant(tenant.tenant_id)}
+                  >
+                    <span className="truncate font-medium">
+                      {tenant.short_name || tenant.name}
+                    </span>
+                    {tenant.is_current && (
+                      <Check
+                        size={14}
+                        className="ml-auto shrink-0"
+                      />
+                    )}
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>
+                  <span className="truncate font-medium">{tenantName}</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -151,8 +186,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
                   collapsed ? "justify-center p-2.5" : "pl-3.5 pr-2.5 py-2.5",
                 )}
               >
-                <HugeiconsIcon
-                  icon={item.icon}
+                <item.icon
                   size={20}
                   className="shrink-0"
                   strokeWidth={isActive ? 2 : 1.5}
@@ -195,8 +229,7 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
                 />
               ) : (
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <HugeiconsIcon
-                    icon={UserCircleIcon}
+                  <CircleUserRound
                     size={20}
                     className="text-muted-foreground"
                   />
@@ -228,11 +261,11 @@ export function AppSidebar({ user, tenantName = "My Club" }: AppSidebarProps) {
                   router.refresh()
                 }}
               >
-                <HugeiconsIcon icon={LanguageSquareIcon} size={16} className="mr-2" />
+                <Languages size={16} className="mr-2" />
                 {locale === "de" ? t("common.english") : t("common.german")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>
-                <HugeiconsIcon icon={Logout03Icon} size={16} className="mr-2" />
+                <LogOut size={16} className="mr-2" />
                 {t("common.signOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
