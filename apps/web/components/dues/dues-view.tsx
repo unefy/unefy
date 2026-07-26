@@ -18,7 +18,11 @@ export function DuesView() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("description")}>
-        <Button variant="outline" render={<Link href="/settings/fees" />}>
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/settings/fees" />}
+        >
           {t("manageFeeTypes")}
         </Button>
         <SepaExportButton year={year} />
