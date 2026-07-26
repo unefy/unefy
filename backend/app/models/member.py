@@ -44,5 +44,12 @@ class Member(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Banking / SEPA direct debit
+    iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
+    bic: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    account_holder: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sepa_mandate_reference: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    sepa_mandate_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # Optional link to User (for self-service portal)
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)

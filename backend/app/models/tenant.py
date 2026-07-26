@@ -39,6 +39,11 @@ class Tenant(Base, TimestampMixin):
     is_nonprofit: Mapped[bool] = mapped_column(default=False, nullable=False)
     nonprofit_since: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # SEPA creditor data (for direct debit collection of dues)
+    sepa_creditor_id: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
+    bic: Mapped[str | None] = mapped_column(String(11), nullable=True)
+
     # Member number format
     # Template with variables: {PREFIX}, {YEAR}, {NUM:3} (zero-padded to N digits)
     # Examples: "{PREFIX}-{YEAR}-{NUM:3}" → "ESV-2026-001"

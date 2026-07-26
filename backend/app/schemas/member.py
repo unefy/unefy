@@ -26,6 +26,11 @@ class MemberCreate(BaseSchema):
     status: str = Field(default="active", max_length=50)
     category: str | None = Field(default=None, max_length=50)
     notes: str | None = Field(default=None, max_length=5000)
+    iban: str | None = Field(default=None, max_length=34)
+    bic: str | None = Field(default=None, max_length=11)
+    account_holder: str | None = Field(default=None, max_length=255)
+    sepa_mandate_reference: str | None = Field(default=None, max_length=35)
+    sepa_mandate_date: date | None = None
 
 
 class MemberUpdate(BaseSchema):
@@ -45,6 +50,11 @@ class MemberUpdate(BaseSchema):
     status: str | None = Field(default=None, max_length=50)
     category: str | None = Field(default=None, max_length=50)
     notes: str | None = Field(default=None, max_length=5000)
+    iban: str | None = Field(default=None, max_length=34)
+    bic: str | None = Field(default=None, max_length=11)
+    account_holder: str | None = Field(default=None, max_length=255)
+    sepa_mandate_reference: str | None = Field(default=None, max_length=35)
+    sepa_mandate_date: date | None = None
 
 
 class MemberResponse(BaseSchema):
@@ -66,6 +76,11 @@ class MemberResponse(BaseSchema):
     status: str
     category: str | None = None
     notes: str | None = None
+    iban: str | None = None
+    bic: str | None = None
+    account_holder: str | None = None
+    sepa_mandate_reference: str | None = None
+    sepa_mandate_date: date | None = None
     user_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime

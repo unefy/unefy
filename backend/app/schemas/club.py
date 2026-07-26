@@ -35,6 +35,11 @@ class ClubResponse(BaseSchema):
     is_nonprofit: bool = False
     nonprofit_since: date | None = None
 
+    # SEPA creditor data
+    sepa_creditor_id: str | None = Field(default=None, max_length=35)
+    iban: str | None = Field(default=None, max_length=34)
+    bic: str | None = Field(default=None, max_length=11)
+
     # Member numbers
     member_number_format: str = "{NUM:3}"
     member_number_next: int = 1
@@ -69,6 +74,11 @@ class ClubUpdate(BaseSchema):
     tax_office: str | None = Field(default=None, max_length=255)
     is_nonprofit: bool | None = None
     nonprofit_since: date | None = None
+
+    # SEPA creditor data
+    sepa_creditor_id: str | None = Field(default=None, max_length=35)
+    iban: str | None = Field(default=None, max_length=34)
+    bic: str | None = Field(default=None, max_length=11)
 
     # Member numbers
     member_number_format: str | None = Field(default=None, max_length=100)
