@@ -27,7 +27,9 @@ import {
   ArrowRight01Icon,
   UserIcon,
   UserMultiple02Icon,
+  Invoice02Icon,
 } from "@hugeicons/core-free-icons"
+import { MemberFeesSection } from "@/components/dues/member-fees-section"
 interface MemberPanelProps {
   memberId: string
   onClose: () => void
@@ -62,6 +64,11 @@ export function MemberPanel({ memberId, onClose }: MemberPanelProps) {
         category: member.category,
         notes: member.notes,
         member_number: member.member_number,
+        iban: member.iban,
+        bic: member.bic,
+        account_holder: member.account_holder,
+        sepa_mandate_reference: member.sepa_mandate_reference,
+        sepa_mandate_date: member.sepa_mandate_date,
       })
       setDirty(false)
     }
@@ -138,6 +145,9 @@ export function MemberPanel({ memberId, onClose }: MemberPanelProps) {
             </TabsTrigger>
             <TabsTrigger value="membership">
               <HugeiconsIcon icon={UserMultiple02Icon} size={14} />
+            </TabsTrigger>
+            <TabsTrigger value="dues">
+              <HugeiconsIcon icon={Invoice02Icon} size={14} />
             </TabsTrigger>
           </TabsList>
         </div>
@@ -302,6 +312,61 @@ export function MemberPanel({ memberId, onClose }: MemberPanelProps) {
                   </div>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="dues" className="px-4 py-4">
+            <div className="space-y-8">
+              <div>
+                <SectionHeading title={t("bankData")} description="" />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>{t("accountHolder")}</Label>
+                    <Input
+                      value={form.account_holder || ""}
+                      onChange={(e) =>
+                        handleChange("account_holder", e.target.value)
+                      }
+                      placeholder={`${member.first_name} ${member.last_name}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("iban")}</Label>
+                    <Input
+                      value={form.iban || ""}
+                      onChange={(e) => handleChange("iban", e.target.value)}
+                      placeholder="DE00 0000 0000 0000 0000 00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("bic")}</Label>
+                    <Input
+                      value={form.bic || ""}
+                      onChange={(e) => handleChange("bic", e.target.value)}
+                      placeholder="XXXXDEXX"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t("mandateReference")}</Label>
+                      <Input
+                        value={form.sepa_mandate_reference || ""}
+                        onChange={(e) =>
+                          handleChange("sepa_mandate_reference", e.target.value)
+                        }
+                        placeholder={t("mandateReferencePlaceholder")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t("mandateDate")}</Label>
+                      <DatePicker
+                        value={form.sepa_mandate_date || ""}
+                        onChange={(v) => handleChange("sepa_mandate_date", v)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <MemberFeesSection memberId={memberId} />
             </div>
           </TabsContent>
           <div className="flex justify-end px-4 pt-6 pb-4">

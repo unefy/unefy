@@ -19,6 +19,11 @@ export interface Member {
   status: string
   category: string | null
   notes: string | null
+  iban: string | null
+  bic: string | null
+  account_holder: string | null
+  sepa_mandate_reference: string | null
+  sepa_mandate_date: string | null
   user_id: string | null
   created_at: string
   updated_at: string
@@ -40,6 +45,11 @@ export interface MemberCreate {
   status?: string
   category?: string | null
   notes?: string | null
+  iban?: string | null
+  bic?: string | null
+  account_holder?: string | null
+  sepa_mandate_reference?: string | null
+  sepa_mandate_date?: string | null
 }
 
 export interface MemberUpdate extends Partial<MemberCreate> {

@@ -20,6 +20,9 @@ export interface Club {
   tax_office: string | null
   is_nonprofit: boolean
   nonprofit_since: string | null
+  sepa_creditor_id: string | null
+  iban: string | null
+  bic: string | null
   member_number_format: string
   member_number_prefix: string | null
   member_number_next: number
@@ -57,14 +60,25 @@ export const DEFAULT_MEMBER_STATUSES: MemberStatusOption[] = [
   { key: "deceased", label: "Deceased" },
 ]
 
+const MAX_STATUSES = 100
+const MAX_KEY_LENGTH = 50
+const MAX_LABEL_LENGTH = 255
+
 export function parseMemberStatuses(json: string | null): MemberStatusOption[] {
   if (!json) return DEFAULT_MEMBER_STATUSES
   try {
     const parsed = JSON.parse(json)
-    if (!Array.isArray(parsed)) return DEFAULT_MEMBER_STATUSES
+    if (!Array.isArray(parsed) || parsed.length > MAX_STATUSES) {
+      return DEFAULT_MEMBER_STATUSES
+    }
     const result: MemberStatusOption[] = parsed.filter(
       (s): s is MemberStatusOption =>
-        typeof s?.key === "string" && typeof s?.label === "string",
+        typeof s?.key === "string" &&
+        typeof s?.label === "string" &&
+        s.key.length > 0 &&
+        s.key.length <= MAX_KEY_LENGTH &&
+        s.label.length > 0 &&
+        s.label.length <= MAX_LABEL_LENGTH,
     )
     // Ensure protected system statuses are always present
     for (const sys of DEFAULT_MEMBER_STATUSES) {

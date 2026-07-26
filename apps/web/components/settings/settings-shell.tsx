@@ -56,6 +56,9 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
     member_number_format: club.member_number_format || "{NUM:3}",
     member_number_next: String(club.member_number_next || 1),
     member_statuses: club.member_statuses || "",
+    sepa_creditor_id: club.sepa_creditor_id || "",
+    iban: club.iban || "",
+    bic: club.bic || "",
   })
 
   function handleChange(name: string, value: string | boolean) {
@@ -72,6 +75,7 @@ export function SettingsShell({ club, children }: SettingsShellProps) {
   const navItems = [
     { label: t("general"), href: "/settings" },
     { label: t("contactAndAddress"), href: "/settings/contact" },
+    { label: t("payment"), href: "/settings/payment" },
     { label: t("defaults"), href: "/settings/defaults" },
   ]
 
