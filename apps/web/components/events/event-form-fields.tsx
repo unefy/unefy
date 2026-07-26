@@ -1,0 +1,171 @@
+"use client"
+
+import { useTranslations } from "next-intl"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { DatePicker } from "@/components/ui/date-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import type { EventType } from "@/lib/types/event"
+
+export const EVENT_TYPES: EventType[] = [
+  "training",
+  "meeting",
+  "celebration",
+  "competition",
+  "other",
+]
+
+export interface EventFormState {
+  title: string
+  event_type: EventType
+  date: string
+  time: string
+  end_time: string
+  location: string
+  description: string
+  registration_required: boolean
+  max_participants: string
+}
+
+export const EMPTY_EVENT_FORM: EventFormState = {
+  title: "",
+  event_type: "other",
+  date: "",
+  time: "",
+  end_time: "",
+  location: "",
+  description: "",
+  registration_required: false,
+  max_participants: "",
+}
+
+export function eventFormToPayload(form: EventFormState) {
+  const time = form.time || "00:00"
+  return {
+    title: form.title.trim(),
+    event_type: form.event_type,
+    starts_at: `${form.date}T${time}:00`,
+    ends_at: form.end_time ? `${form.date}T${form.end_time}:00` : null,
+    all_day: !form.time,
+    location: form.location.trim() || null,
+    description: form.description.trim() || null,
+    registration_required: form.registration_required,
+    max_participants: form.max_participants
+      ? Number(form.max_participants)
+      : null,
+  }
+}
+
+interface EventFormFieldsProps {
+  form: EventFormState
+  onChange: <K extends keyof EventFormState>(
+    name: K,
+    value: EventFormState[K],
+  ) => void
+}
+
+export function EventFormFields({ form, onChange }: EventFormFieldsProps) {
+  const t = useTranslations("events")
+
+  const typeItems = EVENT_TYPES.map((type) => ({
+    value: type,
+    label: t(`type_${type}`),
+  }))
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>{t("eventTitle")} *</Label>
+        <Input
+          value={form.title}
+          onChange={(e) => onChange("title", e.target.value)}
+          placeholder={t("eventTitlePlaceholder")}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>{t("type")}</Label>
+          <Select
+            items={typeItems}
+            value={form.event_type}
+            onValueChange={(v) => onChange("event_type", v as EventType)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {typeItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t("date")} *</Label>
+          <DatePicker value={form.date} onChange={(v) => onChange("date", v)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>{t("startTime")}</Label>
+          <Input
+            type="time"
+            value={form.time}
+            onChange={(e) => onChange("time", e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("endTime")}</Label>
+          <Input
+            type="time"
+            value={form.end_time}
+            onChange={(e) => onChange("end_time", e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>{t("location")}</Label>
+        <Input
+          value={form.location}
+          onChange={(e) => onChange("location", e.target.value)}
+          placeholder={t("locationPlaceholder")}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t("eventDescription")}</Label>
+        <Textarea
+          value={form.description}
+          onChange={(e) => onChange("description", e.target.value)}
+          placeholder={t("eventDescriptionPlaceholder")}
+          className="min-h-16 text-sm"
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <Label>{t("registrationRequired")}</Label>
+        <Switch
+          checked={form.registration_required}
+          onCheckedChange={(v) => onChange("registration_required", v)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t("maxParticipants")}</Label>
+        <Input
+          inputMode="numeric"
+          value={form.max_participants}
+          onChange={(e) => onChange("max_participants", e.target.value)}
+          placeholder={t("maxParticipantsPlaceholder")}
+        />
+      </div>
+    </div>
+  )
+}
