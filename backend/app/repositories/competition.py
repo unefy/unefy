@@ -289,6 +289,7 @@ class ScoreboardRepository:
             .join(Session, Session.id == Entry.session_id)
             .where(Session.competition_id == competition_id)
             .where(Entry.tenant_id == self.tenant_id)
+            .where(Session.tenant_id == self.tenant_id)
             .where(Session.deleted_at.is_(None))
             .where(Entry.deleted_at.is_(None))
         )

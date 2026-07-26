@@ -19,7 +19,7 @@ def test_db_url() -> str:
 
     return os.environ.get(
         "TEST_DATABASE_URL",
-        "postgresql+asyncpg://unefy:unefy@localhost:5432/unefy_test",
+        "postgresql+asyncpg://unefy:unefy@localhost:5433/unefy_test",
     )
 
 

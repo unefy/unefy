@@ -1,7 +1,10 @@
 import hmac
 import uuid
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
+from typing import Any
 
+import structlog
 from fastapi import Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +18,30 @@ from app.redis import get_redis
 
 __all__ = ["get_current_user", "get_db_session", "get_redis"]
 
+logger = structlog.get_logger()
+
 COOKIE_NAME = "unefy_session"
+
+# Brute-force protection for the BFF shared secret: after this many failed
+# secret validations per IP within the window, further attempts are rejected
+# without comparison.
+_BFF_FAIL_LIMIT = 10
+_BFF_FAIL_WINDOW = 300
+
+
+async def _bff_secret_failures(ip: str) -> int:
+    redis = get_redis()
+    raw = await redis.get(f"bff-secret-fail:{ip}")
+    return int(raw) if raw else 0
+
+
+async def _record_bff_secret_failure(ip: str) -> None:
+    redis = get_redis()
+    key = f"bff-secret-fail:{ip}"
+    current = await redis.incr(key)
+    if current == 1:
+        await redis.expire(key, _BFF_FAIL_WINDOW)
+    logger.warning("bff_secret_invalid", ip=ip, failures=current)
 
 
 @dataclass(frozen=True)
@@ -110,8 +136,15 @@ async def _resolve_auth(
     x_secret = request.headers.get("x-internal-secret")
 
     if x_user_id and x_tenant_id and x_secret:
+        from app.core.rate_limit import _client_ip
+
+        ip = _client_ip(request)
+        if await _bff_secret_failures(ip) >= _BFF_FAIL_LIMIT:
+            return None
+
         settings = get_settings()
         if not hmac.compare_digest(x_secret, settings.INTERNAL_API_SECRET):
+            await _record_bff_secret_failure(ip)
             return None
 
         try:
@@ -151,7 +184,7 @@ async def get_current_user(
     return auth
 
 
-def require_role(*allowed_roles: str):
+def require_role(*allowed_roles: str) -> Callable[..., Coroutine[Any, Any, AuthContext]]:
     """Dependency that checks if the user has one of the allowed roles."""
 
     async def check_role(

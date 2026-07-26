@@ -42,7 +42,10 @@ def _ensure_google_registered(settings: Settings) -> None:
             client_id=settings.GOOGLE_CLIENT_ID,
             client_secret=settings.GOOGLE_CLIENT_SECRET,
             server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-            client_kwargs={"scope": "openid email profile"},
+            client_kwargs={
+                "scope": "openid email profile",
+                "code_challenge_method": "S256",
+            },
         )
 
 
@@ -234,7 +237,14 @@ async def google_callback(
     is_new_user = False
 
     if user is None:
-        # Check if user exists by email (link accounts)
+        # Linking a Google identity to an existing account by email is only
+        # safe when Google attests the email is verified — otherwise an
+        # attacker with an unverified Google alias could take over the
+        # account with that email.
+        if userinfo.get("email_verified") is not True:
+            logger.warning("oauth_unverified_email", google_sub=google_id)
+            return RedirectResponse(url=f"{settings.WEB_APP_URL}/login?error=oauth_failed")
+
         stmt = select(User).where(User.email == email)
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
@@ -250,12 +260,13 @@ async def google_callback(
             session.add(user)
             await session.flush()
             is_new_user = True
-            logger.info("user_created", user_id=str(user.id), email=email)
+            logger.info("user_created", user_id=str(user.id))
         else:
             user.google_id = google_id
             if image and not user.image:
                 user.image = image
             await session.flush()
+            logger.info("account_linked", user_id=str(user.id), method="google")
     else:
         if name and user.name != name:
             user.name = name

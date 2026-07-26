@@ -218,6 +218,18 @@ async def delete_session(
     return {"data": {"message": "Deleted"}}
 
 
+async def _require_session_in_competition(
+    session: AsyncSession,
+    auth: AuthContext,
+    competition_id: uuid.UUID,
+    session_id: uuid.UUID,
+) -> None:
+    """Reject entry access when session_id does not belong to competition_id."""
+    repo = _session_repo(session, auth, competition_id)
+    if await repo.get_by_id(session_id) is None:
+        raise NotFoundError("Session not found")
+
+
 # --- Entry CRUD (nested under /sessions/{id}/entries) ---
 
 
@@ -231,6 +243,7 @@ async def list_entries(
     per_page: int = Query(default=500, ge=1, le=500),
     member_id: uuid.UUID | None = Query(default=None),  # noqa: B008
 ) -> dict[str, Any]:
+    await _require_session_in_competition(session, auth, competition_id, session_id)
     repo = _entry_repo(session, auth, session_id)
     offset = (page - 1) * per_page
     items = await repo.get_all(offset=offset, limit=per_page, member_id=member_id)
@@ -250,6 +263,7 @@ async def create_entry(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     """Idempotent entry creation for offline sync."""
+    await _require_session_in_competition(session, auth, competition_id, session_id)
     repo = _entry_repo(session, auth, session_id)
     entry, _created = await repo.create_idempotent(data, recorded_by=auth.user_id)
     return {"data": _entry_response(entry)}
@@ -264,6 +278,7 @@ async def update_entry(
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
+    await _require_session_in_competition(session, auth, competition_id, session_id)
     repo = _entry_repo(session, auth, session_id)
     entry = await repo.update(entry_id, data)
     if entry is None:
@@ -279,6 +294,7 @@ async def delete_entry(
     auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
+    await _require_session_in_competition(session, auth, competition_id, session_id)
     repo = _entry_repo(session, auth, session_id)
     if not await repo.soft_delete(entry_id):
         raise NotFoundError("Entry not found")

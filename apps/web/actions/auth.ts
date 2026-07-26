@@ -40,7 +40,8 @@ async function forwardedFetch(path: string, init: RequestInit): Promise<Response
     const match = setCookieHeader.match(
       new RegExp(`${SESSION_COOKIE}=([^;]+)`),
     )
-    if (match) {
+    // Backend session tokens are URL-safe base64 — accept nothing else.
+    if (match && /^[A-Za-z0-9_-]{20,256}$/.test(match[1])) {
       cookieStore.set(SESSION_COOKIE, match[1], {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
