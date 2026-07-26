@@ -120,6 +120,9 @@ export function EventPanel({ eventId, onClose }: EventPanelProps) {
           </h2>
           <div className="mt-1 flex items-center gap-2">
             <Badge variant="secondary">{t(`type_${event.event_type}`)}</Badge>
+            {event.competition_name && (
+              <Badge variant="outline">{event.competition_name}</Badge>
+            )}
             {event.status === "cancelled" && (
               <Badge variant="outline">{t("status_cancelled")}</Badge>
             )}

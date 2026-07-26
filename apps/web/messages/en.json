@@ -249,7 +249,13 @@
     "registerMember": "Register member",
     "selectMember": "Select member",
     "waitlist": "Waitlist",
-    "addedToWaitlist": "Added to the waitlist"
+    "addedToWaitlist": "Added to the waitlist",
+    "linkCompetition": "Link to competition",
+    "noCompetition": "No link",
+    "selectCompetition": "Select competition",
+    "session": "Competition session",
+    "noSession": "No session",
+    "selectSession": "Select session"
   },
   "dues": {
     "title": "Dues",

@@ -20,6 +20,9 @@ export interface ClubEvent {
   registration_deadline: string | null
   max_participants: number | null
   status: EventStatus
+  competition_id: string | null
+  session_id: string | null
+  competition_name: string | null
   registered_count: number
   created_at: string
   updated_at: string
@@ -50,6 +53,8 @@ export interface EventCreate {
   registration_required?: boolean
   registration_deadline?: string | null
   max_participants?: number | null
+  competition_id?: string | null
+  session_id?: string | null
 }
 
 export interface EventUpdate extends Partial<EventCreate> {

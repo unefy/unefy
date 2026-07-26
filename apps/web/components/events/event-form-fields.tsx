@@ -13,7 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useCompetitions, useCompetitionSessions } from "@/hooks/use-competitions"
 import type { EventType } from "@/lib/types/event"
+
+const NONE = "__none__"
 
 export const EVENT_TYPES: EventType[] = [
   "training",
@@ -33,6 +36,8 @@ export interface EventFormState {
   description: string
   registration_required: boolean
   max_participants: string
+  competition_id: string
+  session_id: string
 }
 
 export const EMPTY_EVENT_FORM: EventFormState = {
@@ -45,6 +50,8 @@ export const EMPTY_EVENT_FORM: EventFormState = {
   description: "",
   registration_required: false,
   max_participants: "",
+  competition_id: "",
+  session_id: "",
 }
 
 export function eventFormToPayload(form: EventFormState) {
@@ -61,6 +68,8 @@ export function eventFormToPayload(form: EventFormState) {
     max_participants: form.max_participants
       ? Number(form.max_participants)
       : null,
+    competition_id: form.competition_id || null,
+    session_id: form.session_id || null,
   }
 }
 
@@ -79,6 +88,24 @@ export function EventFormFields({ form, onChange }: EventFormFieldsProps) {
     value: type,
     label: t(`type_${type}`),
   }))
+
+  const { data: competitionsData } = useCompetitions()
+  const { data: sessionsData } = useCompetitionSessions(form.competition_id)
+
+  const competitionItems = [
+    { value: NONE, label: t("noCompetition") },
+    ...(competitionsData?.data ?? []).map((c) => ({
+      value: c.id,
+      label: c.name,
+    })),
+  ]
+  const sessionItems = [
+    { value: NONE, label: t("noSession") },
+    ...(sessionsData?.data ?? []).map((s) => ({
+      value: s.id,
+      label: s.name ? `${s.name} (${s.date})` : s.date,
+    })),
+  ]
 
   return (
     <div className="space-y-4">
@@ -166,6 +193,51 @@ export function EventFormFields({ form, onChange }: EventFormFieldsProps) {
           placeholder={t("maxParticipantsPlaceholder")}
         />
       </div>
+      <div className="space-y-2">
+        <Label>{t("linkCompetition")}</Label>
+        <Select
+          items={competitionItems}
+          value={form.competition_id || NONE}
+          onValueChange={(v) => {
+            onChange("competition_id", v === NONE || v === null ? "" : v)
+            onChange("session_id", "")
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={t("selectCompetition")} />
+          </SelectTrigger>
+          <SelectContent>
+            {competitionItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {form.competition_id && (
+        <div className="space-y-2">
+          <Label>{t("session")}</Label>
+          <Select
+            items={sessionItems}
+            value={form.session_id || NONE}
+            onValueChange={(v) =>
+              onChange("session_id", v === NONE || v === null ? "" : v)
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={t("selectSession")} />
+            </SelectTrigger>
+            <SelectContent>
+              {sessionItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   )
 }

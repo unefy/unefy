@@ -249,7 +249,13 @@
     "registerMember": "Mitglied anmelden",
     "selectMember": "Mitglied wählen",
     "waitlist": "Warteliste",
-    "addedToWaitlist": "Auf die Warteliste gesetzt"
+    "addedToWaitlist": "Auf die Warteliste gesetzt",
+    "linkCompetition": "Mit Wettkampf verknüpfen",
+    "noCompetition": "Keine Verknüpfung",
+    "selectCompetition": "Wettkampf wählen",
+    "session": "Wettkampf-Termin",
+    "noSession": "Kein Termin",
+    "selectSession": "Termin wählen"
   },
   "dues": {
     "title": "Beiträge",
