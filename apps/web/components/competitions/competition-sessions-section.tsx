@@ -26,8 +26,7 @@ import {
 } from "@/hooks/use-competitions"
 import { useErrorMessage } from "@/lib/errors"
 import { formatDate } from "@/lib/date"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon } from "@hugeicons/core-free-icons"
+import { Trash2 } from "lucide-react"
 
 interface CompetitionSessionsSectionProps {
   competitionId: string
@@ -73,9 +72,7 @@ export function CompetitionSessionsSection({
         discipline: form.discipline.trim() || null,
         create_calendar_event: form.createEvent,
         starts_at:
-          form.createEvent && form.time
-            ? `${form.date}T${form.time}:00`
-            : null,
+          form.createEvent && form.time ? `${form.date}T${form.time}:00` : null,
       },
       {
         onSuccess: () => {
@@ -83,7 +80,7 @@ export function CompetitionSessionsSection({
           handleClose()
         },
         onError: (err) => toast.error(getErrorMessage(err)),
-      },
+      }
     )
   }
 
@@ -115,7 +112,7 @@ export function CompetitionSessionsSection({
       {isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
       ) : sessions.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center text-sm">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           {t("noSessions")}
         </p>
       ) : (
@@ -132,7 +129,7 @@ export function CompetitionSessionsSection({
                 <p className="truncate font-medium hover:underline">
                   {session.name || formatDate(session.date, locale)}
                 </p>
-                <p className="text-muted-foreground truncate text-xs">
+                <p className="truncate text-xs text-muted-foreground">
                   {formatDate(session.date, locale)}
                   {session.discipline ? ` · ${session.discipline}` : ""}
                   {session.location ? ` · ${session.location}` : ""}
@@ -154,7 +151,7 @@ export function CompetitionSessionsSection({
                   onClick={() => setDeleteId(session.id)}
                   aria-label={tc("delete")}
                 >
-                  <HugeiconsIcon icon={Delete02Icon} size={14} />
+                  <Trash2 size={14} />
                 </Button>
               </div>
             </li>
@@ -224,7 +221,7 @@ export function CompetitionSessionsSection({
                     setForm((p) => ({ ...p, time: e.target.value }))
                   }
                 />
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-muted-foreground">
                   {t("createLinkedEventHint")}
                 </p>
               </div>

@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowDown01Icon, Search01Icon } from "@hugeicons/core-free-icons"
+import { ChevronDown, Search } from "lucide-react"
 
 import {
   Popover,
@@ -114,8 +113,7 @@ export function MemberSwitcher({ currentId, currentLabel }: MemberSwitcherProps)
         <h1 className="whitespace-nowrap text-2xl font-bold tracking-tight">
           {currentLabel}
         </h1>
-        <HugeiconsIcon
-          icon={ArrowDown01Icon}
+        <ChevronDown
           size={16}
           className="shrink-0 text-muted-foreground transition-transform group-data-[popup-open]/switcher:rotate-180"
         />
@@ -126,8 +124,7 @@ export function MemberSwitcher({ currentId, currentLabel }: MemberSwitcherProps)
         className="w-80 gap-0 p-0"
       >
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <HugeiconsIcon
-            icon={Search01Icon}
+          <Search
             size={14}
             className="shrink-0 text-muted-foreground"
           />

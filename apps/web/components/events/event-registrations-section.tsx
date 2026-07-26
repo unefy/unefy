@@ -18,8 +18,7 @@ import { SectionHeading } from "@/components/layout/section-heading"
 import { useRegisterMember, useUnregisterMember } from "@/hooks/use-events"
 import { useMembers } from "@/hooks/use-members"
 import { useErrorMessage } from "@/lib/errors"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon } from "@hugeicons/core-free-icons"
+import { Trash2 } from "lucide-react"
 import type { ClubEventDetail } from "@/lib/types/event"
 
 interface EventRegistrationsSectionProps {
@@ -108,7 +107,7 @@ export function EventRegistrationsSection({
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label={tc("delete")}
               >
-                <HugeiconsIcon icon={Delete02Icon} size={15} />
+                <Trash2 size={15} />
               </button>
             </div>
           ))}

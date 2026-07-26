@@ -22,12 +22,7 @@ import { DataTable } from "@/components/common/data-table"
 import { buildDuesColumns } from "@/components/dues/dues-columns"
 import { useCancelDue, useDues, usePayDue, useReopenDue } from "@/hooks/use-dues"
 import { useErrorMessage } from "@/lib/errors"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ArrowLeft01Icon,
-  ArrowRight01Icon,
-  MoreHorizontalIcon,
-} from "@hugeicons/core-free-icons"
+import { ChevronLeft, ChevronRight, Ellipsis } from "lucide-react"
 import type { Due } from "@/lib/types/due"
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -100,7 +95,7 @@ export function DuesTable() {
                   disabled={pendingId === due.id}
                   aria-label={t("actions")}
                 >
-                  <HugeiconsIcon icon={MoreHorizontalIcon} size={16} />
+                  <Ellipsis size={16} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {due.status === "open" && (
@@ -206,7 +201,7 @@ export function DuesTable() {
               onClick={() => updateParams({ page: String(page - 1) })}
               aria-label={tc("previous")}
             >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={14} />
+              <ChevronLeft size={14} />
             </Button>
             <span className="flex items-center px-2 text-sm">
               {page} / {meta.total_pages}
@@ -218,7 +213,7 @@ export function DuesTable() {
               onClick={() => updateParams({ page: String(page + 1) })}
               aria-label={tc("next")}
             >
-              <HugeiconsIcon icon={ArrowRight01Icon} size={14} />
+              <ChevronRight size={14} />
             </Button>
           </div>
         </div>

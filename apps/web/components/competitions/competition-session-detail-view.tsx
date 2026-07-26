@@ -46,8 +46,7 @@ import {
 import { useMembers } from "@/hooks/use-members"
 import { useErrorMessage } from "@/lib/errors"
 import { formatDate } from "@/lib/date"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons"
+import { Trash2, Pencil } from "lucide-react"
 import type { CompetitionEntry } from "@/lib/types/competition"
 
 interface CompetitionSessionDetailViewProps {
@@ -71,7 +70,7 @@ export function CompetitionSessionDetailView({
   const { data: sessionsData } = useCompetitionSessions(competitionId)
   const { data: entriesData, isLoading } = useSessionEntries(
     competitionId,
-    sessionId,
+    sessionId
   )
   const { data: membersData } = useMembers({ per_page: 100 })
   const createEntry = useCreateEntry(competitionId, sessionId)
@@ -97,7 +96,7 @@ export function CompetitionSessionDetailView({
     const list = [...(entriesData?.data ?? [])]
     const reverse = competition?.scoring_mode !== "lowest_wins"
     list.sort((a, b) =>
-      reverse ? b.score_value - a.score_value : a.score_value - b.score_value,
+      reverse ? b.score_value - a.score_value : a.score_value - b.score_value
     )
     return list
   }, [entriesData, competition])
@@ -147,7 +146,7 @@ export function CompetitionSessionDetailView({
           entryId: editEntry.id,
           data: { score_value: scoreValue, notes: form.notes.trim() || null },
         },
-        options,
+        options
       )
     } else {
       createEntry.mutate(
@@ -159,7 +158,7 @@ export function CompetitionSessionDetailView({
           recorded_at: new Date().toISOString(),
           notes: form.notes.trim() || null,
         },
-        options,
+        options
       )
     }
   }
@@ -193,7 +192,7 @@ export function CompetitionSessionDetailView({
         description={
           <span className="flex items-center gap-2">
             <Badge variant="secondary">{competition.name}</Badge>
-            <span className="text-muted-foreground text-sm">
+            <span className="text-sm text-muted-foreground">
               {formatDate(session.date, locale)}
               {session.discipline ? ` · ${session.discipline}` : ""}
               {session.location ? ` · ${session.location}` : ""}
@@ -222,7 +221,7 @@ export function CompetitionSessionDetailView({
       {isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
       ) : entries.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center text-sm">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           {t("noResults")}
         </p>
       ) : (
@@ -253,11 +252,11 @@ export function CompetitionSessionDetailView({
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
                     {entry.score_value.toLocaleString(locale)}{" "}
-                    <span className="text-muted-foreground font-normal">
+                    <span className="font-normal text-muted-foreground">
                       {entry.score_unit}
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground max-w-64 truncate text-sm">
+                  <TableCell className="max-w-64 truncate text-sm text-muted-foreground">
                     {entry.notes}
                   </TableCell>
                   <TableCell>
@@ -268,7 +267,7 @@ export function CompetitionSessionDetailView({
                         onClick={() => openEdit(entry)}
                         aria-label={tc("edit")}
                       >
-                        <HugeiconsIcon icon={PencilEdit02Icon} size={14} />
+                        <Pencil size={14} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -276,7 +275,7 @@ export function CompetitionSessionDetailView({
                         onClick={() => setDeleteId(entry.id)}
                         aria-label={tc("delete")}
                       >
-                        <HugeiconsIcon icon={Delete02Icon} size={14} />
+                        <Trash2 size={14} />
                       </Button>
                     </div>
                   </TableCell>

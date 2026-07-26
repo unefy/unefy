@@ -19,12 +19,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { useCreateMember } from "@/hooks/use-members"
 import { toast } from "sonner"
 import { useErrorMessage } from "@/lib/errors"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  UserIcon,
-  Location01Icon,
-  UserMultiple02Icon,
-} from "@hugeicons/core-free-icons"
+import { User, MapPin, UsersRound } from "lucide-react"
 import type { MemberCreate } from "@/lib/types/member"
 
 const EMPTY_FORM: MemberCreate = {
@@ -106,15 +101,15 @@ export function MemberCreateDialog() {
           <Tabs value={step} onValueChange={(v) => setStep(v as Step)}>
             <TabsList>
               <TabsTrigger value="personal">
-                <HugeiconsIcon icon={UserIcon} size={14} />
+                <User size={14} />
                 {t("personalInfo")}
               </TabsTrigger>
               <TabsTrigger value="contact">
-                <HugeiconsIcon icon={Location01Icon} size={14} />
+                <MapPin size={14} />
                 {t("address")}
               </TabsTrigger>
               <TabsTrigger value="membership">
-                <HugeiconsIcon icon={UserMultiple02Icon} size={14} />
+                <UsersRound size={14} />
                 {t("membershipInfo")}
               </TabsTrigger>
             </TabsList>

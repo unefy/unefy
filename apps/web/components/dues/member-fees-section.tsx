@@ -23,8 +23,7 @@ import {
 import { useErrorMessage } from "@/lib/errors"
 import { formatCurrency } from "@/lib/currency"
 import { formatDate } from "@/lib/date"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon } from "@hugeicons/core-free-icons"
+import { Trash2 } from "lucide-react"
 
 interface MemberFeesSectionProps {
   memberId: string
@@ -117,7 +116,7 @@ export function MemberFeesSection({ memberId }: MemberFeesSectionProps) {
                     className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                     aria-label={tc("delete")}
                   >
-                    <HugeiconsIcon icon={Delete02Icon} size={15} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               )

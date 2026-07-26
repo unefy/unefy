@@ -60,7 +60,7 @@ Each "Island" is its own async Server Component that fetches independently.
 - **React 19** with Server Components where appropriate
 - **Tailwind CSS v4** with @theme tokens
 - **shadcn/ui v4** (base-ui based) for UI components
-- **Hugeicons** for iconography
+- **Lucide** (`lucide-react`) for iconography
 - **next-themes** for dark/light mode
 - **Zod** for schema validation
 - **React Hook Form** for complex forms

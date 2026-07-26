@@ -58,7 +58,7 @@ export function CompetitionDetailView({
 
   function handleChange<K extends keyof CompetitionFormState>(
     name: K,
-    value: CompetitionFormState[K],
+    value: CompetitionFormState[K]
   ) {
     setForm((prev) => ({ ...prev, [name]: value }))
     setDirty(true)
@@ -73,7 +73,7 @@ export function CompetitionDetailView({
           setDirty(false)
         },
         onError: (err) => toast.error(getErrorMessage(err)),
-      },
+      }
     )
   }
 
@@ -114,7 +114,10 @@ export function CompetitionDetailView({
         }
       >
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push("/competitions")}>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/competitions")}
+          >
             ← {t("title")}
           </Button>
           {dirty && (

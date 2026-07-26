@@ -4,8 +4,7 @@ import * as React from "react"
 import { format, parse, isValid } from "date-fns"
 import { de, enUS } from "date-fns/locale"
 import { useLocale } from "next-intl"
-import { Calendar03Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { Calendar as CalendarIcon } from "lucide-react"
 
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -126,7 +125,7 @@ export function DatePicker({
           aria-label="Open calendar"
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
         >
-          <HugeiconsIcon icon={Calendar03Icon} size={16} />
+          <CalendarIcon size={16} />
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="end">
           <Calendar

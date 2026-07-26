@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/common/data-table"
 import { useEvents } from "@/hooks/use-events"
 import { formatDate } from "@/lib/date"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import type { ClubEvent } from "@/lib/types/event"
 
 interface EventsTableProps {
@@ -185,7 +184,7 @@ export function EventsTable({ scope }: EventsTableProps) {
               onClick={() => updateParams({ page: String(page - 1) })}
               aria-label={tc("previous")}
             >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={14} />
+              <ChevronLeft size={14} />
             </Button>
             <span className="flex items-center px-2 text-sm">
               {page} / {meta.total_pages}
@@ -197,7 +196,7 @@ export function EventsTable({ scope }: EventsTableProps) {
               onClick={() => updateParams({ page: String(page + 1) })}
               aria-label={tc("next")}
             >
-              <HugeiconsIcon icon={ArrowRight01Icon} size={14} />
+              <ChevronRight size={14} />
             </Button>
           </div>
         </div>

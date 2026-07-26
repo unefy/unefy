@@ -47,7 +47,7 @@ export function useCompetition(id: string) {
     queryKey: competitionKeys.detail(id),
     queryFn: async () => {
       const res = await apiFetch<{ data: Competition }>(
-        `/api/v1/competitions/${id}`,
+        `/api/v1/competitions/${id}`
       )
       return res.data
     },
@@ -59,10 +59,13 @@ export function useCreateCompetition() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (data: CompetitionCreate) => {
-      const res = await apiFetch<{ data: Competition }>("/api/v1/competitions", {
-        method: "POST",
-        body: JSON.stringify(data),
-      })
+      const res = await apiFetch<{ data: Competition }>(
+        "/api/v1/competitions",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      )
       return res.data
     },
     onSuccess: () => {
@@ -83,7 +86,7 @@ export function useUpdateCompetition() {
     }) => {
       const res = await apiFetch<{ data: Competition }>(
         `/api/v1/competitions/${id}`,
-        { method: "PATCH", body: JSON.stringify(data) },
+        { method: "PATCH", body: JSON.stringify(data) }
       )
       return res.data
     },
@@ -109,7 +112,7 @@ export function useCompetitionSessions(competitionId: string) {
     queryKey: competitionKeys.sessions(competitionId),
     queryFn: () =>
       apiFetch<SessionListResponse>(
-        `/api/v1/competitions/${competitionId}/sessions?per_page=500`,
+        `/api/v1/competitions/${competitionId}/sessions?per_page=500`
       ),
     enabled: !!competitionId,
   })
@@ -121,7 +124,7 @@ export function useCreateSession(competitionId: string) {
     mutationFn: async (data: SessionCreate) => {
       const res = await apiFetch<{ data: CompetitionSession }>(
         `/api/v1/competitions/${competitionId}/sessions`,
-        { method: "POST", body: JSON.stringify(data) },
+        { method: "POST", body: JSON.stringify(data) }
       )
       return res.data
     },
@@ -139,7 +142,7 @@ export function useSessionEntries(competitionId: string, sessionId: string) {
     queryKey: competitionKeys.entries(competitionId, sessionId),
     queryFn: () =>
       apiFetch<EntryListResponse>(
-        `/api/v1/competitions/${competitionId}/sessions/${sessionId}/entries?per_page=500`,
+        `/api/v1/competitions/${competitionId}/sessions/${sessionId}/entries?per_page=500`
       ),
     enabled: !!competitionId && !!sessionId,
   })
@@ -150,7 +153,7 @@ export function useScoreboard(competitionId: string) {
     queryKey: competitionKeys.scoreboard(competitionId),
     queryFn: () =>
       apiFetch<ScoreboardResponse>(
-        `/api/v1/competitions/${competitionId}/scoreboard`,
+        `/api/v1/competitions/${competitionId}/scoreboard`
       ),
     enabled: !!competitionId,
   })
@@ -174,7 +177,7 @@ export function useCreateEntry(competitionId: string, sessionId: string) {
     mutationFn: async (data: EntryCreate) => {
       const res = await apiFetch<{ data: CompetitionEntry }>(
         `/api/v1/competitions/${competitionId}/sessions/${sessionId}/entries`,
-        { method: "POST", body: JSON.stringify(data) },
+        { method: "POST", body: JSON.stringify(data) }
       )
       return res.data
     },
@@ -194,7 +197,7 @@ export function useUpdateEntry(competitionId: string, sessionId: string) {
     }) => {
       const res = await apiFetch<{ data: CompetitionEntry }>(
         `/api/v1/competitions/${competitionId}/sessions/${sessionId}/entries/${entryId}`,
-        { method: "PATCH", body: JSON.stringify(data) },
+        { method: "PATCH", body: JSON.stringify(data) }
       )
       return res.data
     },
@@ -208,7 +211,7 @@ export function useDeleteEntry(competitionId: string, sessionId: string) {
     mutationFn: (entryId: string) =>
       apiFetch<void>(
         `/api/v1/competitions/${competitionId}/sessions/${sessionId}/entries/${entryId}`,
-        { method: "DELETE" },
+        { method: "DELETE" }
       ),
     onSuccess: invalidate,
   })
@@ -220,7 +223,7 @@ export function useDeleteSession(competitionId: string) {
     mutationFn: (sessionId: string) =>
       apiFetch<void>(
         `/api/v1/competitions/${competitionId}/sessions/${sessionId}`,
-        { method: "DELETE" },
+        { method: "DELETE" }
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({

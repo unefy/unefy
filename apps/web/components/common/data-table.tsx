@@ -33,12 +33,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
 } from "@dnd-kit/sortable"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  ArrowDataTransferHorizontalIcon,
-} from "@hugeicons/core-free-icons"
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react"
 
 import {
   Table,
@@ -118,6 +113,8 @@ function DraggableHeader<TData>({
 
   const canSort = header.column.getCanSort()
   const sorted = header.column.getIsSorted()
+  const SortIcon =
+    sorted === "asc" ? ChevronUp : sorted === "desc" ? ChevronDown : ChevronsUpDown
   const width = header.getSize()
 
   // Propagate the per-column horizontal transform so body cells of the same
@@ -163,14 +160,7 @@ function DraggableHeader<TData>({
           className="flex items-center gap-1.5 hover:text-foreground transition-colors"
         >
           {flexRender(header.column.columnDef.header, header.getContext())}
-          <HugeiconsIcon
-            icon={
-              sorted === "asc"
-                ? ArrowUp01Icon
-                : sorted === "desc"
-                  ? ArrowDown01Icon
-                  : ArrowDataTransferHorizontalIcon
-            }
+          <SortIcon
             size={12}
             className={cn(
               "shrink-0 transition-opacity",

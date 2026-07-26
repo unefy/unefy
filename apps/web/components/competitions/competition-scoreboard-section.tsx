@@ -48,7 +48,7 @@ export function CompetitionScoreboardSection({
       {isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
       ) : rows.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center text-sm">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           {t("noScoreboard")}
         </p>
       ) : (
@@ -82,19 +82,19 @@ export function CompetitionScoreboardSection({
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
                     {row.total_score.toLocaleString(locale)}{" "}
-                    <span className="text-muted-foreground font-normal">
+                    <span className="font-normal text-muted-foreground">
                       {data?.scoring_unit}
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-right tabular-nums">
+                  <TableCell className="text-right text-muted-foreground tabular-nums">
                     {row.entry_count}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-right tabular-nums">
+                  <TableCell className="text-right text-muted-foreground tabular-nums">
                     {row.average_score.toLocaleString(locale, {
                       maximumFractionDigits: 2,
                     })}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-right tabular-nums">
+                  <TableCell className="text-right text-muted-foreground tabular-nums">
                     {row.best_score.toLocaleString(locale)}
                   </TableCell>
                 </TableRow>

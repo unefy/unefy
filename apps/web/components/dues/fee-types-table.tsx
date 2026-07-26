@@ -18,8 +18,7 @@ import { FeeTypeDialog } from "@/components/dues/fee-type-dialog"
 import { useDeleteFeeType, useFeeTypes } from "@/hooks/use-dues"
 import { useErrorMessage } from "@/lib/errors"
 import { formatCurrency } from "@/lib/currency"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Delete02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons"
+import { Trash2, Pencil } from "lucide-react"
 import type { FeeType } from "@/lib/types/due"
 
 export function FeeTypesTable() {
@@ -120,14 +119,14 @@ export function FeeTypesTable() {
                         className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                         aria-label={tc("edit")}
                       >
-                        <HugeiconsIcon icon={PencilEdit02Icon} size={15} />
+                        <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => setDeleting(feeType)}
                         className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                         aria-label={tc("delete")}
                       >
-                        <HugeiconsIcon icon={Delete02Icon} size={15} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </TableCell>

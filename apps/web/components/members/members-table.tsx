@@ -25,12 +25,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useErrorMessage } from "@/lib/errors"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Delete02Icon,
-  ArrowLeft01Icon,
-  ArrowRight01Icon,
-} from "@hugeicons/core-free-icons"
+import { Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { useClub } from "@/hooks/use-club"
 import { getStatusLabel, parseMemberStatuses } from "@/lib/types/club"
 import { DataTable } from "@/components/common/data-table"
@@ -267,7 +262,7 @@ export function MembersTable() {
                 onClick={() => setConfirmBulkDelete(true)}
                 disabled={bulkDelete.isPending}
               >
-                <HugeiconsIcon icon={Delete02Icon} size={14} />
+                <Trash2 size={14} />
                 {tc("delete")}
               </Button>
             </>
@@ -339,7 +334,7 @@ export function MembersTable() {
               onClick={() => updateParams({ page: String(page - 1) })}
               aria-label={tc("previous")}
             >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={14} />
+              <ChevronLeft size={14} />
             </Button>
             <span className="flex items-center px-2 text-sm">
               {page} / {meta.total_pages}
@@ -351,7 +346,7 @@ export function MembersTable() {
               onClick={() => updateParams({ page: String(page + 1) })}
               aria-label={tc("next")}
             >
-              <HugeiconsIcon icon={ArrowRight01Icon} size={14} />
+              <ChevronRight size={14} />
             </Button>
           </div>
         </div>

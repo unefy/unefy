@@ -1,7 +1,6 @@
 "use client"
 
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ColumnsThreeCogIcon } from "@hugeicons/core-free-icons"
+import { Columns3Cog } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +38,7 @@ export function ColumnSettings({
       <DropdownMenuTrigger
         render={
           <Button variant="outline" size="sm">
-            <HugeiconsIcon icon={ColumnsThreeCogIcon} size={14} />
+            <Columns3Cog size={14} />
             {triggerLabel}
           </Button>
         }

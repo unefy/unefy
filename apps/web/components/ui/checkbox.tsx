@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Tick02Icon, MinusSignIcon } from "@hugeicons/core-free-icons"
+import { Check, Minus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -20,14 +19,12 @@ function Checkbox({
       )}
       {...props}
     >
-      <HugeiconsIcon
-        icon={Tick02Icon}
+      <Check
         size={12}
         strokeWidth={3}
         className="hidden group-data-checked:block"
       />
-      <HugeiconsIcon
-        icon={MinusSignIcon}
+      <Minus
         size={12}
         strokeWidth={3}
         className="hidden group-data-indeterminate:block"

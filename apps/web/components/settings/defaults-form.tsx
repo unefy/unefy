@@ -2,8 +2,7 @@
 
 import { useMemo } from "react"
 import { useTranslations } from "next-intl"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete02Icon, LockPasswordIcon } from "@hugeicons/core-free-icons"
+import { Plus, Trash2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -221,7 +220,7 @@ export function DefaultsForm() {
                     aria-label={t("systemEntry")}
                     title={t("systemEntry")}
                   >
-                    <HugeiconsIcon icon={LockPasswordIcon} size={16} />
+                    <Lock size={16} />
                   </div>
                 ) : (
                   <Button
@@ -231,7 +230,7 @@ export function DefaultsForm() {
                     onClick={() => removeStatus(index)}
                     aria-label={t("removeStatus")}
                   >
-                    <HugeiconsIcon icon={Delete02Icon} size={16} />
+                    <Trash2 size={16} />
                   </Button>
                 )}
               </div>
@@ -243,7 +242,7 @@ export function DefaultsForm() {
             size="sm"
             onClick={addStatus}
           >
-            <HugeiconsIcon icon={Add01Icon} size={16} />
+            <Plus size={16} />
             {t("addStatus")}
           </Button>
           <p className="text-muted-foreground text-xs pt-2">
