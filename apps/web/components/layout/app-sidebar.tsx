@@ -21,6 +21,7 @@ import {
   Home03Icon,
   UserGroupIcon,
   Calendar03Icon,
+  ChampionIcon,
   Invoice02Icon,
   Settings02Icon,
   Logout03Icon,
@@ -48,6 +49,7 @@ const navigationItems = [
   { key: "dashboard" as const, href: "/", icon: Home03Icon },
   { key: "members" as const, href: "/members", icon: UserGroupIcon },
   { key: "events" as const, href: "/events", icon: Calendar03Icon },
+  { key: "competitions" as const, href: "/competitions", icon: ChampionIcon },
   { key: "dues" as const, href: "/dues", icon: Invoice02Icon },
   { key: "settings" as const, href: "/settings", icon: Settings02Icon },
 ]

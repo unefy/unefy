@@ -20,6 +20,7 @@ export interface EventListParams {
   event_type?: string
   starts_after?: string
   starts_before?: string
+  competition_id?: string
   sort_order?: "asc" | "desc"
 }
 
