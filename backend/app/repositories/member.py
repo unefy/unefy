@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import func, or_, select
 
 from app.models.member import Member
@@ -24,7 +26,7 @@ class MemberRepository(
 ):
     model_class = Member
 
-    async def get_all(  # type: ignore[override]
+    async def get_all(
         self,
         *,
         offset: int = 0,
@@ -90,7 +92,7 @@ class MemberRepository(
         result = await self.session.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
-    async def count(  # type: ignore[override]
+    async def count(
         self,
         *,
         status: str | None = None,
@@ -116,3 +118,13 @@ class MemberRepository(
             )
         result = await self.session.execute(query)
         return result.scalar_one()
+
+    async def get_by_user_id(self, user_id: uuid.UUID) -> Member | None:
+        """The member record belonging to a login account, if one is linked.
+
+        Not every user is a member (an admin may only administer), and not every
+        member has a login. Self-service endpoints need the link to exist.
+        """
+        query = self._base_query().where(Member.user_id == user_id)
+        result = await self.session.execute(query)
+        return result.scalars().first()

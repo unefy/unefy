@@ -1,0 +1,153 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+# Task runner for the unefy monorepo.
+#
+# Everything runs against the docker compose stack, so a fresh machine needs
+# only `mise run up` — no local Python, Node or Postgres.
+#
+#   mise tasks            list everything below
+#   mise run <task>       run one
+
+[tools]
+python = "3.13"
+node = "22"
+uv = "latest"
+
+[env]
+COMPOSE_FILE = "docker-compose.yml"
+
+# --- Stack ---
+
+[tasks.up]
+description = "Start the full stack (web, backend, postgres, redis)"
+run = "docker compose up -d --wait"
+
+[tasks.down]
+description = "Stop the stack, keeping database volumes"
+run = "docker compose down"
+
+[tasks.reset]
+description = "Stop the stack and DELETE all data, then start fresh"
+run = """
+docker compose down -v
+docker compose up -d --wait
+docker compose exec -T backend uv run python scripts/seed_catalog.py
+"""
+
+[tasks.rebuild]
+description = "Rebuild images (after dependency changes) and restart"
+run = """
+docker compose build
+docker compose up -d --wait
+"""
+
+[tasks.logs]
+description = "Follow logs — pass a service name to narrow, e.g. mise run logs -- backend"
+run = "docker compose logs -f --tail=100"
+
+[tasks.ps]
+description = "Show container status"
+run = "docker compose ps"
+
+# --- Platform admins ---
+
+[tasks.superuser]
+description = "Manage platform admins: mise run superuser -- grant <email> --create"
+run = "docker compose exec -T backend uv run python scripts/create_superuser.py"
+
+[tasks.login]
+description = "Mint a dev session: mise run login -- <email> [--tenant-slug <slug>]"
+# Local development only — the script refuses to run unless DEBUG is set.
+# Web login goes through Google OAuth; magic link is not implemented yet.
+run = "docker compose exec -T backend uv run python scripts/dev_login.py"
+
+[tasks."superuser:list"]
+description = "List all platform admins"
+run = "docker compose exec -T backend uv run python scripts/create_superuser.py list"
+
+# --- Database ---
+
+[tasks.migrate]
+description = "Apply all pending Alembic migrations"
+run = "docker compose exec -T backend uv run alembic upgrade head"
+
+[tasks.migration]
+description = "Create a migration: mise run migration -- -m \"add sports table\""
+run = "docker compose exec -T backend uv run alembic revision --autogenerate"
+
+[tasks."seed:catalog"]
+description = "Populate the global catalog (sports, units, disciplines) — idempotent"
+# No longer runs on app start: the catalog is admin-maintained master data,
+# and re-seeding on every boot would resurrect deleted entries.
+run = "docker compose exec -T backend uv run python scripts/seed_catalog.py"
+
+[tasks.seed]
+description = "Seed the local test club with members, dues and events"
+depends = ["seed:catalog"]
+run = "docker compose exec -T backend uv run python scripts/seed_testdata.py"
+
+[tasks.psql]
+description = "Open a psql shell on the dev database"
+run = "docker compose exec postgres psql -U unefy -d unefy"
+
+# --- Tests ---
+
+[tasks.test]
+description = "Run backend and web checks"
+depends = ["test:backend", "test:web"]
+
+[tasks."test:backend"]
+description = "Run the pytest suite"
+# Inside the container Postgres is `postgres:5432`, not the host's mapped
+# `localhost:5433` that conftest defaults to. The test database is created on
+# demand so a fresh stack needs no manual setup.
+run = """
+docker compose exec -T postgres psql -U unefy -d unefy -tAc \
+  "SELECT 1 FROM pg_database WHERE datname='unefy_test'" | grep -q 1 \
+  || docker compose exec -T postgres createdb -U unefy unefy_test
+docker compose exec -T \
+  -e TEST_DATABASE_URL=postgresql+asyncpg://unefy:unefy@postgres:5432/unefy_test \
+  backend uv run pytest
+"""
+
+[tasks."test:web"]
+description = "Typecheck and lint the web app (no test runner yet)"
+dir = "apps/web"
+run = """
+npm run typecheck
+npm run lint
+"""
+
+# --- Quality ---
+
+[tasks.lint]
+description = "Lint backend and web"
+run = """
+docker compose exec -T backend uv run ruff check .
+cd apps/web && npm run lint
+"""
+
+[tasks."typecheck:backend"]
+description = "Run mypy --strict (has a known pre-existing backlog, see below)"
+# Kept out of `lint` on purpose: the repo currently has ~93 strict-mode errors
+# that predate the admin area, so wiring it into the everyday task would mean
+# a permanently red check that everyone learns to ignore. Run it deliberately,
+# and keep new modules clean.
+run = "docker compose exec -T backend uv run mypy app"
+
+[tasks.format]
+description = "Format backend and web"
+run = """
+docker compose exec -T backend uv run ruff format .
+cd apps/web && npm run format
+"""
+
+# --- Shells ---
+
+[tasks."shell:backend"]
+description = "Open a shell in the backend container"
+run = "docker compose exec backend bash"
+
+[tasks."shell:web"]
+description = "Open a shell in the web container"
+run = "docker compose exec web sh"

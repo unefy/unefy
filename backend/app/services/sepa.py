@@ -135,5 +135,5 @@ def build_pain008(
         rmt_inf = SubElement(tx, "RmtInf")
         SubElement(rmt_inf, "Ustrd").text = sanitize_sepa_text(payment.remittance_info, 140)
 
-    xml_bytes = tostring(root, encoding="utf-8", xml_declaration=True)
+    xml_bytes: bytes = tostring(root, encoding="utf-8", xml_declaration=True)
     return xml_bytes.decode("utf-8")

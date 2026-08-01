@@ -15,7 +15,7 @@ import time
 import uuid
 from typing import Any
 
-from authlib.jose import JoseError, jwt  # type: ignore[import-untyped]
+from authlib.jose import JoseError, jwt
 
 from app.config import get_settings
 

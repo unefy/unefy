@@ -1,6 +1,7 @@
 import math
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,7 @@ router = APIRouter()
 
 
 def _get_service(session: AsyncSession, auth: AuthContext) -> EventService:
-    return EventService(session, auth.tenant_id)
+    return EventService(session, auth.tenant)
 
 
 @router.get("")
@@ -35,11 +36,11 @@ async def list_events(
     starts_before: datetime | None = Query(default=None),  # noqa: B008
     competition_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     sort_order: str = Query(default="asc", pattern="^(asc|desc)$"),
-) -> dict:
+) -> dict[str, Any]:
     """List events with registration counts."""
     service = _get_service(session, auth)
     offset = (page - 1) * per_page
-    rows = await service.events.get_all(
+    rows = await service.events.list_with_counts(
         offset=offset,
         limit=per_page,
         event_type=event_type,
@@ -74,7 +75,7 @@ async def get_event(
     event_id: uuid.UUID,
     auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Get a single event with its registrations."""
     service = _get_service(session, auth)
     event = await service.events.get_by_id(event_id)
@@ -102,7 +103,7 @@ async def create_event(
     data: EventCreate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Create a new event."""
     service = _get_service(session, auth)
     event = await service.create(data, created_by=auth.user_id)
@@ -118,7 +119,7 @@ async def update_event(
     data: EventUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update an event."""
     service = _get_service(session, auth)
     event = await service.update(event_id, data, updated_by=auth.user_id)
@@ -153,7 +154,7 @@ async def register_member(
     data: EventRegistrationCreate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Register a member for an event (waitlist when full)."""
     service = _get_service(session, auth)
     registration = await service.register(event_id, data, created_by=auth.user_id)

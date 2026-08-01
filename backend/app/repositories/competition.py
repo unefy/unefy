@@ -18,7 +18,7 @@ from app.schemas.competition import (
 
 
 class CompetitionRepository(
-    BaseRepository[Competition, CompetitionCreate, CompetitionUpdate],  # type: ignore[type-var]
+    BaseRepository[Competition, CompetitionCreate, CompetitionUpdate],
 ):
     """Competition repository with idempotent create for offline sync."""
 

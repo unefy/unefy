@@ -14,10 +14,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import AuditMixin, Base, SoftDeleteMixin, TenantMixin
+from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
 
 
-class Event(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Event(TenantModel, AuditMixin, SoftDeleteMixin):
     """A generic club event: training, meeting, celebration, etc.
 
     Sport-specific competition series live in the Competition model;
@@ -30,8 +30,6 @@ class Event(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_events_tenant_session", "tenant_id", "session_id"),
         Index("ix_events_tenant_competition", "tenant_id", "competition_id"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -64,7 +62,7 @@ class Event(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     )
 
 
-class EventRegistration(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class EventRegistration(TenantModel, AuditMixin, SoftDeleteMixin):
     """A member's registration for an event."""
 
     __tablename__ = "event_registrations"
@@ -73,8 +71,6 @@ class EventRegistration(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_event_registrations_tenant_event", "tenant_id", "event_id"),
         Index("ix_event_registrations_tenant_member", "tenant_id", "member_id"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     event_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("events.id", ondelete="CASCADE"), nullable=False

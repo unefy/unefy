@@ -24,7 +24,7 @@ class FeeTypeRepository(BaseRepository[FeeType, FeeTypeCreate, FeeTypeUpdate]):
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all(  # type: ignore[override]
+    async def get_all(
         self,
         *,
         offset: int = 0,
@@ -42,7 +42,7 @@ class FeeTypeRepository(BaseRepository[FeeType, FeeTypeCreate, FeeTypeUpdate]):
 class MemberFeeRepository(BaseRepository[MemberFee, MemberFeeCreate, MemberFeeUpdate]):
     model_class = MemberFee
 
-    async def get_all(  # type: ignore[override]
+    async def get_all(
         self,
         *,
         offset: int = 0,
@@ -104,7 +104,7 @@ class DueRepository(BaseRepository[Due, DueUpdate, DueUpdate]):
             query = query.where(Due.period_start <= date(year, 12, 31))
         return query
 
-    async def get_all(  # type: ignore[override]
+    async def get_all(
         self,
         *,
         offset: int = 0,
@@ -143,7 +143,7 @@ class DueRepository(BaseRepository[Due, DueUpdate, DueUpdate]):
         result = await self.session.execute(query)
         return [(row[0], row[1], row[2]) for row in result.all()]
 
-    async def count(  # type: ignore[override]
+    async def count(
         self,
         *,
         status: str | None = None,

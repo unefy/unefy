@@ -2,22 +2,27 @@ import uuid
 
 from pydantic import BaseModel as PydanticModel
 
-from app.models.base import BaseModel
+from app.models.base import TenantModel
 from app.repositories.base import BaseRepository
 
 
 class BaseService[
-    RepoType: BaseRepository,  # type: ignore[type-arg]
-    ModelType: BaseModel,
+    ModelType: TenantModel,
     CreateSchemaType: PydanticModel,
     UpdateSchemaType: PydanticModel,
 ]:
     """Generic service with standard CRUD operations.
 
     Subclasses add business logic, validation, and side effects.
+
+    The repository is typed by the same parameters rather than being a type
+    parameter of its own: that is what lets `get`/`create`/`update` keep their
+    model type instead of decaying to `Any` at every call site.
     """
 
-    def __init__(self, repository: RepoType) -> None:
+    def __init__(
+        self, repository: BaseRepository[ModelType, CreateSchemaType, UpdateSchemaType]
+    ) -> None:
         self.repository = repository
 
     async def get(self, entity_id: uuid.UUID) -> ModelType | None:

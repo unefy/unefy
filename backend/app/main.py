@@ -24,7 +24,8 @@ def configure_logging(log_level: str) -> None:
             structlog.dev.ConsoleRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
-            structlog.stdlib.NAME_TO_LEVEL[log_level.lower()]
+            # Real attribute, just not re-exported from structlog.stdlib.
+            structlog.stdlib.NAME_TO_LEVEL[log_level.lower()]  # type: ignore[attr-defined]
         ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
@@ -62,13 +63,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     await init_redis()
     logger.info("redis_connected")
 
-    # Seed global data (idempotent).
-    from app.core.seed_disciplines import seed_disciplines
-    from app.database import async_session_factory
-
-    async with async_session_factory() as session:
-        await seed_disciplines(session)
-        await session.commit()
+    # The discipline catalog is *not* seeded here any more. It is now master
+    # data maintained by platform admins through `/api/v1/admin/catalog/…`,
+    # and re-running the seed on every boot would resurrect entries an admin
+    # deliberately removed. Initial population happens once, in the migration
+    # that introduced the catalog; `scripts/seed_catalog.py` can top it up.
 
     yield
 

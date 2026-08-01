@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from sqlalchemy import DateTime, ForeignKey, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    type_annotation_map: ClassVar[dict] = {
+    type_annotation_map: ClassVar[dict[Any, Any]] = {
         uuid.UUID: Uuid,
         datetime: DateTime(timezone=True),
     }
@@ -50,8 +50,17 @@ class AuditMixin(TimestampMixin):
     updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
 
 
-class BaseModel(Base, TimestampMixin, TenantMixin):
-    """Abstract base for all tenant-scoped models."""
+class TenantModel(Base, TenantMixin):
+    """Abstract base for tenant-scoped models with a UUID primary key.
+
+    The repository layer is generic over this class, and that is the point:
+    it makes `model_class.tenant_id` an attribute the type checker verifies
+    rather than one the code hopes for. Tenant scoping is the invariant that
+    must never rest on hope, so it is the one the types pin down.
+
+    Timestamps are deliberately not included — a model picks `TimestampMixin`
+    or `AuditMixin` depending on whether it needs to record who acted.
+    """
 
     __abstract__ = True
 
@@ -60,3 +69,9 @@ class BaseModel(Base, TimestampMixin, TenantMixin):
         primary_key=True,
         default=uuid.uuid4,
     )
+
+
+class BaseModel(TenantModel, TimestampMixin):
+    """Tenant-scoped model with timestamps — the common default."""
+
+    __abstract__ = True

@@ -52,6 +52,29 @@ class AuthContext:
     tenant_id: uuid.UUID | None = None
     role: str | None = None
 
+    # Set only while a platform admin is impersonating. `user_id` remains the
+    # impersonated user, so authorization keeps evaluating the effective
+    # identity — this field exists for audit attribution, never for access.
+    impersonator_id: uuid.UUID | None = None
+
+    @property
+    def is_impersonated(self) -> bool:
+        return self.impersonator_id is not None
+
+    @property
+    def tenant(self) -> uuid.UUID:
+        """The tenant, as a value that is actually there.
+
+        `get_current_user` already refuses a session without one, so every
+        endpoint behind it has a tenant — but `tenant_id` stays optional
+        because onboarding and the platform-admin area legitimately have none.
+        This property states the guarantee once, instead of leaving every
+        repository call site to shrug at `UUID | None`.
+        """
+        if self.tenant_id is None:
+            raise ForbiddenError("No tenant context. Complete onboarding first.")
+        return self.tenant_id
+
 
 class InvalidBearerTokenError(AppError):
     def __init__(self, message: str = "Invalid or expired token") -> None:
@@ -127,8 +150,12 @@ async def _resolve_auth(
 
         data = await get_session_data(session_token)
         if data:
-            user_id, tenant_id, role = data
-            return AuthContext(user_id=user_id, tenant_id=tenant_id, role=role)
+            return AuthContext(
+                user_id=data.user_id,
+                tenant_id=data.tenant_id,
+                role=data.role,
+                impersonator_id=data.impersonator_id,
+            )
 
     # Internal trust headers (BFF)
     x_user_id = request.headers.get("x-user-id")
@@ -180,6 +207,70 @@ async def get_current_user(
 
     if auth.tenant_id is None:
         raise ForbiddenError("No tenant context. Complete onboarding first.")
+
+    return auth
+
+
+async def get_authenticated_user(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> AuthContext:
+    """Resolve an authenticated user without requiring tenant context.
+
+    Used by endpoints that operate outside any club — onboarding and the
+    platform admin area. Prefer `get_current_user` everywhere else: it
+    guarantees a tenant, which tenant-scoped repositories depend on.
+    """
+    auth = await _resolve_auth(request, session)
+    if auth is None:
+        raise ForbiddenError("No valid authentication provided")
+    return auth
+
+
+async def require_platform_admin(
+    request: Request,
+    auth: AuthContext = Depends(get_authenticated_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> AuthContext:
+    """Gate for `/api/v1/admin/…` — the platform operator, above all tenants.
+
+    This deliberately bypasses tenant isolation, so it is the one place where a
+    mistake leaks every club's data. Three rules hold it together:
+
+    1. The flag is read from the database on every request, not from the
+       session — revoking it takes effect immediately instead of at session
+       expiry.
+    2. An impersonated session is rejected outright. `user_id` is already the
+       impersonated (non-admin) user, so the flag check would fail anyway; the
+       explicit check makes the intent non-accidental and survives refactors.
+    3. Failures are logged with the client IP, because probing this endpoint is
+       a meaningful security signal.
+    """
+    if auth.is_impersonated:
+        from app.core.rate_limit import _client_ip
+
+        logger.warning(
+            "platform_admin_denied_impersonated",
+            user_id=str(auth.user_id),
+            impersonator_id=str(auth.impersonator_id),
+            ip=_client_ip(request),
+        )
+        raise ForbiddenError("Platform admin actions are unavailable while impersonating")
+
+    from app.models.user import User
+
+    result = await session.execute(select(User.is_superuser).where(User.id == auth.user_id))
+    is_superuser = result.scalar_one_or_none()
+
+    if not is_superuser:
+        from app.core.rate_limit import _client_ip
+
+        logger.warning(
+            "platform_admin_denied",
+            user_id=str(auth.user_id),
+            ip=_client_ip(request),
+        )
+        raise ForbiddenError("Platform administrator access required")
 
     return auth
 

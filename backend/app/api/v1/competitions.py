@@ -37,17 +37,17 @@ router = APIRouter()
 
 
 def _comp_repo(session: AsyncSession, auth: AuthContext) -> CompetitionRepository:
-    return CompetitionRepository(session, auth.tenant_id)
+    return CompetitionRepository(session, auth.tenant)
 
 
 def _session_repo(
     session: AsyncSession, auth: AuthContext, competition_id: uuid.UUID
 ) -> SessionRepository:
-    return SessionRepository(session, auth.tenant_id, competition_id)
+    return SessionRepository(session, auth.tenant, competition_id)
 
 
 def _entry_repo(session: AsyncSession, auth: AuthContext, session_id: uuid.UUID) -> EntryRepository:
-    return EntryRepository(session, auth.tenant_id, session_id)
+    return EntryRepository(session, auth.tenant, session_id)
 
 
 def _comp_response(c: Any) -> dict[str, Any]:
@@ -160,7 +160,7 @@ async def scoreboard(
     if comp is None:
         raise NotFoundError("Competition not found")
 
-    sb_repo = ScoreboardRepository(session, auth.tenant_id)
+    sb_repo = ScoreboardRepository(session, auth.tenant)
     rows = await sb_repo.scoreboard(competition_id, discipline=discipline)
 
     # Sort by scoring_mode.
@@ -189,7 +189,7 @@ async def list_sessions(
     offset = (page - 1) * per_page
     items = await repo.get_all(offset=offset, limit=per_page)
     total = await repo.count()
-    event_ids = await EventRepository(session, auth.tenant_id).get_event_ids_by_sessions(
+    event_ids = await EventRepository(session, auth.tenant).get_event_ids_by_sessions(
         [s.id for s in items]
     )
     return _paginated(
@@ -216,13 +216,13 @@ async def create_session(
     s = await repo.create(data)
 
     event_id: uuid.UUID | None = None
-    event_repo = EventRepository(session, auth.tenant_id)
+    event_repo = EventRepository(session, auth.tenant)
     existing_event = await event_repo.get_by_session(s.id)
     if existing_event is not None:
         event_id = existing_event.id
     elif data.create_calendar_event:
         starts_at = data.starts_at or datetime.combine(s.date, time(0, 0), tzinfo=UTC)
-        event = await EventService(session, auth.tenant_id).create(
+        event = await EventService(session, auth.tenant).create(
             EventCreate(
                 title=s.name or comp.name,
                 event_type="competition",
@@ -248,7 +248,7 @@ async def delete_session(
     repo = _session_repo(session, auth, competition_id)
     if not await repo.soft_delete(session_id):
         raise NotFoundError("Session not found")
-    event_repo = EventRepository(session, auth.tenant_id)
+    event_repo = EventRepository(session, auth.tenant)
     linked_event = await event_repo.get_by_session(session_id)
     if linked_event is not None:
         await event_repo.soft_delete(linked_event.id)

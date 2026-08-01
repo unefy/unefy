@@ -15,10 +15,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import AuditMixin, Base, SoftDeleteMixin, TenantMixin
+from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
 
 
-class FeeType(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class FeeType(TenantModel, AuditMixin, SoftDeleteMixin):
     """A fee schedule entry (Beitragssatz), e.g. "Erwachsene", "Jugend"."""
 
     __tablename__ = "fee_types"
@@ -26,8 +26,6 @@ class FeeType(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         UniqueConstraint("tenant_id", "name"),
         Index("ix_fee_types_tenant_active", "tenant_id", "is_active"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -41,7 +39,7 @@ class FeeType(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
-class MemberFee(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class MemberFee(TenantModel, AuditMixin, SoftDeleteMixin):
     """Assignment of a fee type to a member, with validity range."""
 
     __tablename__ = "member_fees"
@@ -49,8 +47,6 @@ class MemberFee(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_member_fees_tenant_member", "tenant_id", "member_id"),
         Index("ix_member_fees_tenant_fee_type", "tenant_id", "fee_type_id"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     member_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("members.id"), nullable=False)
     fee_type_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("fee_types.id"), nullable=False)
@@ -61,7 +57,7 @@ class MemberFee(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
-class Due(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Due(TenantModel, AuditMixin, SoftDeleteMixin):
     """An assessed open item (Sollstellung) for a member and billing period."""
 
     __tablename__ = "dues"
@@ -72,8 +68,6 @@ class Due(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_dues_tenant_member", "tenant_id", "member_id"),
         Index("ix_dues_tenant_period", "tenant_id", "period_start"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     member_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("members.id"), nullable=False)
     fee_type_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("fee_types.id"), nullable=False)

@@ -1,16 +1,17 @@
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel as PydanticModel
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.base import BaseModel
+from app.models.base import TenantModel
 
 
 class BaseRepository[
-    ModelType: BaseModel,
+    ModelType: TenantModel,
     CreateSchemaType: PydanticModel,
     UpdateSchemaType: PydanticModel,
 ]:
@@ -26,10 +27,20 @@ class BaseRepository[
         self.session = session
         self.tenant_id = tenant_id
 
-    def _base_query(self) -> Any:
+    def _deleted_at(self) -> Any:
+        """The soft-delete column, or None for models that hard-delete.
+
+        Looked up rather than declared: soft delete is opt-in per model, and a
+        base class that required the column would force it on models that have
+        no business keeping tombstones.
+        """
+        return getattr(self.model_class, "deleted_at", None)
+
+    def _base_query(self) -> Select[tuple[ModelType]]:
         query = select(self.model_class).where(self.model_class.tenant_id == self.tenant_id)
-        if hasattr(self.model_class, "deleted_at"):
-            query = query.where(self.model_class.deleted_at.is_(None))
+        deleted_at = self._deleted_at()
+        if deleted_at is not None:
+            query = query.where(deleted_at.is_(None))
         return query
 
     async def get_by_id(self, entity_id: uuid.UUID) -> ModelType | None:
@@ -53,8 +64,9 @@ class BaseRepository[
             .select_from(self.model_class)
             .where(self.model_class.tenant_id == self.tenant_id)
         )
-        if hasattr(self.model_class, "deleted_at"):
-            query = query.where(self.model_class.deleted_at.is_(None))
+        deleted_at = self._deleted_at()
+        if deleted_at is not None:
+            query = query.where(deleted_at.is_(None))
         result = await self.session.execute(query)
         return result.scalar_one()
 
@@ -82,13 +94,11 @@ class BaseRepository[
         entity = await self.get_by_id(entity_id)
         if entity is None:
             return False
-        if hasattr(entity, "deleted_at"):
-            from datetime import UTC, datetime
-
-            entity.deleted_at = datetime.now(UTC)
-            await self.session.flush()
-            return True
-        return False
+        if self._deleted_at() is None:
+            return False
+        entity.deleted_at = datetime.now(UTC)  # type: ignore[attr-defined]
+        await self.session.flush()
+        return True
 
     async def soft_delete_many(self, entity_ids: Sequence[uuid.UUID]) -> int:
         """Soft-delete multiple entities in a single UPDATE.
@@ -97,20 +107,18 @@ class BaseRepository[
         """
         if not entity_ids:
             return 0
-        if not hasattr(self.model_class, "deleted_at"):
+        deleted_at = self._deleted_at()
+        if deleted_at is None:
             return 0
-
-        from datetime import UTC, datetime
-
-        from sqlalchemy import update
 
         stmt = (
             update(self.model_class)
             .where(self.model_class.tenant_id == self.tenant_id)
             .where(self.model_class.id.in_(entity_ids))
-            .where(self.model_class.deleted_at.is_(None))
+            .where(deleted_at.is_(None))
             .values(deleted_at=datetime.now(UTC))
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount or 0
+        # CursorResult carries rowcount; the base Result type does not.
+        return int(result.rowcount or 0)  # type: ignore[attr-defined]

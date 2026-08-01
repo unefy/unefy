@@ -1,6 +1,7 @@
 import math
 import uuid
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -28,7 +29,7 @@ router = APIRouter()
 
 
 def _get_service(session: AsyncSession, auth: AuthContext) -> DueService:
-    return DueService(session, auth.tenant_id)
+    return DueService(session, auth.tenant)
 
 
 # --- Fee types ---
@@ -39,7 +40,7 @@ async def list_fee_types(
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     include_inactive: bool = Query(default=False),
-) -> dict:
+) -> dict[str, Any]:
     """List fee types."""
     service = _get_service(session, auth)
     fee_types = await service.fee_types.get_all(include_inactive=include_inactive)
@@ -51,7 +52,7 @@ async def create_fee_type(
     data: FeeTypeCreate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Create a fee type."""
     service = _get_service(session, auth)
     fee_type = await service.create_fee_type(data, created_by=auth.user_id)
@@ -64,7 +65,7 @@ async def update_fee_type(
     data: FeeTypeUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update a fee type."""
     service = _get_service(session, auth)
     fee_type = await service.update_fee_type(fee_type_id, data, updated_by=auth.user_id)
@@ -95,7 +96,7 @@ async def list_assignments(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     member_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     fee_type_id: uuid.UUID | None = Query(default=None),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """List member fee assignments, optionally filtered."""
     service = _get_service(session, auth)
     assignments = await service.member_fees.get_all(
@@ -111,7 +112,7 @@ async def create_assignment(
     data: MemberFeeCreate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Assign a fee type to a member."""
     service = _get_service(session, auth)
     assignment = await service.assign_fee(data, created_by=auth.user_id)
@@ -124,7 +125,7 @@ async def update_assignment(
     data: MemberFeeUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update a fee assignment."""
     service = _get_service(session, auth)
     assignment = await service.update_assignment(assignment_id, data, updated_by=auth.user_id)
@@ -154,7 +155,7 @@ async def dues_summary(
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     year: int | None = Query(default=None, ge=2000, le=2100),
-) -> dict:
+) -> dict[str, Any]:
     """Open/paid totals, optionally per year."""
     service = _get_service(session, auth)
     summary = await service.dues.summary(year=year)
@@ -191,7 +192,7 @@ async def list_dues(
     status: str | None = Query(default=None, pattern="^(open|paid|cancelled)$"),
     member_id: uuid.UUID | None = Query(default=None),  # noqa: B008
     year: int | None = Query(default=None, ge=2000, le=2100),
-) -> dict:
+) -> dict[str, Any]:
     """List dues with pagination and filters."""
     service = _get_service(session, auth)
     offset = (page - 1) * per_page
@@ -219,7 +220,7 @@ async def generate_dues(
     data: DueGenerateRequest,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Run the assessment for a year. Idempotent — existing dues are skipped."""
     service = _get_service(session, auth)
     created = await service.generate_dues(data.year, created_by=auth.user_id)
@@ -232,7 +233,7 @@ async def update_due(
     data: DueUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update note or due date of a due."""
     service = _get_service(session, auth)
     due = await service.update_due(due_id, data, updated_by=auth.user_id)
@@ -247,7 +248,7 @@ async def pay_due(
     data: DuePayRequest,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Mark an open due as paid."""
     service = _get_service(session, auth)
     due = await service.pay_due(due_id, data, updated_by=auth.user_id)
@@ -261,7 +262,7 @@ async def cancel_due(
     due_id: uuid.UUID,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Cancel an open due."""
     service = _get_service(session, auth)
     due = await service.cancel_due(due_id, updated_by=auth.user_id)
@@ -275,7 +276,7 @@ async def reopen_due(
     due_id: uuid.UUID,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Reopen a paid or cancelled due."""
     service = _get_service(session, auth)
     due = await service.reopen_due(due_id, updated_by=auth.user_id)

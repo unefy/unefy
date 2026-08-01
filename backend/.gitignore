@@ -35,3 +35,4 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+node_modules/

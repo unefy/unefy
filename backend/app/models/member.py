@@ -4,10 +4,10 @@ from datetime import date
 from sqlalchemy import Date, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import AuditMixin, Base, SoftDeleteMixin, TenantMixin
+from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
 
 
-class Member(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Member(TenantModel, AuditMixin, SoftDeleteMixin):
     """Club member record. Distinct from User (login account)."""
 
     __tablename__ = "members"
@@ -16,8 +16,6 @@ class Member(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_members_tenant_status", "tenant_id", "status"),
         Index("ix_members_tenant_name", "tenant_id", "last_name", "first_name"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     # Member number (auto-generated from tenant format)
     member_number: Mapped[str] = mapped_column(String(50), nullable=False)

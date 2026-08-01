@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     Date,
@@ -15,10 +16,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import AuditMixin, Base, SoftDeleteMixin, TenantMixin
+from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
 
 
-class Competition(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Competition(TenantModel, AuditMixin, SoftDeleteMixin):
     """Top-level container: a league, competition, or training series.
 
     Sport-agnostic. Holds scoring configuration and time span.
@@ -26,8 +27,6 @@ class Competition(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
 
     __tablename__ = "competitions"
     __table_args__ = (Index("ix_competitions_tenant_type", "tenant_id", "competition_type"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -45,7 +44,7 @@ class Competition(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
 
     # Available disciplines for this competition (JSON array of strings).
     # e.g. ["Luftgewehr 10m", "Sportpistole 25m"]
-    disciplines: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    disciplines: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     sessions: Mapped[list["Session"]] = relationship(
         back_populates="competition",
@@ -55,13 +54,11 @@ class Competition(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     )
 
 
-class Session(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Session(TenantModel, AuditMixin, SoftDeleteMixin):
     """One round, date, or discipline-block within a competition."""
 
     __tablename__ = "sessions"
     __table_args__ = (Index("ix_sessions_tenant_competition", "tenant_id", "competition_id"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     competition_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("competitions.id", ondelete="CASCADE"), nullable=False
@@ -81,7 +78,7 @@ class Session(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     )
 
 
-class Entry(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
+class Entry(TenantModel, AuditMixin, SoftDeleteMixin):
     """One participant's result in a session.
 
     Sport-agnostic core: `score_value` is the single ranking number.
@@ -95,8 +92,6 @@ class Entry(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
         Index("ix_entries_tenant_session", "tenant_id", "session_id"),
         Index("ix_entries_tenant_member", "tenant_id", "member_id"),
     )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
 
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
@@ -113,7 +108,7 @@ class Entry(Base, AuditMixin, TenantMixin, SoftDeleteMixin):
     # Free-form sport-specific data (JSONB).
     # Shooting: {"shots": [...], "target_type": "air_rifle_10m"}
     # Running: {"splits": [...], "distance_m": 5000}
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     # "manual" | "scan"
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")

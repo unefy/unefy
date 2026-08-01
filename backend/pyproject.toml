@@ -18,6 +18,7 @@ dependencies = [
     "aiofiles>=24.1",
     "authlib>=1.6.9",
     "itsdangerous>=2.2.0",
+    "aiosmtplib>=5.1.2",
 ]
 
 [dependency-groups]
@@ -53,10 +54,20 @@ quote-style = "double"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# The database engine is session-scoped, so fixtures and tests have to share
+# one event loop — asyncpg connections are bound to the loop that created them.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [tool.mypy]
 strict = true
 plugins = ["pydantic.mypy"]
+
+# authlib ships no type information. Scoped to the one library rather than
+# relaxed globally, so a missing stub elsewhere still surfaces.
+[[tool.mypy.overrides]]
+module = ["authlib.*"]
+ignore_missing_imports = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

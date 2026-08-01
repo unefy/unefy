@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, Request
@@ -22,7 +23,7 @@ router = APIRouter()
 async def get_club(
     auth: AuthContext = Depends(get_current_user),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Get the current club's details."""
     stmt = select(Tenant).where(Tenant.id == auth.tenant_id)
     result = await session.execute(stmt)
@@ -39,7 +40,7 @@ async def update_club(
     data: ClubUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update the current club. Requires owner or admin role."""
     stmt = select(Tenant).where(Tenant.id == auth.tenant_id)
     result = await session.execute(stmt)
@@ -66,7 +67,7 @@ async def delete_club(
     request: Request,
     auth: AuthContext = Depends(require_role("owner")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Delete the current club. Only owner can delete. User account is preserved."""
     # Delete all memberships for this tenant
     await session.execute(

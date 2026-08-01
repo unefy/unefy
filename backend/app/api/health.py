@@ -1,3 +1,5 @@
+import inspect
+
 import structlog
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -22,7 +24,7 @@ async def liveness() -> HealthResponse:
 
 
 @router.get("/health/ready", response_model=HealthResponse)
-async def readiness() -> HealthResponse:
+async def readiness() -> HealthResponse | JSONResponse:
     checks: dict[str, str] = {}
 
     try:
@@ -35,7 +37,11 @@ async def readiness() -> HealthResponse:
 
     try:
         redis = get_redis()
-        await redis.ping()
+        # The redis stubs allow a sync or async client; ours is async. Checking
+        # rather than casting keeps this honest if that ever changes.
+        pong = redis.ping()
+        if inspect.isawaitable(pong):
+            await pong
         checks["redis"] = "ok"
     except Exception:
         logger.error("readiness_check_failed", component="redis")

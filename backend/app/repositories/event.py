@@ -32,7 +32,7 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
             query = query.where(Event.competition_id == competition_id)
         return query
 
-    async def get_all(  # type: ignore[override]
+    async def list_with_counts(
         self,
         *,
         offset: int = 0,
@@ -72,7 +72,7 @@ class EventRepository(BaseRepository[Event, EventCreate, EventUpdate]):
         result = await self.session.execute(query)
         return [(row[0], row[1], row[2]) for row in result.all()]
 
-    async def count(  # type: ignore[override]
+    async def count(
         self,
         *,
         event_type: str | None = None,
