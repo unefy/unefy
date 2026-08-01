@@ -1,4 +1,9 @@
-from app.models.audit import AdminAuditLog
+from app.models.attendance import (
+    AttendanceCheckinContext,
+    AttendanceRecord,
+    AttendanceSession,
+)
+from app.models.audit import AdminAuditLog, TenantAuditLog
 from app.models.base import (
     AuditMixin,
     Base,
@@ -21,6 +26,9 @@ from app.models.user import TenantMembership, User
 
 __all__ = [
     "AdminAuditLog",
+    "AttendanceCheckinContext",
+    "AttendanceRecord",
+    "AttendanceSession",
     "AuditMixin",
     "Base",
     "BaseModel",
@@ -42,6 +50,7 @@ __all__ = [
     "SoftDeleteMixin",
     "Sport",
     "Tenant",
+    "TenantAuditLog",
     "TenantMembership",
     "TenantMixin",
     "TimestampMixin",

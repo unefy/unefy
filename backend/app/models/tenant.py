@@ -1,10 +1,19 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Boolean, Date, String, Text, Uuid
+from sqlalchemy import Boolean, Date, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
+
+# Kept as a constant so the migration and the model carry the identical text,
+# and so removing the caveat later is a single, obvious edit.
+ATTENDANCE_RETENTION_COMMENT = (
+    "UNVERIFIED ASSUMPTION: the default of 10 years is a deliberate choice, "
+    "not a confirmed requirement. To be checked against the shooting-sport "
+    "association's rules; configurable per club so it can be corrected. "
+    "Remove this note once the requirement is confirmed."
+)
 
 
 class Tenant(Base, TimestampMixin):
@@ -56,6 +65,26 @@ class Tenant(Base, TimestampMixin):
     # Whether the club is organised in divisions (Sparten). Divisions always
     # exist in the data model; this only controls whether the UI shows them.
     has_divisions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # The club's own time zone. Everything the club sees as "the evening of the
+    # 7th" is resolved against this: the server runs in UTC, and a session that
+    # opens at 00:30 local would otherwise be filed under the previous day.
+    # Also the zone the web client formats times in, so a board member abroad
+    # reads the same attendance list as one at home.
+    timezone: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="Europe/Berlin", server_default="Europe/Berlin"
+    )
+
+    # How long attendance records are kept before the retention job removes
+    # them. The note travels into the database as a column comment, so it is
+    # visible to anyone reading the schema, not just this file.
+    attendance_retention_years: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=10,
+        server_default="10",
+        comment=ATTENDANCE_RETENTION_COMMENT,
+    )
 
     # Configurable member status list (JSON array of {key, label} objects).
     # The DB-level default is English for neutrality; new tenants are seeded

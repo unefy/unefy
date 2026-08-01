@@ -1,5 +1,7 @@
 import math
 import uuid
+from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +22,7 @@ router = APIRouter()
 
 
 def _get_service(session: AsyncSession, auth: AuthContext) -> MemberService:
-    repo = MemberRepository(session, auth.tenant_id)
+    repo = MemberRepository(session, auth.tenant)
     return MemberService(repo, session)
 
 
@@ -40,7 +42,7 @@ async def list_members(
         ),
     ),
     sort_order: str = Query(default="asc", pattern="^(asc|desc)$"),
-) -> dict:
+) -> dict[str, Any]:
     """List members with pagination, filtering, and search."""
     service = _get_service(session, auth)
     offset = (page - 1) * per_page
@@ -78,7 +80,7 @@ async def get_member(
     member_id: uuid.UUID,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Get a single member."""
     service = _get_service(session, auth)
     member = await service.get(member_id)
@@ -94,7 +96,7 @@ async def create_member(
     data: MemberCreate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Create a new member. Member number is auto-generated."""
     service = _get_service(session, auth)
     member = await service.create(data, created_by=auth.user_id)
@@ -108,7 +110,7 @@ async def update_member(
     data: MemberUpdate,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Update a member."""
     service = _get_service(session, auth)
     member = await service.update(member_id, data, updated_by=auth.user_id)
@@ -138,8 +140,32 @@ async def bulk_delete_members(
     data: MemberBulkDelete,
     auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-) -> dict:
+) -> dict[str, Any]:
     """Soft-delete multiple members in a single query. Requires admin or owner."""
     service = _get_service(session, auth)
     deleted_count = await service.delete_many(data.ids)
     return {"data": {"deleted": deleted_count}}
+
+
+@router.get("/{member_id}/attendance")
+async def list_member_attendance(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    from_date: date | None = Query(default=None),  # noqa: B008
+    to_date: date | None = Query(default=None),  # noqa: B008
+) -> dict[str, Any]:
+    """One member's attendance history, seen from the board.
+
+    Read-only and deliberately isolated: attendance may inform who was there,
+    never how much someone owes. No dues or ranking query joins in here.
+    """
+    from app.api.v1.attendance import member_records_payload
+    from app.services.attendance import AttendanceService
+
+    attendance = AttendanceService(session, auth)
+    if await attendance.members.get_by_id(member_id) is None:
+        raise NotFoundError("Member not found")
+    return await member_records_payload(attendance, member_id, page, per_page, from_date, to_date)
