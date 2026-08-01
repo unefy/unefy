@@ -1,5 +1,6 @@
 import {
   CalendarIcon,
+  ClipboardCheckIcon,
   HouseIcon,
   ReceiptIcon,
   SettingsIcon,
@@ -55,6 +56,11 @@ export const sidebarData: SidebarData = {
       titleKey: "groups.clubLife",
       items: [
         {
+          titleKey: "attendance",
+          url: "/attendance",
+          icon: ClipboardCheckIcon,
+        },
+        {
           titleKey: "events",
           url: "/events",
           icon: CalendarIcon,
@@ -87,6 +93,7 @@ export const sidebarData: SidebarData = {
           // were left over from the rebuild and led nowhere; they come back
           // with their pages.
           items: [
+            { titleKey: "settingsGeneral", url: "/settings" },
             { titleKey: "settingsAccess", url: "/settings/access" },
           ],
         },

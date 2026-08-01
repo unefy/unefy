@@ -20,7 +20,9 @@
     "competitions": "Competitions",
     "dues": "Dues",
     "settings": "Settings",
-    "settingsAccess": "Accounts"
+    "settingsAccess": "Accounts",
+    "attendance": "Attendance",
+    "settingsGeneral": "General"
   },
   "auth": {
     "signIn": "Sign in",
@@ -518,5 +520,194 @@
       "unreachable": "The server is unreachable.",
       "unknown": "Something went wrong."
     }
+  },
+  "attendance": {
+    "title": "Attendance",
+    "description": "{count, plural, =0 {No session} one {# session} other {# sessions}} recorded.",
+    "searchPlaceholder": "Title, location or supervisor …",
+    "empty": "No attendance session yet.",
+    "noRecords": "Nobody checked in yet.",
+    "checkIn": "Check in",
+    "checkOut": "Check out",
+    "correct": "Correct",
+    "remove": "Remove",
+    "close": "Close",
+    "alreadyPresent": "Already present",
+    "columns": {
+      "date": "Date",
+      "time": "Window",
+      "title": "Title",
+      "location": "Location",
+      "supervisor": "Supervisor",
+      "present": "Present",
+      "status": "Status",
+      "member": "Member",
+      "number": "No.",
+      "checkedIn": "Arrived",
+      "checkedOut": "Left",
+      "assurance": "Method",
+      "note": "Note",
+      "actions": "Actions"
+    },
+    "filters": {
+      "allStatuses": "All statuses"
+    },
+    "status": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "methods": {
+      "manual": "Ticked off"
+    },
+    "detail": {
+      "back": "Back to overview",
+      "present": "{count, plural, =0 {Attendance list} one {Attendance list – # person} other {Attendance list – # people}}",
+      "trail": "Audit trail"
+    },
+    "frozen": {
+      "title": "Session is closed",
+      "description": "{count, plural, =0 {Nobody was recorded} one {# person was recorded} other {# people were recorded}}. No late entries and no corrections from here on — that is the point of closing."
+    },
+    "search": {
+      "placeholder": "Find member – name or number …",
+      "noResults": "No member found."
+    },
+    "closeDialog": {
+      "title": "Close this session?",
+      "description": "{count, plural, =0 {Nobody is checked in} one {# person is checked in} other {# people are checked in}}. After closing, no late entries, corrections or removals are possible. This cannot be undone.",
+      "confirm": "Close for good"
+    },
+    "correctDialog": {
+      "title": "Correct {name}",
+      "description": "Every change is recorded in the audit trail together with your reason."
+    },
+    "removeDialog": {
+      "title": "Remove {name}",
+      "description": "The entry leaves the list but stays traceable in the audit trail, with your reason."
+    },
+    "deleteDialog": {
+      "title": "Delete this session?",
+      "description": "Only possible while nobody is checked in. The deletion is recorded in the audit trail.",
+      "confirm": "Delete session"
+    },
+    "toasts": {
+      "checkedIn": "Checked in.",
+      "checkedOut": "Checked out.",
+      "corrected": "Correction saved.",
+      "removed": "Entry removed.",
+      "closed": "Session closed.",
+      "sessionDeleted": "Session deleted."
+    },
+    "audit": {
+      "empty": "Nothing has happened yet.",
+      "by": "by {name}",
+      "system": "System",
+      "reason": "Reason",
+      "actions": {
+        "attendance_session": {
+          "updated": "Session changed",
+          "closed": "Session closed",
+          "deleted": "Session deleted"
+        },
+        "attendance_record": {
+          "updated": "Entry corrected",
+          "deleted": "Entry removed"
+        }
+      }
+    },
+    "form": {
+      "create": "New session",
+      "createTitle": "New attendance session",
+      "edit": "Edit",
+      "editTitle": "Edit session",
+      "description": "A session is the window during which people can check in. It defaults to now until end of day — for the spontaneous case.",
+      "choose": "Choose",
+      "clear": "Remove",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …",
+      "createdToast": "Session created.",
+      "savedToast": "Saved.",
+      "fields": {
+        "title": "Title",
+        "location": "Location",
+        "opensAt": "Starts",
+        "closesAt": "Ends",
+        "supervisor": "Supervisor",
+        "note": "Note",
+        "reason": "Reason"
+      },
+      "placeholders": {
+        "title": "Practice evening",
+        "location": "Range 1",
+        "reason": "Why is this being changed?"
+      },
+      "hints": {
+        "closesAt": "Check-in is possible until then.",
+        "supervisor": "Who supervises the session. For ticked-off check-ins this person is the proof.",
+        "reason": "Recorded in the audit trail, at least 3 characters."
+      },
+      "errors": {
+        "conflict": "Not possible — the session is closed or the person is already recorded.",
+        "forbidden": "You do not have permission for that.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    }
+  },
+  "clubSettings": {
+    "title": "General",
+    "description": "The club's master data. It appears on certificates and printouts.",
+    "save": "Save",
+    "saving": "Saving …",
+    "savedToast": "Saved.",
+    "readOnly": "Only the board and administrators can change these details.",
+    "yes": "Yes",
+    "no": "No",
+    "sections": {
+      "club": "Club",
+      "regional": "Regional",
+      "contact": "Contact",
+      "address": "Address",
+      "legal": "Legal"
+    },
+    "fields": {
+      "name": "Name",
+      "shortName": "Short name",
+      "slug": "Identifier",
+      "timezone": "Time zone",
+      "email": "Email",
+      "phone": "Phone",
+      "website": "Website",
+      "street": "Street and number",
+      "zipCode": "Postcode",
+      "city": "City",
+      "state": "Region",
+      "country": "Country",
+      "foundedAt": "Founded on",
+      "registrationNumber": "Registration number",
+      "registrationCourt": "Registration court",
+      "taxNumber": "Tax number",
+      "taxOffice": "Tax office",
+      "isNonprofit": "Non-profit",
+      "nonprofitSince": "Non-profit since"
+    },
+    "hints": {
+      "shortName": "For tight spots such as the sidebar.",
+      "slug": "Assigned at creation and not editable.",
+      "regional": "The time zone decides which calendar day a session belongs to. A practice evening starting at 00:30 would otherwise count towards the previous day — and the attendance proof rests on exactly that date.",
+      "legal": "Details from the register of associations and the tax exemption notice."
+    },
+    "errors": {
+      "forbidden": "You do not have permission for that.",
+      "notFound": "Club not found.",
+      "validation": "Please check your input — most likely the email or a date.",
+      "unknown": "Something went wrong.",
+      "unreachable": "Server unreachable."
+    },
+    "timezoneCommon": "Common",
+    "timezoneAll": "All time zones"
   }
 }

@@ -20,7 +20,9 @@
     "competitions": "Wettkämpfe",
     "dues": "Beiträge",
     "settings": "Einstellungen",
-    "settingsAccess": "Zugänge"
+    "settingsAccess": "Zugänge",
+    "attendance": "Anwesenheit",
+    "settingsGeneral": "Allgemein"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -518,5 +520,194 @@
       "unreachable": "Der Server ist nicht erreichbar.",
       "unknown": "Es ist ein Fehler aufgetreten."
     }
+  },
+  "attendance": {
+    "title": "Anwesenheit",
+    "description": "{count, plural, =0 {Kein Termin} one {# Termin} other {# Termine}} erfasst.",
+    "searchPlaceholder": "Titel, Ort oder Aufsicht …",
+    "empty": "Noch kein Anwesenheitstermin angelegt.",
+    "noRecords": "Noch niemand eingecheckt.",
+    "checkIn": "Einchecken",
+    "checkOut": "Abmelden",
+    "correct": "Korrigieren",
+    "remove": "Entfernen",
+    "close": "Abschließen",
+    "alreadyPresent": "Bereits anwesend",
+    "columns": {
+      "date": "Datum",
+      "time": "Zeitraum",
+      "title": "Titel",
+      "location": "Ort",
+      "supervisor": "Aufsicht",
+      "present": "Anwesend",
+      "status": "Status",
+      "member": "Mitglied",
+      "number": "Nr.",
+      "checkedIn": "Ankunft",
+      "checkedOut": "Abgang",
+      "assurance": "Verfahren",
+      "note": "Notiz",
+      "actions": "Aktionen"
+    },
+    "filters": {
+      "allStatuses": "Alle Status"
+    },
+    "status": {
+      "open": "Offen",
+      "closed": "Abgeschlossen"
+    },
+    "methods": {
+      "manual": "Abgehakt"
+    },
+    "detail": {
+      "back": "Zurück zur Übersicht",
+      "present": "{count, plural, =0 {Anwesenheitsliste} one {Anwesenheitsliste – # Person} other {Anwesenheitsliste – # Personen}}",
+      "trail": "Protokoll"
+    },
+    "frozen": {
+      "title": "Termin ist abgeschlossen",
+      "description": "{count, plural, =0 {Es wurde niemand erfasst} one {# Person wurde erfasst} other {# Personen wurden erfasst}}. Nachträge und Korrekturen sind ab jetzt nicht mehr möglich — genau darum geht es beim Abschließen."
+    },
+    "search": {
+      "placeholder": "Mitglied suchen – Name oder Nummer …",
+      "noResults": "Kein Mitglied gefunden."
+    },
+    "closeDialog": {
+      "title": "Termin abschließen?",
+      "description": "{count, plural, =0 {Es ist niemand eingecheckt} one {# Person ist eingecheckt} other {# Personen sind eingecheckt}}. Nach dem Abschließen sind keine Nachträge, Korrekturen oder Löschungen mehr möglich. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Endgültig abschließen"
+    },
+    "correctDialog": {
+      "title": "{name} korrigieren",
+      "description": "Jede Änderung wird mit Begründung im Protokoll festgehalten."
+    },
+    "removeDialog": {
+      "title": "{name} entfernen",
+      "description": "Der Eintrag verschwindet aus der Liste, bleibt aber mit deiner Begründung im Protokoll nachvollziehbar."
+    },
+    "deleteDialog": {
+      "title": "Termin löschen?",
+      "description": "Nur möglich, solange niemand eingecheckt ist. Die Löschung wird im Protokoll festgehalten.",
+      "confirm": "Termin löschen"
+    },
+    "toasts": {
+      "checkedIn": "Eingecheckt.",
+      "checkedOut": "Abgemeldet.",
+      "corrected": "Korrektur gespeichert.",
+      "removed": "Eintrag entfernt.",
+      "closed": "Termin abgeschlossen.",
+      "sessionDeleted": "Termin gelöscht."
+    },
+    "audit": {
+      "empty": "Noch nichts passiert.",
+      "by": "durch {name}",
+      "system": "System",
+      "reason": "Begründung",
+      "actions": {
+        "attendance_session": {
+          "updated": "Termin geändert",
+          "closed": "Termin abgeschlossen",
+          "deleted": "Termin gelöscht"
+        },
+        "attendance_record": {
+          "updated": "Eintrag korrigiert",
+          "deleted": "Eintrag entfernt"
+        }
+      }
+    },
+    "form": {
+      "create": "Termin anlegen",
+      "createTitle": "Anwesenheitstermin anlegen",
+      "edit": "Bearbeiten",
+      "editTitle": "Termin bearbeiten",
+      "description": "Ein Termin ist das Zeitfenster, in dem eingecheckt werden kann. Vorgabe ist jetzt bis Tagesende — für den spontanen Fall.",
+      "choose": "Wählen",
+      "clear": "Entfernen",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "createdToast": "Termin angelegt.",
+      "savedToast": "Gespeichert.",
+      "fields": {
+        "title": "Titel",
+        "location": "Ort",
+        "opensAt": "Beginn",
+        "closesAt": "Ende",
+        "supervisor": "Aufsicht",
+        "note": "Notiz",
+        "reason": "Begründung"
+      },
+      "placeholders": {
+        "title": "Übungsabend",
+        "location": "Stand 1",
+        "reason": "Warum wird das geändert?"
+      },
+      "hints": {
+        "closesAt": "Bis dahin kann eingecheckt werden.",
+        "supervisor": "Wer den Termin beaufsichtigt. Bei abgehakten Check-ins ist diese Person der Beleg.",
+        "reason": "Wird im Protokoll festgehalten, mindestens 3 Zeichen."
+      },
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist abgeschlossen oder die Person ist bereits erfasst.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    }
+  },
+  "clubSettings": {
+    "title": "Allgemein",
+    "description": "Die Stammdaten des Vereins. Sie erscheinen auf Bescheinigungen und Ausdrucken.",
+    "save": "Speichern",
+    "saving": "Wird gespeichert …",
+    "savedToast": "Gespeichert.",
+    "readOnly": "Nur Vorstand und Verwaltung können diese Angaben ändern.",
+    "yes": "Ja",
+    "no": "Nein",
+    "sections": {
+      "club": "Verein",
+      "regional": "Regionales",
+      "contact": "Kontakt",
+      "address": "Anschrift",
+      "legal": "Rechtliches"
+    },
+    "fields": {
+      "name": "Name",
+      "shortName": "Kurzname",
+      "slug": "Kennung",
+      "timezone": "Zeitzone",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "website": "Website",
+      "street": "Straße und Hausnummer",
+      "zipCode": "PLZ",
+      "city": "Ort",
+      "state": "Bundesland",
+      "country": "Land",
+      "foundedAt": "Gegründet am",
+      "registrationNumber": "Registernummer",
+      "registrationCourt": "Registergericht",
+      "taxNumber": "Steuernummer",
+      "taxOffice": "Finanzamt",
+      "isNonprofit": "Gemeinnützig",
+      "nonprofitSince": "Gemeinnützig seit"
+    },
+    "hints": {
+      "shortName": "Für enge Stellen wie die Seitenleiste.",
+      "slug": "Wird bei der Anlage vergeben und ist nicht änderbar.",
+      "regional": "Die Zeitzone bestimmt, welcher Kalendertag ein Termin ist. Ein Übungsabend, der um 00:30 Uhr beginnt, zählt sonst zum Vortag — und genau auf dieses Datum stützt sich der Anwesenheitsnachweis.",
+      "legal": "Angaben aus Vereinsregister und Freistellungsbescheid."
+    },
+    "errors": {
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "notFound": "Verein nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen — vermutlich E-Mail oder ein Datum.",
+      "unknown": "Da ist etwas schiefgelaufen.",
+      "unreachable": "Server nicht erreichbar."
+    },
+    "timezoneCommon": "Häufig",
+    "timezoneAll": "Alle Zeitzonen"
   }
 }
