@@ -5,7 +5,8 @@ from collections.abc import AsyncGenerator
 import fakeredis.aioredis
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.database import get_db_session
 from app.models import Base, Tenant
@@ -23,23 +24,50 @@ def test_db_url() -> str:
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 async def db_engine(test_db_url: str):  # type: ignore[no-untyped-def]
+    """One engine and one schema for the whole run.
+
+    The schema used to be rebuilt for every single test, which was both slow
+    and unreliable: `drop_all` removes tables but leaves behind the composite
+    types Postgres creates alongside them, so the next `create_all` collided
+    with a leftover type (`duplicate key ... (typname)=(sports)`). Dropping the
+    schema outright is the only teardown that is guaranteed complete.
+    """
     engine = create_async_engine(test_db_url)
+
     async with engine.begin() as conn:
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
+
     yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
 @pytest.fixture
 async def db_session(db_engine) -> AsyncGenerator[AsyncSession]:  # type: ignore[no-untyped-def, type-arg]
-    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
-    async with session_factory() as session:
+    """A session whose writes never outlive the test.
+
+    Each test runs inside an outer transaction that is always rolled back.
+    `join_transaction_mode="create_savepoint"` is what makes this hold even
+    though the application commits: a `session.commit()` only releases a
+    savepoint, so the outer transaction still discards everything.
+    """
+    connection = await db_engine.connect()
+    transaction = await connection.begin()
+    session = AsyncSession(
+        bind=connection,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+
+    try:
         yield session
-        await session.rollback()
+    finally:
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
 
 
 @pytest.fixture

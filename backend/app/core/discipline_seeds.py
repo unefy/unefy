@@ -1,4 +1,5 @@
 """Official discipline definitions for German shooting sports.
+from typing import Any
 
 Sources:
 - DSB Sportordnung (SpO) — https://www.dsb.de/sportordnung
@@ -8,7 +9,9 @@ Sources:
 Each entry follows the DSB/BDS official numbering where available.
 """
 
-DISCIPLINES: list[dict] = [
+from typing import Any
+
+DISCIPLINES: list[dict[str, Any]] = [
     # =========================================================================
     # DSB — Deutscher Schützenbund
     # Nummerierung nach DSB Sportordnung (SpO)

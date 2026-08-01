@@ -63,7 +63,7 @@ class RateLimit:
             if token:
                 data = await get_session_data(token)
                 if data is not None:
-                    identifier = f"user:{data[0]}"
+                    identifier = f"user:{data.user_id}"
 
         tag = self.scope or request.url.path
         key = f"rl:{tag}:{identifier}"

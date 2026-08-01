@@ -29,6 +29,30 @@ _MEMBER_STATUS_LABELS: dict[str, dict[str, str]] = {
 }
 
 
+# Default measurement units covering common club sports (shooting, athletics,
+# swimming, ball sports, Kegeln, golf). (name, symbol) — German names because
+# these are user content from day one (renamable per tenant), and the primary
+# audience is DACH clubs.
+MEASUREMENT_UNIT_SEEDS: tuple[tuple[str, str | None], ...] = (
+    ("Ringe", None),
+    ("Punkte", "Pkt."),
+    ("Treffer", None),
+    ("Sekunden", "s"),
+    ("Minuten", "min"),
+    ("Meter", "m"),
+    ("Zentimeter", "cm"),
+    ("Kilometer", "km"),
+    ("Kilogramm", "kg"),
+    ("Tore", None),
+    ("Körbe", None),
+    ("Sätze", None),
+    ("Runden", None),
+    ("Schläge", None),
+    ("Holz", None),
+    ("Platzierung", None),
+)
+
+
 def member_statuses_seed(locale: str | None) -> str:
     """Return the JSON seed for `tenants.member_statuses` for the given locale.
 

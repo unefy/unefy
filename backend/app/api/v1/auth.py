@@ -1,13 +1,14 @@
 import json
 import secrets
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import structlog
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse, Response
@@ -18,12 +19,24 @@ from app.database import get_db_session
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 from app.redis import get_redis
+from app.services.club_access import ClubAccessService
+from app.services.magic_link import (
+    consume_token,
+    issue_token,
+    normalize_email,
+    resolve_user,
+    send_magic_link,
+)
 
 logger = structlog.get_logger()
 router = APIRouter()
 
 COOKIE_NAME = "unefy_session"
 SESSION_TTL = 60 * 60 * 24 * 7  # 7 days
+
+# Impersonation sessions expire far sooner than normal ones. A support session
+# that outlives the support case is a standing backdoor into a customer's data.
+IMPERSONATION_TTL = 60 * 60  # 1 hour
 
 # --- OAuth setup ---
 
@@ -52,10 +65,31 @@ def _ensure_google_registered(settings: Settings) -> None:
 # --- Session helpers ---
 
 
+@dataclass(frozen=True)
+class SessionData:
+    """Decoded contents of a Redis-backed web session."""
+
+    user_id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    role: str | None = None
+
+    # Set only while a platform admin is impersonating: the admin's own user id.
+    # `user_id` stays the *impersonated* user, so every permission check keeps
+    # working against the effective identity and cannot be widened by the flag.
+    impersonator_id: uuid.UUID | None = None
+
+    # The admin's original session token, so ending impersonation can hand the
+    # cookie back instead of forcing a re-login.
+    impersonator_session: str | None = None
+
+
 async def create_session(
     user_id: uuid.UUID,
     tenant_id: uuid.UUID | None = None,
     role: str | None = None,
+    impersonator_id: uuid.UUID | None = None,
+    impersonator_session: str | None = None,
+    ttl: int = SESSION_TTL,
 ) -> str:
     """Create a session in Redis and return the session token."""
     redis = get_redis()
@@ -65,16 +99,16 @@ async def create_session(
             "user_id": str(user_id),
             "tenant_id": str(tenant_id) if tenant_id else None,
             "role": role,
+            "impersonator_id": str(impersonator_id) if impersonator_id else None,
+            "impersonator_session": impersonator_session,
         }
     )
-    await redis.set(f"session:{session_token}", session_data, ex=SESSION_TTL)
+    await redis.set(f"session:{session_token}", session_data, ex=ttl)
     return session_token
 
 
-async def get_session_data(
-    session_token: str,
-) -> tuple[uuid.UUID, uuid.UUID | None, str | None] | None:
-    """Resolve session token → (user_id, tenant_id | None, role | None)."""
+async def get_session_data(session_token: str) -> SessionData | None:
+    """Resolve a session token to its stored contents, or None if unknown."""
     redis = get_redis()
     raw = await redis.get(f"session:{session_token}")
     if not raw:
@@ -83,10 +117,19 @@ async def get_session_data(
         data = json.loads(raw)
     except json.JSONDecodeError:
         return None
-    user_id = uuid.UUID(data["user_id"])
+    try:
+        user_id = uuid.UUID(data["user_id"])
+    except (KeyError, TypeError, ValueError):
+        return None
     tenant_id = uuid.UUID(data["tenant_id"]) if data.get("tenant_id") else None
-    role = data.get("role")
-    return user_id, tenant_id, role
+    impersonator_id = uuid.UUID(data["impersonator_id"]) if data.get("impersonator_id") else None
+    return SessionData(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        role=data.get("role"),
+        impersonator_id=impersonator_id,
+        impersonator_session=data.get("impersonator_session"),
+    )
 
 
 def _set_session_cookie(
@@ -138,12 +181,26 @@ async def get_me(
     tenant_name = None
     tenant_short_name = None
     if auth.tenant_id:
-        stmt = select(Tenant).where(Tenant.id == auth.tenant_id)
-        result = await session.execute(stmt)
-        tenant = result.scalar_one_or_none()
+        tenant_stmt = select(Tenant).where(Tenant.id == auth.tenant_id)
+        tenant_result = await session.execute(tenant_stmt)
+        tenant = tenant_result.scalar_one_or_none()
         if tenant:
             tenant_name = tenant.name
             tenant_short_name = tenant.short_name
+
+    # Surfaced so the web app can render a persistent impersonation banner.
+    # Without it an admin could forget they are acting as someone else, which
+    # is exactly how support sessions turn into accidental data changes.
+    impersonator: dict[str, Any] | None = None
+    if auth.impersonator_id is not None:
+        result = await session.execute(select(User).where(User.id == auth.impersonator_id))
+        admin_user = result.scalar_one_or_none()
+        if admin_user is not None:
+            impersonator = {
+                "id": str(admin_user.id),
+                "name": admin_user.name,
+                "email": admin_user.email,
+            }
 
     return {
         "data": {
@@ -159,6 +216,8 @@ async def get_me(
             "tenant_short_name": tenant_short_name,
             "role": auth.role,
             "needs_onboarding": auth.tenant_id is None,
+            "is_superuser": user.is_superuser,
+            "impersonator": impersonator,
         }
     }
 
@@ -193,6 +252,128 @@ async def update_locale(
     return {"data": {"locale": data.locale}}
 
 
+# --- Magic link ---
+
+
+class MagicLinkRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post(
+    "/magic-link/request",
+    dependencies=[
+        # Two limits on purpose: per-IP stops bulk enumeration, and the shared
+        # scope is what an attacker would otherwise use to mail-bomb one
+        # address from many IPs.
+        Depends(RateLimit(limit=5, window=300, scope="magic-link-request")),
+    ],
+)
+async def request_magic_link(
+    data: MagicLinkRequest,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> dict[str, Any]:
+    """Mail a one-time sign-in link.
+
+    Always answers 200, whether or not an account exists. Anything else would
+    turn this endpoint into an account-existence oracle. For the same reason a
+    link is issued for unknown addresses too — the account is created when the
+    link is actually opened, which proves the mailbox belongs to the requester.
+    """
+    email = normalize_email(data.email)
+    token = await issue_token(email, settings)
+    await send_magic_link(email, token, settings)
+
+    logger.info("magic_link_requested")
+    return {"data": {"sent": True}}
+
+
+@router.get(
+    "/magic-link/verify",
+    dependencies=[
+        Depends(RateLimit(limit=10, window=300, scope="magic-link-verify")),
+    ],
+)
+async def verify_magic_link(
+    token: str,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> RedirectResponse:
+    """Redeem a sign-in link and start a session.
+
+    Redirects rather than returning JSON: the user arrives here from their mail
+    client, so the response has to be something a browser can land on.
+    """
+    email = await consume_token(token)
+    if email is None:
+        logger.info("magic_link_invalid")
+        return RedirectResponse(
+            url=f"{settings.WEB_APP_URL}/login?error=link_invalid", status_code=302
+        )
+
+    user = await resolve_user(session, email)
+
+    membership = (
+        await session.execute(
+            select(TenantMembership)
+            .where(TenantMembership.user_id == user.id)
+            .where(TenantMembership.is_active.is_(True))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if membership:
+        session_token = await create_session(user.id, membership.tenant_id, membership.role)
+        redirect_url = settings.WEB_APP_URL
+    else:
+        session_token = await create_session(user.id)
+        redirect_url = f"{settings.WEB_APP_URL}/onboarding"
+
+    response = RedirectResponse(url=redirect_url, status_code=302)
+    _set_session_cookie(response, session_token, settings)
+
+    logger.info("user_logged_in", user_id=str(user.id), method="magic_link")
+    return response
+
+
+@router.get(
+    "/invitation/accept",
+    dependencies=[
+        Depends(RateLimit(limit=10, window=300, scope="invitation-accept")),
+    ],
+)
+async def accept_invitation(
+    token: str,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> RedirectResponse:
+    """Join a club through an invitation link and start a session.
+
+    Deliberately unauthenticated: the invitee usually has no account yet, and
+    the token is what proves they were invited.
+    """
+    result = await ClubAccessService(session).accept_invitation(token)
+
+    if result is None:
+        return RedirectResponse(
+            url=f"{settings.WEB_APP_URL}/login?error=invitation_invalid",
+            status_code=302,
+        )
+
+    user, membership = result
+    session_token = await create_session(user.id, membership.tenant_id, membership.role)
+
+    response = RedirectResponse(url=settings.WEB_APP_URL, status_code=302)
+    _set_session_cookie(response, session_token, settings)
+
+    logger.info(
+        "user_logged_in",
+        user_id=str(user.id),
+        method="invitation",
+        tenant_id=str(membership.tenant_id),
+    )
+    return response
+
+
 @router.get(
     "/oauth/google",
     dependencies=[Depends(RateLimit(limit=20, window=60, scope="oauth-start"))],
@@ -204,7 +385,9 @@ async def google_login(
     """Start Google OAuth flow — redirects user to Google."""
     _ensure_google_registered(settings)
     redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/oauth/google/callback"
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    # authlib ships no stubs, so this is Any; the call does return a redirect.
+    redirect: RedirectResponse = await oauth.google.authorize_redirect(request, redirect_uri)
+    return redirect
 
 
 @router.get(
@@ -275,14 +458,14 @@ async def google_callback(
         await session.flush()
 
     # Check for existing tenant membership
-    stmt = (
+    membership_stmt = (
         select(TenantMembership)
         .where(TenantMembership.user_id == user.id)
         .where(TenantMembership.is_active.is_(True))
         .limit(1)
     )
-    result = await session.execute(stmt)
-    membership = result.scalar_one_or_none()
+    membership_result = await session.execute(membership_stmt)
+    membership = membership_result.scalar_one_or_none()
 
     if membership:
         # Existing user with tenant — create full session, go to dashboard
@@ -427,8 +610,19 @@ async def switch_tenant(
     return response
 
 
+class ClubDivisionInput(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    sport_key: str = Field(min_length=2, max_length=50)
+
+
 class CreateClubRequest(BaseModel):
     club_name: str = Field(min_length=2, max_length=255)
+
+    # Whether the club is organised in divisions (Sparten). When false the
+    # single division below is created but never surfaced in the UI.
+    has_divisions: bool = False
+
+    divisions: list[ClubDivisionInput] = Field(min_length=1, max_length=20)
 
 
 @router.post(
@@ -443,69 +637,26 @@ async def create_club(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> JSONResponse:
-    """Create a new club/tenant during onboarding."""
+    """Create a new club during onboarding.
+
+    A user may own several clubs — the previous "one club per user" block was
+    removed when multi-club support landed. Abuse is bounded by the rate limit
+    on this endpoint rather than by a hard cap.
+    """
+    from app.core.exceptions import ForbiddenError
     from app.dependencies import _resolve_auth
+    from app.services.onboarding import OnboardingService
 
     auth = await _resolve_auth(request, session)
-
     if auth is None:
-        from app.core.exceptions import ForbiddenError
-
         raise ForbiddenError("Not authenticated")
 
-    # Check user doesn't already have a tenant
-    stmt = (
-        select(TenantMembership)
-        .where(TenantMembership.user_id == auth.user_id)
-        .where(TenantMembership.is_active.is_(True))
-    )
-    result = await session.execute(stmt)
-    if result.scalar_one_or_none():
-        from app.core.exceptions import ConflictError
-
-        raise ConflictError("User already has a club")
-
-    # Seed member_statuses using the owner's locale so labels are sensible
-    # in their language out of the box.
-    from app.core.seeds import MEASUREMENT_UNIT_SEEDS, member_statuses_seed
-    from app.models.catalog import MeasurementUnit
-    from app.models.user import User as UserModel
-
-    user_stmt = select(UserModel).where(UserModel.id == auth.user_id)
-    user_result = await session.execute(user_stmt)
-    owner = user_result.scalar_one_or_none()
-    owner_locale = owner.locale if owner else None
-
-    # Create tenant
-    tenant = Tenant(
-        name=data.club_name.strip(),
-        slug=f"club-{uuid.uuid4().hex[:8]}",
-        member_statuses=member_statuses_seed(owner_locale),
-    )
-    session.add(tenant)
-    await session.flush()
-
-    # Seed default measurement units for the new tenant
-    for unit_name, unit_symbol in MEASUREMENT_UNIT_SEEDS:
-        session.add(
-            MeasurementUnit(
-                tenant_id=tenant.id,
-                name=unit_name,
-                symbol=unit_symbol,
-                is_active=True,
-                created_by=auth.user_id,
-                updated_by=auth.user_id,
-            )
-        )
-
-    # Create ownership
-    membership = TenantMembership(
+    tenant = await OnboardingService(session).create_club(
         user_id=auth.user_id,
-        tenant_id=tenant.id,
-        role="owner",
+        club_name=data.club_name,
+        divisions=[(d.name, d.sport_key) for d in data.divisions],
+        has_divisions=data.has_divisions,
     )
-    session.add(membership)
-    await session.flush()
 
     # Rotate the session token on this privilege upgrade (user is now an
     # owner of a tenant). Old token is invalidated so a leaked pre-onboarding

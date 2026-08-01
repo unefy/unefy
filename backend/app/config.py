@@ -56,6 +56,20 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3008"]
 
+    # Email (SMTP). Without SMTP_HOST nothing is sent — messages are written to
+    # the log instead, so local development works without a mail server and a
+    # misconfigured deployment fails loudly in the log rather than silently.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "unefy <noreply@localhost>"
+    SMTP_STARTTLS: bool = True
+
+    # How long a magic link stays valid. Short by design: the link is a bearer
+    # credential sitting in an inbox.
+    MAGIC_LINK_TTL_SECONDS: int = 900  # 15 min
+
     @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET")
     @classmethod
     def _validate_secret_length(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]

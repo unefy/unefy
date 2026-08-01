@@ -1,15 +1,48 @@
 import json
 import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.seeds import MEASUREMENT_UNIT_SEEDS
 from app.database import get_db_session
 from app.models.catalog import MeasurementUnit
+from app.models.division import Division
+from app.models.sport import CatalogUnit, Sport
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
+
+# Units the seeded sport offers, copied into every club created for it.
+SHOOTING_UNITS = [("Ringe", None), ("Punkte", "Pkt.")]
+
+
+@pytest.fixture
+async def shooting_sport(db_session: AsyncSession) -> Sport:
+    sport = Sport(
+        id=uuid.uuid4(), key="shooting", name="Schie\u00dfsport", is_active=True, modules=[]
+    )
+    db_session.add(sport)
+    await db_session.flush()
+    for order, (name, symbol) in enumerate(SHOOTING_UNITS):
+        db_session.add(
+            CatalogUnit(
+                id=uuid.uuid4(), sport_id=sport.id, name=name, symbol=symbol, sort_order=order
+            )
+        )
+    await db_session.flush()
+    return sport
+
+
+def club_payload(name: str = "My New Club", **overrides: object) -> dict:
+    payload: dict = {
+        "club_name": name,
+        "has_divisions": False,
+        "divisions": [{"name": name, "sport_key": "shooting"}],
+    }
+    payload.update(overrides)
+    return payload
+
 
 # --- GET /api/v1/auth/me ---
 
@@ -73,18 +106,20 @@ async def test_create_club_success(
     onboarding_client: AsyncClient,
     db_session: AsyncSession,
     test_user: User,
+    shooting_sport: Sport,
 ) -> None:
     """Authenticated user without a tenant can create a club."""
     response = await onboarding_client.post(
         "/api/v1/auth/onboarding/create-club",
-        json={"club_name": "My New Club"},
+        json=club_payload(),
     )
     assert response.status_code == 200
     body = response.json()
     data = body["data"]
     assert data["name"] == "My New Club"
     assert "tenant_id" in data
-    assert data["slug"].startswith("club-")
+    # Slug is derived from the club name, not random.
+    assert data["slug"] == "my-new-club"
 
     # Verify tenant was created in DB
     tenant_id = uuid.UUID(data["tenant_id"])
@@ -104,18 +139,27 @@ async def test_create_club_success(
     assert membership is not None
     assert membership.role == "owner"
 
-    # Verify default measurement units were seeded
+    # Units come from the chosen sport's catalog, not a flat global list.
     stmt = select(MeasurementUnit).where(MeasurementUnit.tenant_id == tenant_id)
     result = await db_session.execute(stmt)
     unit_names = {u.name for u in result.scalars().all()}
-    assert unit_names == {name for name, _ in MEASUREMENT_UNIT_SEEDS}
+    assert unit_names == {name for name, _ in SHOOTING_UNITS}
+
+    # A club always has exactly one primary division, even without Sparten.
+    stmt = select(Division).where(Division.tenant_id == tenant_id)
+    result = await db_session.execute(stmt)
+    divisions = list(result.scalars().all())
+    assert len(divisions) == 1
+    assert divisions[0].is_primary is True
+    assert divisions[0].sport_id == shooting_sport.id
+    assert tenant.has_divisions is False
 
 
 async def test_create_club_fails_without_auth(anon_client: AsyncClient) -> None:
     """Unauthenticated request to create-club returns 403."""
     response = await anon_client.post(
         "/api/v1/auth/onboarding/create-club",
-        json={"club_name": "Unauthorized Club"},
+        json=club_payload("Unauthorized Club"),
     )
     assert response.status_code == 403
     body = response.json()
@@ -128,7 +172,7 @@ async def test_create_club_fails_with_empty_name(
     """Empty club_name fails validation (min_length=2)."""
     response = await onboarding_client.post(
         "/api/v1/auth/onboarding/create-club",
-        json={"club_name": ""},
+        json=club_payload("", divisions=[{"name": "X", "sport_key": "shooting"}]),
     )
     assert response.status_code == 422
 
@@ -139,23 +183,91 @@ async def test_create_club_fails_with_short_name(
     """Single-char club_name fails validation (min_length=2)."""
     response = await onboarding_client.post(
         "/api/v1/auth/onboarding/create-club",
-        json={"club_name": "A"},
+        json=club_payload("A", divisions=[{"name": "X", "sport_key": "shooting"}]),
     )
     assert response.status_code == 422
 
 
-async def test_create_club_fails_if_user_already_has_tenant(
+async def test_user_can_create_a_second_club(
     auth_client: AsyncClient,
     test_membership: TenantMembership,
+    shooting_sport: Sport,
 ) -> None:
-    """User who already has a tenant gets 409 Conflict."""
+    """Multi-club is supported — owning one club no longer blocks the next."""
     response = await auth_client.post(
         "/api/v1/auth/onboarding/create-club",
-        json={"club_name": "Second Club"},
+        json=club_payload("Second Club"),
     )
-    assert response.status_code == 409
-    body = response.json()
-    assert body["error"]["code"] == "CONFLICT"
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["name"] == "Second Club"
+
+
+async def test_create_club_rejects_unknown_sport(
+    onboarding_client: AsyncClient,
+) -> None:
+    response = await onboarding_client.post(
+        "/api/v1/auth/onboarding/create-club",
+        json=club_payload(divisions=[{"name": "Quidditch", "sport_key": "quidditch"}]),
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_create_club_without_divisions_rejects_multiple_sports(
+    onboarding_client: AsyncClient,
+    shooting_sport: Sport,
+) -> None:
+    """`has_divisions=False` means one sport — two would have no home."""
+    response = await onboarding_client.post(
+        "/api/v1/auth/onboarding/create-club",
+        json=club_payload(
+            has_divisions=False,
+            divisions=[
+                {"name": "Gewehr", "sport_key": "shooting"},
+                {"name": "Bogen", "sport_key": "shooting"},
+            ],
+        ),
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_create_club_with_divisions(
+    onboarding_client: AsyncClient,
+    db_session: AsyncSession,
+    shooting_sport: Sport,
+) -> None:
+    response = await onboarding_client.post(
+        "/api/v1/auth/onboarding/create-club",
+        json=club_payload(
+            has_divisions=True,
+            divisions=[
+                {"name": "Gewehr", "sport_key": "shooting"},
+                {"name": "Bogen", "sport_key": "shooting"},
+            ],
+        ),
+    )
+    assert response.status_code == 200, response.text
+
+    tenant_id = uuid.UUID(response.json()["data"]["tenant_id"])
+    result = await db_session.execute(select(Division).where(Division.tenant_id == tenant_id))
+    divisions = sorted(result.scalars().all(), key=lambda d: d.name)
+    assert [d.name for d in divisions] == ["Bogen", "Gewehr"]
+    # Exactly one primary, regardless of how many divisions there are.
+    assert sum(1 for d in divisions if d.is_primary) == 1
+
+
+async def test_slug_collision_gets_suffix(
+    onboarding_client: AsyncClient,
+    db_session: AsyncSession,
+    shooting_sport: Sport,
+) -> None:
+    db_session.add(Tenant(name="Taken", slug="my-new-club"))
+    await db_session.flush()
+
+    response = await onboarding_client.post(
+        "/api/v1/auth/onboarding/create-club", json=club_payload()
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["slug"] == "my-new-club-2"
 
 
 # --- POST /api/v1/auth/logout ---

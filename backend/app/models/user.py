@@ -24,6 +24,13 @@ class User(Base, TimestampMixin):
     # OAuth provider links
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
 
+    # Platform administrator — operates across all tenants and maintains global
+    # master data (sports, discipline catalog). Deliberately a plain flag on the
+    # user rather than a tenant role: it sits *above* tenants and therefore
+    # bypasses tenant isolation by design. Never settable through a tenant-scoped
+    # endpoint.
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Passkey credentials stored separately (future)
 
     tenant_memberships: Mapped[list["TenantMembership"]] = relationship(

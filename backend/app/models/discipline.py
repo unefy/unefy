@@ -1,16 +1,20 @@
 import uuid
 
-from sqlalchemy import Boolean, Index, String, Text, Uuid
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
 
 class Discipline(Base, TimestampMixin):
-    """A sport discipline definition. Global (not tenant-scoped) — shared
-    across all tenants. Seeded with official DSB/BDS/ISSF disciplines.
+    """A discipline definition in the global catalog. Not tenant-scoped.
 
-    Tenants reference disciplines by ID when creating competitions/sessions.
+    Maintained by platform admins through `/api/v1/admin/catalog/disciplines`.
+    Clubs copy entries into their own `club_disciplines` and edit the copy —
+    this table is never written by a tenant.
+
+    Initially populated from `app.core.discipline_seeds` (official DSB/BDS
+    data); that file is a starting point, not the source of truth.
     """
 
     __tablename__ = "disciplines"
@@ -20,6 +24,12 @@ class Discipline(Base, TimestampMixin):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+
+    # Which sport this belongs to. Nullable because the column was added to an
+    # existing table; every seeded row is backfilled to shooting.
+    sport_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("sports.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Unique machine-readable slug, e.g. "dsb-1.40-lg"
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)

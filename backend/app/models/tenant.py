@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, String, Text, Uuid
+from sqlalchemy import Boolean, Date, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -52,6 +52,10 @@ class Tenant(Base, TimestampMixin):
     )
     member_number_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
     member_number_next: Mapped[int] = mapped_column(default=1, nullable=False)
+
+    # Whether the club is organised in divisions (Sparten). Divisions always
+    # exist in the data model; this only controls whether the UI shows them.
+    has_divisions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Configurable member status list (JSON array of {key, label} objects).
     # The DB-level default is English for neutrality; new tenants are seeded
