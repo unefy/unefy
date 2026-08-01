@@ -1,11 +1,12 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 
-import { apiCall } from "@/lib/api"
+import { locales, type Locale } from "@/i18n/request"
 
 export async function updateLocaleAction(locale: string): Promise<void> {
-  if (locale !== "de" && locale !== "en") return
+  if (!locales.includes(locale as Locale)) return
 
   const cookieStore = await cookies()
   cookieStore.set("locale", locale, {
@@ -16,12 +17,7 @@ export async function updateLocaleAction(locale: string): Promise<void> {
     maxAge: 60 * 60 * 24 * 365,
   })
 
-  try {
-    await apiCall("/api/v1/auth/me/locale", {
-      method: "PATCH",
-      body: JSON.stringify({ locale }),
-    })
-  } catch {
-    // Cookie is already set — backend persistence is best-effort.
-  }
+  // The locale is resolved in the root layout from this cookie, so the whole
+  // tree has to re-render for the new language to take effect.
+  revalidatePath("/", "layout")
 }

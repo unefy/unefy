@@ -1,78 +1,65 @@
-import { cookies } from "next/headers"
+import { apiCall } from "@/lib/api"
 
-const API_BASE = process.env.API_URL || "http://localhost:8008"
-const COOKIE_NAME = "unefy_session"
+export type SessionUser = {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+  locale: string | null
+}
 
-export interface User {
+/** The platform admin behind an impersonated session, if any. */
+export type Impersonator = {
   id: string
   name: string
   email: string
-  image?: string | null
-  locale?: string | null
 }
 
-export interface Session {
-  user: User
+export type Session = {
+  user: SessionUser
   tenant_id: string | null
   tenant_name: string | null
   tenant_short_name: string | null
   role: string | null
   needs_onboarding: boolean
+  /** Platform operator — may enter the admin area. Never a tenant role. */
+  is_superuser: boolean
+  /**
+   * Set while this session is impersonating. `user` is already the
+   * impersonated person, so this names who is actually acting.
+   */
+  impersonator: Impersonator | null
 }
 
-export interface TenantOption {
+export type TenantMembership = {
   tenant_id: string
   name: string
   short_name: string | null
   role: string
-  is_current: boolean
 }
 
 /**
- * Get the current session from the backend by forwarding the session cookie.
- * Returns null if not authenticated.
+ * Resolves the current session against the backend.
+ *
+ * Note: `/api/v1/auth/me` answers 200 with `data: null` for an unauthenticated
+ * request rather than 403, so the absence of a session is signalled by the
+ * payload — not by the status code.
  */
 export async function getSession(): Promise<Session | null> {
   try {
-    const cookieStore = await cookies()
-    const sessionCookie = cookieStore.get(COOKIE_NAME)?.value
-
-    if (!sessionCookie) return null
-
-    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
-      headers: { Cookie: `${COOKIE_NAME}=${sessionCookie}` },
-      cache: "no-store",
-    })
-
-    if (!res.ok) return null
-
-    const json = await res.json()
-    return json.data as Session | null
+    const data = await apiCall<Session | null>("/api/v1/auth/me")
+    return data ?? null
   } catch {
+    // Treat an unreachable or erroring backend as "no session" — the layout
+    // then sends the user to the login page instead of rendering a broken shell.
     return null
   }
 }
 
-/**
- * List all active tenant memberships of the current user.
- * Returns an empty list if not authenticated.
- */
-export async function getTenants(): Promise<TenantOption[]> {
+/** Clubs the current user belongs to. Empty when the call fails. */
+export async function getTenants(): Promise<TenantMembership[]> {
   try {
-    const cookieStore = await cookies()
-    const sessionCookie = cookieStore.get(COOKIE_NAME)?.value
-
-    if (!sessionCookie) return []
-
-    const res = await fetch(`${API_BASE}/api/v1/auth/tenants`, {
-      headers: { Cookie: `${COOKIE_NAME}=${sessionCookie}` },
-      cache: "no-store",
-    })
-
-    if (!res.ok) return []
-
-    const json = await res.json()
-    return (json.data ?? []) as TenantOption[]
+    return (await apiCall<TenantMembership[]>("/api/v1/auth/tenants")) ?? []
   } catch {
     return []
   }

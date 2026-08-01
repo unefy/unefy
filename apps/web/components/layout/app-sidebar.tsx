@@ -1,277 +1,55 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
-import { cn } from "@/lib/utils"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Home, Users, Calendar, Trophy, Receipt, Settings, LogOut, CircleUserRound, ChevronDown, Languages, Check } from "lucide-react"
-import { useTranslations, useLocale } from "next-intl"
-import { useRouter } from "next/navigation"
-import { API_URL } from "@/lib/constants"
-import { updateLocaleAction } from "@/actions/locale"
 
-import { switchTenantAction } from "@/actions/auth"
-import type { TenantOption } from "@/lib/auth"
+import { NavMain } from "@/components/layout/nav-main"
+import { NavUser } from "@/components/layout/nav-user"
+import { sidebarData } from "@/components/layout/sidebar-data"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+import type { Session, TenantMembership } from "@/lib/auth"
+import { ShieldIcon } from "lucide-react"
 
-interface AppSidebarProps {
-  user: {
-    id: string
-    name: string
-    email: string
-    image?: string | null
-  }
-  tenantName?: string
-  tenants?: TenantOption[]
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  session: Session
+  tenants: TenantMembership[]
 }
 
-const navigationItems = [
-  { key: "dashboard" as const, href: "/", icon: Home },
-  { key: "members" as const, href: "/members", icon: Users },
-  { key: "events" as const, href: "/events", icon: Calendar },
-  { key: "competitions" as const, href: "/competitions", icon: Trophy },
-  { key: "dues" as const, href: "/dues", icon: Receipt },
-  { key: "settings" as const, href: "/settings", icon: Settings },
-]
-
-const MOBILE_BREAKPOINT = 768
-
-export function AppSidebar({
-  user,
-  tenantName = "My Club",
-  tenants = [],
-}: AppSidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const t = useTranslations()
-  const locale = useLocale()
-  const [collapsed, setCollapsed] = useState(false)
-  const [switching, setSwitching] = useState(false)
-
-  async function handleSwitchTenant(tenantId: string) {
-    if (switching) return
-    setSwitching(true)
-    try {
-      const result = await switchTenantAction(tenantId)
-      if (result.success) {
-        // Hard navigation to the dashboard: clears all client-side caches
-        // (React Query) and avoids staying on a detail page that does not
-        // exist in the new tenant.
-        window.location.href = "/"
-        return
-      }
-    } finally {
-      setSwitching(false)
-    }
-  }
-
-  useEffect(() => {
-    function handleResize() {
-      setCollapsed(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
-  async function handleSignOut() {
-    await fetch(`${API_URL}/api/v1/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    })
-    window.location.href = "/login"
-  }
+export function AppSidebar({ session, tenants, ...props }: AppSidebarProps) {
+  const clubName = session.tenant_short_name || session.tenant_name || "unefy"
 
   return (
-    <TooltipProvider delay={0}>
-      <aside
-        className={cn(
-          "flex shrink-0 flex-col bg-card transition-all duration-200",
-          collapsed ? "w-[60px]" : "w-64",
-        )}
-      >
-        {/* Tenant switcher */}
-        <div className="p-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg bg-muted/50 transition-colors hover:bg-muted cursor-pointer",
-                collapsed ? "justify-center p-2" : "px-3 py-2",
-              )}
-            >
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-primary-foreground text-[10px] font-bold">
-                {tenantName.charAt(0).toUpperCase()}
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" render={<Link href="/" />}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <ShieldIcon className="size-4" />
               </div>
-              {!collapsed && (
-                <>
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="truncate text-sm font-semibold leading-tight">
-                      {tenantName}
-                    </p>
-                    <p className="text-muted-foreground truncate text-[11px] leading-tight mt-0.5">
-                      {t("tenant.freePlan")}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    size={14}
-                    className="text-muted-foreground shrink-0"
-                  />
-                </>
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {tenants.length > 1 && (
-                <>
-                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
-                    {t("common.switchClub")}
-                  </div>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              {tenants.length > 0 ? (
-                tenants.map((tenant) => (
-                  <DropdownMenuItem
-                    key={tenant.tenant_id}
-                    disabled={tenant.is_current || switching}
-                    onClick={() => handleSwitchTenant(tenant.tenant_id)}
-                  >
-                    <span className="truncate font-medium">
-                      {tenant.short_name || tenant.name}
-                    </span>
-                    {tenant.is_current && (
-                      <Check
-                        size={14}
-                        className="ml-auto shrink-0"
-                      />
-                    )}
-                  </DropdownMenuItem>
-                ))
-              ) : (
-                <DropdownMenuItem disabled>
-                  <span className="truncate font-medium">{tenantName}</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 px-3 pt-3">
-          {navigationItems.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href)
-
-            const linkEl = (
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                  collapsed ? "justify-center p-2.5" : "pl-3.5 pr-2.5 py-2.5",
-                )}
-              >
-                <item.icon
-                  size={20}
-                  className="shrink-0"
-                  strokeWidth={isActive ? 2 : 1.5}
-                />
-                {!collapsed && <span>{t(`nav.${item.key}`)}</span>}
-              </Link>
-            )
-
-            return (
-              <div key={item.href} className="mb-0.5">
-                {collapsed ? (
-                  <Tooltip>
-                    <TooltipTrigger>{linkEl}</TooltipTrigger>
-                    <TooltipContent side="right">{t(`nav.${item.key}`)}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  linkEl
-                )}
+              <div className="grid flex-1 text-start text-sm leading-tight">
+                <span className="truncate font-semibold">{clubName}</span>
+                <span className="truncate text-xs">unefy</span>
               </div>
-            )
-          })}
-        </div>
-
-        {/* User */}
-        <div className="p-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg bg-muted/50 transition-colors hover:bg-muted cursor-pointer",
-                collapsed ? "justify-center p-2" : "px-3 py-2",
-              )}
-            >
-              {user.image ? (
-                // OAuth provider avatars (Google) — small, already optimized.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.image}
-                  alt={user.name}
-                  className="h-8 w-8 shrink-0 rounded-full"
-                />
-              ) : (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <CircleUserRound
-                    size={20}
-                    className="text-muted-foreground"
-                  />
-                </div>
-              )}
-              {!collapsed && (
-                <div className="flex-1 overflow-hidden text-left">
-                  <p className="truncate text-sm font-medium leading-tight">
-                    {user.name}
-                  </p>
-                </div>
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              side="top"
-              sideOffset={8}
-              className=""
-            >
-              <div className="px-2 py-1.5">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-muted-foreground text-xs break-all">{user.email}</p>
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={async () => {
-                  const next = locale === "de" ? "en" : "de"
-                  await updateLocaleAction(next)
-                  router.refresh()
-                }}
-              >
-                <Languages size={16} className="mr-2" />
-                {locale === "de" ? t("common.english") : t("common.german")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut size={16} className="mr-2" />
-                {t("common.signOut")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
-    </TooltipProvider>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain navGroups={sidebarData.navGroups} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser session={session} tenants={tenants} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   )
 }

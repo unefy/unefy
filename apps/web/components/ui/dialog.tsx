@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
+import { XIcon } from "lucide-react"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -53,7 +53,11 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none sm:max-w-md dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Flex column capped at the viewport: without the cap a tall dialog
+          // grows past the screen and, because it is centred via -translate-y,
+          // its header ends up unreachable above the fold. `DialogBody` takes
+          // the scroll instead, so header and footer stay put.
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none sm:max-w-md dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -70,7 +74,7 @@ function DialogContent({
               />
             }
           >
-            <X strokeWidth={2} />
+            <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
@@ -83,7 +87,36 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-1.5", className)}
+      className={cn("flex shrink-0 flex-col gap-1.5", className)}
+      {...props}
+    />
+  )
+}
+
+/**
+ * Scrollable middle section of a dialog. Wrap the form fields in it so long
+ * dialogs scroll their content while the title and the action buttons stay
+ * visible.
+ *
+ * `min-h-0` is what actually lets it shrink — a flex item defaults to
+ * `min-height: auto` and would otherwise refuse to become smaller than its
+ * content, pushing the dialog past the viewport cap.
+ *
+ * The negative inline margins pull the scroll container out to the popup edge
+ * so the scrollbar sits against the border rather than floating inside the
+ * padding.
+ */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        "-mx-6 min-h-0 flex-1 overflow-y-auto px-6",
+        // Restores the vertical rhythm the parent's `gap-6` provides between
+        // sections, without letting it collapse the scroll area.
+        "flex flex-col gap-4",
+        className
+      )}
       {...props}
     />
   )
@@ -101,7 +134,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -147,6 +180,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

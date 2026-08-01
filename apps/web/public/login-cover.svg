@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c1f26" />
+      <stop offset="55%" stop-color="#2b3140" />
+      <stop offset="100%" stop-color="#3d4658" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.25" r="0.75">
+      <stop offset="0%" stop-color="#8aa2c8" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#8aa2c8" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="1600" fill="url(#bg)" />
+  <rect width="1200" height="1600" fill="url(#glow)" />
+
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2">
+    <circle cx="600" cy="760" r="150" />
+    <circle cx="600" cy="760" r="270" />
+    <circle cx="600" cy="760" r="390" />
+    <circle cx="600" cy="760" r="510" />
+  </g>
+
+  <!-- Connected nodes: members forming an association -->
+  <g stroke="#ffffff" stroke-opacity="0.22" stroke-width="2">
+    <path d="M600 760 L390 560" />
+    <path d="M600 760 L845 610" />
+    <path d="M600 760 L455 1010" />
+    <path d="M600 760 L820 960" />
+    <path d="M390 560 L845 610" />
+    <path d="M455 1010 L820 960" />
+    <path d="M390 560 L455 1010" />
+    <path d="M845 610 L820 960" />
+  </g>
+
+  <g fill="#ffffff">
+    <circle cx="600" cy="760" r="26" fill-opacity="0.95" />
+    <circle cx="390" cy="560" r="15" fill-opacity="0.7" />
+    <circle cx="845" cy="610" r="15" fill-opacity="0.7" />
+    <circle cx="455" cy="1010" r="15" fill-opacity="0.7" />
+    <circle cx="820" cy="960" r="15" fill-opacity="0.7" />
+  </g>
+
+  <g fill="#ffffff" fill-opacity="0.4">
+    <circle cx="250" cy="300" r="7" />
+    <circle cx="980" cy="330" r="7" />
+    <circle cx="200" cy="1230" r="7" />
+    <circle cx="1000" cy="1270" r="7" />
+    <circle cx="620" cy="200" r="7" />
+    <circle cx="580" cy="1400" r="7" />
+  </g>
+</svg>
