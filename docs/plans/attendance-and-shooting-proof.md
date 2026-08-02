@@ -427,25 +427,47 @@ möglich — das Backend kennt keinen Client.
 - Auf dem Gerät gesehen: Scanner mit laufender Kamera, Mitglieds-QR mit echtem
   Seed, Rotation und Countdown.
 
-### Offline-Stand nach Schritt 3
+### Offline (Write-Queue, 2026-08-02)
 
 | | Verhalten ohne Netz |
 |---|---|
-| Mitglieds-QR | **Funktioniert.** Seed liegt verschlüsselt auf dem Gerät, der Code wird lokal gerechnet. Ein abgelaufener Seed wird weiterbenutzt (das Backend gibt zwei Perioden Karenz) und der Screen sagt es. Nur wer noch nie einen Seed geholt hat, steht ohne da. |
-| Scanner | **Funktioniert nicht.** Die Liste der offenen Einheiten kommt vom Server, und jeder Scan wird sofort gepostet. Bricht die Verbindung, ist der Check-in weg. |
+| Mitglieds-QR | **Funktioniert.** Seed liegt verschlüsselt auf dem Gerät, der Code wird lokal gerechnet. Abgelaufener Seed wird weiterbenutzt (zwei Perioden Karenz), der Screen sagt es. |
+| Scannen | **Funktioniert.** Der Check-in landet in der Queue und geht raus, sobald wieder Verbindung da ist. |
+| Manuell | **Funktioniert.** Die Mitgliederliste wird gecacht — ohne sie wäre die Queue sinnlos, weil man niemanden abhaken kann, den man nicht sieht. |
+| Einheitenliste | **Nicht gecacht.** Wer den Scanner erstmals ohne Verbindung öffnet, sieht keine Einheit und kann nichts erfassen. |
 
-Der Scanner meldet fehlendes Netz seit 2026-08-02 wenigstens als eigenen Fall
-(„nicht erfasst, Person notieren") statt als generischen Fehler, und der Code
-bleibt erneut scannbar, weil er den Server nie erreicht hat. Das ist Schadens-
-begrenzung, keine Lösung.
+**Wie es gebaut ist.** `core:database` (Room, neu) hält zwei Tabellen:
+`pending_check_ins` und `cached_members`. Bei Netzfehler puffert
+`CheckInQueue` den Check-in samt **Gerätezeit**; beim Leeren wird sie als
+`checked_in_at` mitgeschickt, während der Server sein eigenes Jetzt als
+`synced_at` daneben schreibt. Damit unterscheidet ein Audit einen Live-Check-in
+von einer geleerten Queue.
 
-**Was fehlt:** die Write-Queue, die dieser Plan oben schon beschreibt —
-`checked_in_at` (Gerätezeit) getrennt von `synced_at`, Nachträge bis zum
-Abschluss der Einheit. Die Spalte `attendance_records.synced_at` existiert und
-wird nicht geschrieben. Für einen Keller-Schießstand ist genau das der
-Normalfall, nicht die Ausnahme, also ist es der nächste sinnvolle Schritt vor
-allem anderen an dieser Funktion. Dazu gehört Room in der App (fehlt komplett,
-siehe `docs/plans/android-app.md`).
+**Entscheidungen, die dabei fielen:**
+
+- **Nur Netzfehler puffern.** Ein abgelehnter Code später erneut zu senden
+  ändert die Antwort nicht, und eine Queue, die nie leerläuft, ist schlimmer
+  als ein Fehler.
+- **Abgelehnte Zeilen bleiben liegen**, mit Fehlercode markiert. Ein Check-in
+  stillschweigend zu verwerfen ist das einzige Ergebnis, das niemand bemerken
+  kann.
+- **Die Gerätezeit ist eine Behauptung**, keine Evidenz. Der Server begrenzt sie
+  auf `[opens_at, jetzt]` — unbegrenzt wäre sie ein Weg an der Sperre
+  geschlossener Sessions vorbei, also genau an dem, was Stufe 0 schützen soll.
+- **Ein gepufferter Scan wird gegen den behaupteten Moment geprüft**, nicht
+  gegen jetzt. Sonst wäre jeder offline gelesene Code beim Synchronisieren
+  abgelaufen. Preis: für gepufferte Scans steht das *Wann* auf der Uhr des
+  Scangeräts statt auf der des Servers. Das MAC beweist weiterhin das Gerät des
+  Mitglieds, die Session begrenzt den Zeitraum, und `synced_at` macht sichtbar,
+  welche Datensätze davon betroffen sind.
+- **Kein `fallbackToDestructiveMigration`.** In der Queue liegen Check-ins, die
+  es sonst nirgends gibt.
+
+**Noch offen:** Synchronisiert wird beim Öffnen des Scanners, nicht automatisch
+bei wiederkehrender Verbindung — kein Connectivity-Listener, kein WorkManager.
+Wer die App zumacht, während etwas wartet, muss den Scanner nochmal öffnen. Die
+Zahl der wartenden Check-ins steht im Scanner, *warum* eine Zeile abgelehnt
+wurde, ist nicht sichtbar.
 
 **Wer darf scannen:** `owner`, `admin`, `board` — der Endpunkt hängt an
 `require_board`. **Achtung:** `attendance_sessions.supervisor_member_id` wird

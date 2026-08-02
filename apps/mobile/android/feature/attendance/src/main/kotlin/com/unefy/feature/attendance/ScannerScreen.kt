@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -225,6 +226,21 @@ private fun LazyListScope.scannerContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            // Visible whenever anything is held. A queue nobody can see is a
+            // queue nobody notices failing to drain, and these check-ins exist
+            // on this phone and nowhere else.
+            if (state.pending > 0) {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.scanner_pending,
+                        state.pending,
+                        state.pending,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -263,6 +279,11 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.CodeUsed -> stringResource(R.string.scanner_code_used)
     ScanFeedback.CodeInvalid -> stringResource(R.string.scanner_code_invalid)
     ScanFeedback.Offline -> stringResource(R.string.scanner_offline)
+
+    is ScanFeedback.QueuedOffline -> stringResource(
+        R.string.scanner_queued,
+        feedback.memberLabel ?: stringResource(R.string.scanner_unknown_member),
+    )
     is ScanFeedback.Failed -> stringResource(R.string.scanner_failed)
 }
 

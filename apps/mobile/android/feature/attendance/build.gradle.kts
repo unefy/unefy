@@ -16,6 +16,9 @@ dependencies {
     // For TokenCrypto: the seed is a credential and must not sit in DataStore
     // in the clear.
     implementation(project(":core:auth"))
+    // The offline check-in queue: a check-in taken without a connection exists
+    // nowhere else until it syncs.
+    implementation(project(":core:database"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

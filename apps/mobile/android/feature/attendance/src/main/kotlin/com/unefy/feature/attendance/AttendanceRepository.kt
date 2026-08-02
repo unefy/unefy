@@ -1,6 +1,9 @@
 package com.unefy.feature.attendance
 
+import com.unefy.core.database.CachedMember
+import com.unefy.core.database.CachedMemberDao
 import com.unefy.core.network.ApiClient
+import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiEndpoints
 import com.unefy.core.network.ApiResult
 import com.unefy.core.network.map
@@ -46,6 +49,12 @@ internal data class ScanRequest(
     val code: String,
     @SerialName("install_id") val installId: String?,
     @SerialName("staff_device_id") val staffDeviceId: String?,
+    /**
+     * Only set when draining the queue. Absent means "this is happening now",
+     * and the server uses its own clock — which is the honest answer for a live
+     * check-in and the wrong one for a buffered scan taken twenty minutes ago.
+     */
+    @SerialName("checked_in_at") val checkedInAt: String? = null,
 )
 
 @Serializable
@@ -60,6 +69,7 @@ internal data class ScanResultDto(
 internal data class ManualCheckInRequest(
     @SerialName("member_id") val memberId: String,
     val note: String? = null,
+    @SerialName("checked_in_at") val checkedInAt: String? = null,
 )
 
 /**
@@ -120,6 +130,7 @@ interface AttendanceRepository {
         code: String,
         installId: String?,
         staffDeviceId: String?,
+        checkedInAt: String? = null,
     ): ApiResult<ScanOutcome>
 
     /**
@@ -127,7 +138,11 @@ interface AttendanceRepository {
      * phone. Records as `manual` / `low` — the backend derives that from the
      * method, the app cannot claim otherwise.
      */
-    suspend fun checkInManually(sessionId: String, memberId: String): ApiResult<ScanOutcome>
+    suspend fun checkInManually(
+        sessionId: String,
+        memberId: String,
+        checkedInAt: String? = null,
+    ): ApiResult<ScanOutcome>
 
     suspend fun members(search: String?): ApiResult<List<MemberPick>>
 
@@ -138,6 +153,7 @@ interface AttendanceRepository {
 @Singleton
 class DefaultAttendanceRepository @Inject constructor(
     private val apiClient: ApiClient,
+    private val memberCache: CachedMemberDao,
 ) : AttendanceRepository {
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = apiClient
@@ -165,32 +181,73 @@ class DefaultAttendanceRepository @Inject constructor(
         code: String,
         installId: String?,
         staffDeviceId: String?,
+        checkedInAt: String?,
     ): ApiResult<ScanOutcome> = apiClient
         .post<ScanResultDto>(
             ApiEndpoints.attendanceScan(sessionId),
-            body = ScanRequest(code = code, installId = installId, staffDeviceId = staffDeviceId),
+            body = ScanRequest(
+                code = code,
+                installId = installId,
+                staffDeviceId = staffDeviceId,
+                checkedInAt = checkedInAt,
+            ),
         )
         .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
 
     override suspend fun checkInManually(
         sessionId: String,
         memberId: String,
+        checkedInAt: String?,
     ): ApiResult<ScanOutcome> = apiClient
         .post<ScanResultDto>(
             ApiEndpoints.attendanceCheckIn(sessionId),
-            body = ManualCheckInRequest(memberId = memberId),
+            body = ManualCheckInRequest(memberId = memberId, checkedInAt = checkedInAt),
         )
         .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
 
-    override suspend fun members(search: String?): ApiResult<List<MemberPick>> = apiClient
-        .get<List<MemberPickDto>>(ApiEndpoints.MEMBERS) {
-            parameter("page", 1)
-            parameter("per_page", MEMBER_PAGE_SIZE)
-            if (!search.isNullOrBlank()) parameter("search", search)
+    /**
+     * The member list, from the network when possible and from the cache when
+     * not.
+     *
+     * Cached because the supervisor's manual check-in list is useless without
+     * it: queueing the write while the read stays online-only means an empty
+     * list in exactly the basement the queue exists for. The cache is refreshed
+     * on every successful load and only read when the network refuses — a
+     * stale name is a far smaller problem than no name.
+     */
+    override suspend fun members(search: String?): ApiResult<List<MemberPick>> {
+        val result = apiClient
+            .get<List<MemberPickDto>>(ApiEndpoints.MEMBERS) {
+                parameter("page", 1)
+                parameter("per_page", MEMBER_PAGE_SIZE)
+                if (!search.isNullOrBlank()) parameter("search", search)
+            }
+            .map { dtos ->
+                dtos.map { MemberPick(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") }
+            }
+
+        return when {
+            result is ApiResult.Success -> {
+                memberCache.upsert(result.data.map { CachedMember(it.id, it.memberNumber, it.name) })
+                // Only after an unfiltered load: a search returns a subset, and
+                // pruning to it would throw away everyone who did not match.
+                if (search.isNullOrBlank()) {
+                    memberCache.retainOnly(result.data.map(MemberPick::id))
+                }
+                result
+            }
+
+            // Only a dead connection falls back. A 403 means this account may
+            // not list members, and answering it from a cache would be a lie.
+            result is ApiResult.Failure && result.error is ApiError.Network ->
+                ApiResult.Success(
+                    memberCache.search(search.orEmpty(), MEMBER_PAGE_SIZE)
+                        .map { MemberPick(it.id, it.memberNumber, it.name) },
+                )
+
+            else -> result
         }
-        .map { dtos ->
-            dtos.map { MemberPick(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") }
-        }
+    }
 
     override suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>> = apiClient
         .get<List<SessionRecordDto>>(ApiEndpoints.attendanceRecords(sessionId))

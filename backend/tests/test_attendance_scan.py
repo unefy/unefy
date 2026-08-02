@@ -393,3 +393,124 @@ async def test_scan_requires_board(
 
 def _now() -> int:
     return int(datetime.now(UTC).timestamp())
+
+
+# --- Buffered check-in (offline queue) ---
+
+
+async def test_buffered_scan_is_verified_against_the_moment_it_claims(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """The whole point of the queue: a code read offline is stale by now.
+
+    Checked against the claimed moment instead, so a scan taken in a basement
+    and synced afterwards still verifies — while the claim itself stays bounded
+    by the session window.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    seed_data = await _seed_for(auth_client)
+    created = await _create_session(auth_client)
+
+    # An hour into the session, which was weeks ago — far outside the drift a
+    # live scan is allowed.
+    scanned_at = datetime(2026, 7, 7, 18, 0, tzinfo=UTC)
+    at = int(scanned_at.timestamp())
+    seed = derive_seed(get_settings().ATTENDANCE_SECRET, test_tenant.id, member.id, seed_period(at))
+    code = build_code(seed, seed_data["member_ref"], test_tenant.id, counter_for(at))
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan",
+        json={"code": code, "checked_in_at": scanned_at.isoformat()},
+    )
+
+    assert resp.status_code == 201, resp.text
+    record = resp.json()["data"]
+    assert record["checked_in_at"].startswith("2026-07-07T18:00")
+    # Both facts kept apart: when it happened, and when it reached us.
+    assert record["synced_at"] is not None
+    assert record["assurance"] == "high"
+
+
+async def test_same_code_without_the_claim_is_too_old(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    # The counterpart to the test above: nothing was loosened for live scans.
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    seed_data = await _seed_for(auth_client)
+    created = await _create_session(auth_client)
+
+    at = int(datetime(2026, 7, 7, 18, 0, tzinfo=UTC).timestamp())
+    seed = derive_seed(get_settings().ATTENDANCE_SECRET, test_tenant.id, member.id, seed_period(at))
+    code = build_code(seed, seed_data["member_ref"], test_tenant.id, counter_for(at))
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan", json={"code": code}
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_buffered_manual_check_in_keeps_both_times(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={
+            "member_id": str(member.id),
+            "checked_in_at": "2026-07-07T18:30:00+00:00",
+        },
+    )
+
+    assert resp.status_code == 201, resp.text
+    record = resp.json()["data"]
+    assert record["checked_in_at"].startswith("2026-07-07T18:30")
+    assert record["synced_at"] is not None
+
+
+async def test_a_live_check_in_is_not_marked_as_synced(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    # No claim means nothing was buffered, and the record must not suggest it.
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["synced_at"] is None
+
+
+@pytest.mark.parametrize(
+    ("claimed", "reason"),
+    [
+        ("2099-01-01T12:00:00+00:00", "future"),
+        ("2026-07-07T16:00:00+00:00", "before the session opened"),
+    ],
+)
+async def test_an_out_of_range_device_time_is_refused(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+    claimed: str,
+    reason: str,
+) -> None:
+    """A device clock is a claim, not evidence.
+
+    Unbounded, it would be a way around the freeze on closed sessions: backdate
+    someone into an evening they were not at.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id), "checked_in_at": claimed},
+    )
+
+    assert resp.status_code == 422, f"{reason}: {resp.text}"

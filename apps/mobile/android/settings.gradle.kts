@@ -27,6 +27,7 @@ include(":core:model")
 include(":core:designsystem")
 include(":core:network")
 include(":core:auth")
+include(":core:database")
 
 include(":feature:attendance")
 include(":feature:members")

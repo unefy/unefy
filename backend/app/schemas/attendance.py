@@ -65,17 +65,29 @@ class AttendanceSessionResponse(BaseSchema):
     updated_at: datetime
 
 
-class AttendanceCheckIn(BaseSchema):
+class BufferedCheckIn(BaseSchema):
+    """Shared by both check-in paths: the one thing a queued write may assert.
+
+    `checked_in_at` is the device's clock, and it is accepted *only* because a
+    buffered check-in has no other source for when it happened — the server's
+    clock says when the queue drained, which is a different fact and is stored
+    separately as `synced_at`. It is a claim, not evidence, so the service
+    bounds it by the session's own window and by now.
+
+    `assurance` stays unacceptable. The level of proof follows from the method,
+    and no client gets to name it.
+    """
+
+    checked_in_at: datetime | None = None
+
+
+class AttendanceCheckIn(BufferedCheckIn):
     member_id: uuid.UUID
     method: str = Field(default="manual", pattern=METHOD_PATTERN)
     note: str | None = Field(default=None, max_length=1000)
 
-    # `checked_in_at` and `assurance` are deliberately not accepted. The time is
-    # the server's, and the level of proof follows from the method — neither is
-    # the caller's to assert.
 
-
-class AttendanceScanCheckIn(BaseSchema):
+class AttendanceScanCheckIn(BufferedCheckIn):
     """A supervisor scanning a member's rotating code.
 
     A separate schema rather than an optional `code` on [AttendanceCheckIn]:
@@ -128,6 +140,9 @@ class AttendanceRecordResponse(BaseSchema):
     member_number: str | None = None
     occurred_on: date
     checked_in_at: datetime
+    # Non-null means the check-in was buffered on a device and arrived later —
+    # visible in the record so an audit can tell the two apart.
+    synced_at: datetime | None = None
     checked_out_at: datetime | None = None
     method: str
     assurance: str

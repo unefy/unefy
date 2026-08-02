@@ -54,6 +54,11 @@ logger = structlog.get_logger()
 SESSION_TARGET = "attendance_session"
 RECORD_TARGET = "attendance_record"
 
+# How far a device clock may run ahead of the server before its claim about
+# when a check-in happened is refused. Generous enough for an unsynced phone,
+# far short of letting anyone book into the future.
+CLOCK_SKEW_ALLOWANCE = timedelta(minutes=5)
+
 # One message for every way a code can fail. Which half of a guess was right is
 # not something the endpoint should confirm.
 INVALID_CODE_MESSAGE = "Code is not valid. Ask the member for a fresh one."
@@ -241,8 +246,38 @@ class AttendanceService:
             raise NotFoundError("Member not found")
 
         return await self._record_check_in(
-            row, member_id=data.member_id, method=data.method, note=data.note
+            row,
+            member_id=data.member_id,
+            method=data.method,
+            note=data.note,
+            claimed_at=data.checked_in_at,
         )
+
+    def _resolve_occurred_at(
+        self, row: AttendanceSession, claimed_at: datetime | None
+    ) -> tuple[datetime, datetime | None]:
+        """Settle when the check-in happened, and whether it arrived late.
+
+        Without a claim the server's clock is both: it was happening as we were
+        told. With one, the claim becomes `checked_in_at` and now becomes
+        `synced_at`, so the record carries both facts and an audit can tell a
+        live check-in from a drained queue.
+
+        The claim is bounded rather than trusted. A device could otherwise
+        backdate someone into an evening they were not at, which is precisely
+        the attack the freeze on closed sessions exists to prevent — a buffered
+        write must not become a way around it.
+        """
+        now = datetime.now(UTC)
+        if claimed_at is None:
+            return now, None
+
+        claimed = claimed_at.astimezone(UTC)
+        if claimed > now + CLOCK_SKEW_ALLOWANCE:
+            raise ValidationError("checked_in_at is in the future")
+        if claimed < row.opens_at:
+            raise ValidationError("checked_in_at is before the session opened")
+        return claimed, now
 
     async def _record_check_in(
         self,
@@ -251,8 +286,11 @@ class AttendanceService:
         member_id: uuid.UUID,
         method: str,
         note: str | None,
+        claimed_at: datetime | None = None,
     ) -> AttendanceRecord:
         """The shared half of every check-in, whatever proved the person."""
+        occurred_at, synced_at = self._resolve_occurred_at(row, claimed_at)
+
         if await self.records.get_active(row.id, member_id) is not None:
             # Its own code: for a supervisor scanning a queue this is a
             # non-event, while a used code means someone passed a screenshot
@@ -271,7 +309,8 @@ class AttendanceService:
             # club's zone, so a session opening at 00:30 is filed under that
             # night rather than the previous UTC day.
             occurred_on=row.opens_at.astimezone(await self.club_timezone()).date(),
-            checked_in_at=datetime.now(UTC),
+            checked_in_at=occurred_at,
+            synced_at=synced_at,
             method=method,
             assurance=ASSURANCE_BY_METHOD[method],
             # Who vouches for it. For `manual` this is the whole proof of
@@ -338,6 +377,16 @@ class AttendanceService:
             # oracle for which pseudonyms exist.
             raise ValidationError(INVALID_CODE_MESSAGE)
 
+        # A buffered scan is checked against the moment it claims to have
+        # happened, not against now — a code read twenty minutes ago in a
+        # basement is long stale by the server's clock, and refusing it would
+        # make offline scanning impossible. The claim is bounded by the session
+        # window in `_resolve_occurred_at`, and the MAC still proves the
+        # member's own device produced this code for that counter. What is lost
+        # is the server's independent word on *when*, which is exactly why
+        # `synced_at` is stored beside it.
+        occurred_at, _ = self._resolve_occurred_at(row, data.checked_in_at)
+
         settings = get_settings()
         try:
             verify_code(
@@ -345,7 +394,7 @@ class AttendanceService:
                 secret=settings.ATTENDANCE_SECRET,
                 tenant_id=self.tenant_id,
                 member_id=member.id,
-                now=int(datetime.now(UTC).timestamp()),
+                now=int(occurred_at.timestamp()),
             )
         except InvalidCodeError as exc:
             raise ValidationError(INVALID_CODE_MESSAGE) from exc
@@ -353,7 +402,11 @@ class AttendanceService:
         await self._burn_code(member.id, parsed.counter)
 
         record = await self._record_check_in(
-            row, member_id=member.id, method="staff_scan", note=data.note
+            row,
+            member_id=member.id,
+            method="staff_scan",
+            note=data.note,
+            claimed_at=data.checked_in_at,
         )
         await self._record_context(record, parsed.counter, data)
         return record

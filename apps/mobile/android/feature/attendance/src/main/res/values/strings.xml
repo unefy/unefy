@@ -23,6 +23,11 @@
     <string name="scanner_code_used">Dieser Code wurde bereits verwendet. Lass dir einen frischen zeigen.</string>
     <string name="scanner_code_invalid">Code ungültig oder abgelaufen</string>
     <string name="scanner_offline">Keine Verbindung — nicht erfasst. Person notieren und erneut scannen, sobald wieder Netz da ist.</string>
+    <string name="scanner_queued">%1$s erfasst — wird ohne Verbindung gespeichert</string>
+    <plurals name="scanner_pending">
+        <item quantity="one">1 Check-in wartet auf Verbindung</item>
+        <item quantity="other">%1$d Check-ins warten auf Verbindung</item>
+    </plurals>
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
     <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
     <string name="scanner_permission_title">Kamera nötig</string>

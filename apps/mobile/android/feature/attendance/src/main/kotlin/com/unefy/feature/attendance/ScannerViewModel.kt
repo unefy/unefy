@@ -42,6 +42,9 @@ sealed interface ScanFeedback {
      */
     data object Offline : ScanFeedback
 
+    /** Held on the device. Not lost, just not sent yet. */
+    data class QueuedOffline(val memberLabel: String?) : ScanFeedback
+
     data class Failed(val error: ApiError) : ScanFeedback
 }
 
@@ -74,6 +77,8 @@ data class ScannerUiState(
     val feedback: ScanFeedback? = null,
     val checkedInCount: Int = 0,
     val manual: ManualPickState = ManualPickState(),
+    /** Check-ins taken while offline and not yet sent. */
+    val pending: Int = 0,
 )
 
 /**
@@ -86,6 +91,7 @@ data class ScannerUiState(
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
     private val repository: AttendanceRepository,
+    private val queue: CheckInQueue,
     private val deviceIdentity: DeviceIdentity,
 ) : ViewModel() {
 
@@ -110,6 +116,18 @@ class ScannerViewModel @Inject constructor(
     init {
         loadSessions()
         analysisUseCase.setAnalyzer(analysisExecutor, QrAnalyzer(::onCodeScanned))
+
+        viewModelScope.launch {
+            queue.pendingCount.collect { count -> _uiState.update { it.copy(pending = count) } }
+        }
+        // Opening the scanner is the moment a supervisor has both a reason to
+        // care and, usually, a connection again.
+        drainQueue()
+    }
+
+    /** Sends whatever was taken offline. Safe to call when there is nothing. */
+    fun drainQueue() {
+        viewModelScope.launch { queue.sync() }
     }
 
     fun loadSessions() {
@@ -169,29 +187,31 @@ class ScannerViewModel @Inject constructor(
 
         _uiState.update { it.copy(submitting = true) }
         viewModelScope.launch {
-            val result = repository.scan(
-                sessionId = sessionId,
-                code = code,
-                installId = deviceIdentity.installId(),
-                staffDeviceId = deviceIdentity.installId(),
-            )
+            val result = queue.scan(sessionId, code, deviceIdentity.installId())
             _uiState.update { current ->
                 when (result) {
-                    is ApiResult.Success -> current.copy(
+                    is CheckInResult.Recorded -> current.copy(
                         submitting = false,
                         feedback = ScanFeedback.CheckedIn(
-                            result.data.memberName,
-                            result.data.memberNumber,
+                            result.outcome.memberName,
+                            result.outcome.memberNumber,
                         ),
                         checkedInCount = current.checkedInCount + 1,
                     )
 
-                    is ApiResult.Failure -> {
-                        // Never reached the server, so the code is unspent and
-                        // pointing the camera at it again must work.
-                        if (result.error is ApiError.Network) handled.remove(code)
-                        current.copy(submitting = false, feedback = feedbackFor(result.error))
-                    }
+                    // Counted like any other: from where the supervisor stands
+                    // the person is checked in, and the queue is the app's
+                    // problem rather than theirs.
+                    CheckInResult.Queued -> current.copy(
+                        submitting = false,
+                        feedback = ScanFeedback.QueuedOffline(memberLabel = null),
+                        checkedInCount = current.checkedInCount + 1,
+                    )
+
+                    is CheckInResult.Rejected -> current.copy(
+                        submitting = false,
+                        feedback = feedbackFor(result.error),
+                    )
                 }
             }
         }
@@ -270,22 +290,28 @@ class ScannerViewModel @Inject constructor(
 
         _uiState.update { it.copy(manual = it.manual.copy(pending = member.id)) }
         viewModelScope.launch {
-            val result = repository.checkInManually(sessionId, member.id)
+            val result = queue.checkInManually(sessionId, member, deviceIdentity.installId())
             _uiState.update { state ->
                 when (result) {
-                    is ApiResult.Success -> state.copy(
-                        feedback = ScanFeedback.CheckedIn(member.name, member.memberNumber),
+                    is CheckInResult.Recorded, CheckInResult.Queued -> state.copy(
+                        feedback = if (result is CheckInResult.Queued) {
+                            ScanFeedback.QueuedOffline(member.name)
+                        } else {
+                            ScanFeedback.CheckedIn(member.name, member.memberNumber)
+                        },
                         checkedInCount = state.checkedInCount + 1,
                         manual = state.manual.copy(
                             pending = null,
                             // Marked straight away rather than after a reload:
                             // the supervisor is working down a queue and the row
                             // has to settle before they look at the next name.
+                            // A queued one is marked too — it is taken, and
+                            // offering the row again would produce a duplicate.
                             checkedIn = state.manual.checkedIn + member.id,
                         ),
                     )
 
-                    is ApiResult.Failure -> state.copy(
+                    is CheckInResult.Rejected -> state.copy(
                         feedback = feedbackFor(result.error),
                         manual = state.manual.copy(
                             pending = null,
