@@ -28,6 +28,14 @@ sealed interface MemberCodeUiState {
         val seedStale: Boolean,
     ) : MemberCodeUiState
 
+    /**
+     * Somebody scanned this code and it went through.
+     *
+     * The whole point of showing it: until now the member held out a QR and
+     * learned nothing, because the check-in happens on the supervisor's device.
+     */
+    data class Confirmed(val sessionTitle: String?) : MemberCodeUiState
+
     data class Failure(val error: ApiError) : MemberCodeUiState
 
     /** The account has no member record, so there is nobody to check in. */
@@ -62,12 +70,30 @@ class MemberCodeViewModel @Inject constructor(
         _uiState.value = MemberCodeUiState.Loading
         viewModelScope.launch {
             val seed = obtainSeed() ?: return@launch
+            // Anything already recorded before this screen opened is history,
+            // not the confirmation of what is about to happen.
+            val openedAt = clock.epochSeconds()
+            var tick = 0
+
             // Ticks once a second rather than once per window: the countdown is
             // what tells a member the code is live rather than a frozen image,
             // and a stuck screen is indistinguishable from a working one
             // without it.
             while (isActive) {
                 val now = clock.epochSeconds()
+
+                // Polled rather than pushed. FCM is not built, and a request
+                // every few seconds for the minute this screen is open is a far
+                // smaller cost than a member who cannot tell whether they are
+                // checked in. Offline it simply fails and the code stays up.
+                if (tick++ % POLL_EVERY_TICKS == 0) {
+                    val own = (repository.latestOwnCheckIn() as? ApiResult.Success)?.data
+                    if (own != null && own.checkedInAtEpochSeconds >= openedAt) {
+                        _uiState.value = MemberCodeUiState.Confirmed(own.sessionTitle)
+                        return@launch
+                    }
+                }
+
                 _uiState.value = MemberCodeUiState.Content(
                     code = AttendanceCode.build(
                         seed = seed.seed,
@@ -118,6 +144,9 @@ class MemberCodeViewModel @Inject constructor(
 
     private companion object {
         const val TICK_MILLIS = 1_000L
+
+        /** Every five seconds. Fast enough to feel immediate at the door. */
+        const val POLL_EVERY_TICKS = 5
     }
 }
 

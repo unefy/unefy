@@ -307,4 +307,6 @@ private class FakeRepository : AttendanceRepository {
 
     override suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>> =
         error("not used")
+
+    override suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?> = error("not used")
 }

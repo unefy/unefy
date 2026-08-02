@@ -34,7 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -47,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 
@@ -225,7 +228,7 @@ private fun LazyListScope.scannerContent(
                 .padding(UnefySpacing.screen),
             verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
         ) {
-            Text(
+            FeedbackBanner(
                 // "Bereit" would be a lie while nothing is selected: a scan is
                 // dropped on the floor without a session, and the chips above
                 // do not explain themselves.
@@ -234,7 +237,7 @@ private fun LazyListScope.scannerContent(
                 } else {
                     feedbackText(state.feedback)
                 },
-                style = MaterialTheme.typography.titleMedium,
+                feedback = state.feedback.takeIf { state.selectedSessionId != null },
             )
             if (state.selectedSessionId != null) {
                 Text(
@@ -267,6 +270,64 @@ private fun LazyListScope.scannerContent(
     items(state.attendance, key = { it.key }) { entry ->
         AttendanceRow(entry)
         UnefyRowDivider()
+    }
+}
+
+/**
+ * The scan result, as a coloured surface rather than a line of text.
+ *
+ * The supervisor is looking at the viewfinder and the person in front of them,
+ * not at a paragraph — a sentence that merely changes wording is missed, and a
+ * missed rejection means somebody walks in unrecorded. Colour carries it at a
+ * glance, the words carry the detail, and the haptic carries it when the phone
+ * is not being looked at at all.
+ *
+ * Hue is reserved for status in this design system, which is exactly this.
+ */
+@Composable
+private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
+    val colors = LocalUnefyColors.current
+    val container = when (feedback) {
+        is ScanFeedback.CheckedIn -> colors.successContainer
+        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.warningContainer
+        ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
+        is ScanFeedback.Failed,
+        -> MaterialTheme.colorScheme.errorContainer
+
+        null -> MaterialTheme.colorScheme.surfaceContainer
+    }
+    val content = when (feedback) {
+        is ScanFeedback.CheckedIn -> colors.onSuccessContainer
+        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.onWarningContainer
+        ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
+        is ScanFeedback.Failed,
+        -> MaterialTheme.colorScheme.onErrorContainer
+
+        null -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(feedback) {
+        // Keyed on the result object, so a second scan of the same outcome
+        // still buzzes — otherwise two people in a row would feel like one.
+        when (feedback) {
+            null -> Unit
+            is ScanFeedback.CheckedIn -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            else -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
+        }
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = container,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = content,
+            modifier = Modifier.padding(UnefySpacing.md),
+        )
     }
 }
 

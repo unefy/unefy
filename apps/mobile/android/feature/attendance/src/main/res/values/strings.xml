@@ -3,6 +3,7 @@
     <string name="attendance_code_title">Mein Check-in</string>
     <string name="attendance_code_hint">Zeig diesen Code der Aufsicht. Er wechselt alle 30 Sekunden.</string>
     <string name="attendance_code_refresh_in">Neuer Code in %1$d s</string>
+    <string name="attendance_code_confirmed">Eingecheckt</string>
     <string name="attendance_code_offline">Ohne Verbindung erstellt. Der Code sollte funktionieren; falls nicht, kurz online gehen.</string>
     <string name="attendance_code_error_title">Code nicht ladbar</string>
     <string name="attendance_code_error_body">Der Check-in-Code konnte nicht geladen werden.</string>

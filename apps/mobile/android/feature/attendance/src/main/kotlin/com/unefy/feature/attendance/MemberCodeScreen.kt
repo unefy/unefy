@@ -23,10 +23,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyMotion
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
@@ -89,6 +93,8 @@ fun MemberCodeScreen(
             MemberCodeUiState.Loading -> Unit
 
             is MemberCodeUiState.Content -> item("code") { CodeCard(state) }
+
+            is MemberCodeUiState.Confirmed -> item("confirmed") { Confirmation(state.sessionTitle) }
 
             MemberCodeUiState.NoMembership -> item("no-membership") {
                 Message(
@@ -208,6 +214,57 @@ private fun CodeCountdown(secondsRemaining: Long) {
 private val RING_SIZE = 56.dp
 private val RING_STROKE = 3.dp
 private const val TICK_MILLIS = 1_000
+
+/**
+ * The code did its job.
+ *
+ * Replaces the QR outright rather than adding a line to it: holding out a code
+ * that has already been used invites a second scan, and the member's question
+ * is answered — they can put the phone away.
+ */
+@Composable
+private fun Confirmation(sessionTitle: String?) {
+    val colors = LocalUnefyColors.current
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(Unit) { haptics.performHapticFeedback(HapticFeedbackType.Confirm) }
+
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = colors.successContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(UnefySpacing.screen),
+    ) {
+        Column(
+            modifier = Modifier.padding(UnefySpacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(UnefySpacing.md),
+        ) {
+            Icon(
+                painter = painterResource(DesignR.drawable.ic_check),
+                contentDescription = null,
+                tint = colors.onSuccessContainer,
+                modifier = Modifier.size(CONFIRM_ICON),
+            )
+            Text(
+                text = stringResource(R.string.attendance_code_confirmed),
+                style = MaterialTheme.typography.headlineSmall,
+                color = colors.onSuccessContainer,
+                textAlign = TextAlign.Center,
+            )
+            sessionTitle?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSuccessContainer,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+private val CONFIRM_ICON = 48.dp
 
 @Composable
 private fun Message(title: String, body: String, onRetry: (() -> Unit)? = null) {

@@ -513,6 +513,23 @@ Die Liste ist auch die Quelle für den Zähler und für die Häkchen in der
 manuellen Auswahl — vorher waren das drei Stellen, die auseinanderlaufen
 konnten.
 
+**Rückmeldung auf beiden Seiten** (2026-08-02, nach dem ersten Test mit zwei
+Geräten). Der Scan funktionierte auf Anhieb, aber keine der beiden Seiten sagte
+es: auf dem Scangerät stand das Ergebnis als eine Textzeile unter dem Sucher,
+und das Mitgliedsgerät erfuhr gar nichts, weil der Check-in auf einem fremden
+Telefon passiert.
+
+- Scangerät: farbige Fläche statt Textzeile, plus Haptik (Bestätigung bzw.
+  Ablehnung). Die Aufsicht schaut auf den Sucher und auf die Person, nicht auf
+  einen Absatz — eine übersehene Ablehnung heißt, dass jemand unerfasst
+  hereinspaziert. Hue ist in diesem Designsystem für Status reserviert, und
+  genau das ist hier der Fall.
+- Mitgliedsgerät: fragt alle fünf Sekunden `/attendance/me/records` ab, solange
+  der Code offen ist, und ersetzt den QR durch eine Bestätigung, sobald ein
+  Datensatz auftaucht, der nach dem Öffnen des Screens entstanden ist. Gepollt
+  statt gepusht, weil FCM nicht gebaut ist; scheitert die Abfrage, bleibt der
+  Code stehen, das Offline-Verhalten ändert sich also nicht.
+
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch
 nie mit Verbindung offen hatte, hat weder Einheiten- noch Mitgliederliste.

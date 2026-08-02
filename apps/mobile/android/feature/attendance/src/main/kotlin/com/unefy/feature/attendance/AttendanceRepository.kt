@@ -112,6 +112,16 @@ internal data class SessionRecordDto(
     @SerialName("checked_in_at") val checkedInAt: String,
 )
 
+@Serializable
+internal data class MyRecordDto(
+    val id: String,
+    @SerialName("session_title") val sessionTitle: String? = null,
+    @SerialName("checked_in_at") val checkedInAt: String,
+)
+
+/** The member's own most recent check-in, for confirming one just happened. */
+data class OwnCheckIn(val sessionTitle: String?, val checkedInAtEpochSeconds: Long)
+
 /** The seed plus the parameters it is valid under. */
 data class AttendanceSeed(
     val memberRef: String,
@@ -198,6 +208,16 @@ interface AttendanceRepository {
 
     /** The session's attendance list, newest first. Cached for offline use. */
     suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>>
+
+    /**
+     * The caller's own latest check-in, or null if they have none.
+     *
+     * The member's phone has no other way of learning that it was scanned —
+     * the code goes out through a camera and the check-in happens on somebody
+     * else's device. Without this the screen holding out a QR can never say
+     * whether it worked.
+     */
+    suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?>
 }
 
 @Singleton
@@ -373,6 +393,17 @@ class DefaultAttendanceRepository @Inject constructor(
             else -> result as ApiResult.Failure
         }
     }
+
+    override suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?> = apiClient
+        .get<List<MyRecordDto>>(ApiEndpoints.ATTENDANCE_ME_RECORDS) {
+            parameter("page", 1)
+            parameter("per_page", 1)
+        }
+        .map { records ->
+            records.firstOrNull()?.let {
+                OwnCheckIn(it.sessionTitle, parseInstant(it.checkedInAt))
+            }
+        }
 
     private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
         key = row.id,
