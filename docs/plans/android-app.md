@@ -90,9 +90,12 @@ Regeln.
 
 ## B. Funktionale Lücken
 
-- **Offline.** Room, Cache und Write-Queue fehlen vollständig. Ohne Netz ist die
-  App leer, obwohl „Offline-Capable“ als Kernprinzip in CLAUDE.md steht.
-  Reihenfolge: Lesen aus Room mit Hintergrund-Refresh zuerst, Write-Queue danach.
+- **Offline.** Seit 2026-08-02 gibt es `core:database` (Room), allerdings nur
+  für Anwesenheit: eine Write-Queue für Check-ins und ein Cache der
+  Mitgliederliste. Mitglieder, Termine, Beiträge und Wettkämpfe sind ohne Netz
+  weiterhin leer, und die Einheitenliste des Scanners ebenfalls. Das Muster
+  steht damit, die Ausbreitung fehlt. Details in
+  `attendance-and-shooting-proof.md`.
 - **Die App ist fast nur lesend.** Außer der eigenen Terminanmeldung gibt es
   kein Anlegen oder Bearbeiten — keine Mitglieder, keine Termine, keine
   Wettkämpfe. Für Vorstandsrollen ist das die auffälligste Lücke.
