@@ -56,6 +56,35 @@ internal data class ScanResultDto(
     val assurance: String,
 )
 
+@Serializable
+internal data class ManualCheckInRequest(
+    @SerialName("member_id") val memberId: String,
+    val note: String? = null,
+)
+
+/**
+ * Just enough of a member to pick one off a list.
+ *
+ * Its own DTO rather than reusing `feature:members` — features never depend on
+ * each other (see apps/mobile/CLAUDE.md), and this is a different projection
+ * anyway: a name to tap, not a profile.
+ */
+@Serializable
+internal data class MemberPickDto(
+    val id: String,
+    @SerialName("member_number") val memberNumber: String,
+    @SerialName("first_name") val firstName: String,
+    @SerialName("last_name") val lastName: String,
+)
+
+@Serializable
+internal data class SessionRecordDto(
+    val id: String,
+    @SerialName("member_id") val memberId: String,
+    @SerialName("member_name") val memberName: String? = null,
+    val method: String,
+)
+
 /** The seed plus the parameters it is valid under. */
 data class AttendanceSeed(
     val memberRef: String,
@@ -73,6 +102,13 @@ data class AttendanceSessionSummary(
 
 data class ScanOutcome(val memberName: String?, val memberNumber: String?, val assurance: String)
 
+/** A member as shown in the manual pick list. */
+data class MemberPick(
+    val id: String,
+    val memberNumber: String,
+    val name: String,
+)
+
 interface AttendanceRepository {
     suspend fun seed(): ApiResult<AttendanceSeed>
 
@@ -85,6 +121,18 @@ interface AttendanceRepository {
         installId: String?,
         staffDeviceId: String?,
     ): ApiResult<ScanOutcome>
+
+    /**
+     * The supervisor ticking a box, for whoever turned up without a working
+     * phone. Records as `manual` / `low` — the backend derives that from the
+     * method, the app cannot claim otherwise.
+     */
+    suspend fun checkInManually(sessionId: String, memberId: String): ApiResult<ScanOutcome>
+
+    suspend fun members(search: String?): ApiResult<List<MemberPick>>
+
+    /** Who is already in this session, so the pick list can say so. */
+    suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>>
 }
 
 @Singleton
@@ -124,8 +172,36 @@ class DefaultAttendanceRepository @Inject constructor(
         )
         .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
 
+    override suspend fun checkInManually(
+        sessionId: String,
+        memberId: String,
+    ): ApiResult<ScanOutcome> = apiClient
+        .post<ScanResultDto>(
+            ApiEndpoints.attendanceCheckIn(sessionId),
+            body = ManualCheckInRequest(memberId = memberId),
+        )
+        .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
+
+    override suspend fun members(search: String?): ApiResult<List<MemberPick>> = apiClient
+        .get<List<MemberPickDto>>(ApiEndpoints.MEMBERS) {
+            parameter("page", 1)
+            parameter("per_page", MEMBER_PAGE_SIZE)
+            if (!search.isNullOrBlank()) parameter("search", search)
+        }
+        .map { dtos ->
+            dtos.map { MemberPick(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") }
+        }
+
+    override suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>> = apiClient
+        .get<List<SessionRecordDto>>(ApiEndpoints.attendanceRecords(sessionId))
+        .map { records -> records.map(SessionRecordDto::memberId).toSet() }
+
     private companion object {
         const val SESSION_PAGE_SIZE = 50
+
+        // The list is searchable, so this is a ceiling for "show me everyone",
+        // not a page the user is expected to scroll to the end of.
+        const val MEMBER_PAGE_SIZE = 100
     }
 }
 

@@ -391,6 +391,13 @@ möglich — das Backend kennt keinen Client.
 
 **Android** (`apps/mobile/android/feature/attendance`)
 
+- **Beide Verfahren in einem Screen.** Der Scanner hat eine Aktion „Manuell",
+  die ein Bottom Sheet mit der Mitgliederliste öffnet — Suche, und wer schon in
+  der Einheit ist, trägt ein Häkchen. Die Kamera bleibt dahinter gebunden, die
+  gewählte Einheit gewählt. Ohne das wäre der Scanner ein Rückschritt gegenüber
+  der Papierliste: es kommt immer jemand ohne Handy oder mit leerem Akku, und
+  die Liste beantwortet außerdem die Frage, die die Papierliste beantwortet —
+  wer fehlt noch.
 - **Ein Navigationsziel, nicht zwei.** „Mein Check-in" zeigt den eigenen Code;
   Vorstandsrollen erreichen den Scanner über ein Icon in der Kopfzeile, er
   öffnet als Detailseite mit Zurück. Anfangs waren es zwei Top-Level-Ziele —

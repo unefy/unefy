@@ -11,9 +11,12 @@
     <string name="attendance_open_scanner">Codes scannen</string>
     <string name="attendance_retry">Erneut versuchen</string>
 
-    <string name="scanner_title">Check-in scannen</string>
+    <!-- Short: the header also carries a back arrow, the manual action and the
+         account, and the longer wording was being truncated. -->
+    <string name="scanner_title">Scannen</string>
     <string name="scanner_back">Zurück</string>
     <string name="scanner_waiting">Bereit — Code vor die Kamera halten</string>
+    <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>
     <string name="scanner_already_present">Schon eingecheckt</string>
@@ -29,4 +32,10 @@
     <string name="scanner_no_sessions_body">Leg zuerst eine Anwesenheitseinheit an. Nur in eine offene Einheit kann eingecheckt werden.</string>
     <string name="scanner_sessions_error_title">Einheiten nicht ladbar</string>
     <string name="scanner_sessions_error_body">Die offenen Einheiten konnten nicht geladen werden.</string>
+    <string name="scanner_manual_action">Manuell</string>
+    <string name="scanner_manual_title">Manuell einchecken</string>
+    <string name="scanner_manual_search">Mitglied suchen</string>
+    <string name="scanner_manual_empty">Kein Mitglied gefunden.</string>
+    <string name="scanner_manual_error">Mitgliederliste nicht ladbar.</string>
+    <string name="scanner_manual_present">Bereits eingecheckt</string>
 </resources>

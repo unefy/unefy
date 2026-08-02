@@ -82,6 +82,30 @@ class NavigationSmokeTest {
         composeRule.onNodeWithText(string(AttendanceR.string.scanner_title)).assertIsDisplayed()
     }
 
+    /**
+     * Scanning is not the only way in. Someone always arrives with a flat
+     * battery, and the paper list this replaces could always be ticked by hand —
+     * so the manual list has to open from the scanner and show real members.
+     */
+    @Test
+    fun the_scanner_offers_a_manual_list() {
+        show(ClubRole.BOARD)
+        openFromMoreShelf(TopLevel.CheckIn)
+        composeRule.onNodeWithContentDescription(string(AttendanceR.string.attendance_open_scanner))
+            .performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(string(AttendanceR.string.scanner_manual_action)).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(string(AttendanceR.string.scanner_manual_title))
+            .assertIsDisplayed()
+        // The list is populated from the real repository against the mocked
+        // engine, so a name here proves the fetch and the decoding, not just
+        // that a sheet opened.
+        composeRule.onNodeWithText("Test Mitglied").assertIsDisplayed()
+    }
+
     /** A member may hold a code; the way to the scanner must not be offered. */
     @Test
     fun member_is_not_offered_the_scanner() {

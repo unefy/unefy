@@ -81,6 +81,12 @@ object TestNetworkModule {
         // A real seed, so the check-in screen actually encodes and draws a QR
         // during the smoke test rather than falling back to its error state.
         ApiEndpoints.ATTENDANCE_ME_SEED -> """{"data":$SEED}"""
+        // Non-empty, so the manual pick list has something to show and the
+        // members screen renders rows rather than its empty state.
+        ApiEndpoints.MEMBERS -> """{"data":[$MEMBER]}"""
+        // One open session, so the scanner preselects it and the manual action
+        // appears — it is hidden without a session to check into.
+        ApiEndpoints.ATTENDANCE_SESSIONS -> """{"data":[$SESSION]}"""
         else -> """{"data":[]}"""
     }
 
@@ -91,6 +97,17 @@ object TestNetworkModule {
           "first_name": "Test",
           "last_name": "Mitglied",
           "joined_at": "2026-01-01"
+        }
+    """
+
+    private const val SESSION = """
+        {
+          "id": "00000000-0000-0000-0000-0000000000aa",
+          "title": "Übungsabend",
+          "opens_at": "2026-08-02T17:00:00+00:00",
+          "closes_at": "2026-08-02T21:00:00+00:00",
+          "status": "open",
+          "record_count": 0
         }
     """
 

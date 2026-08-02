@@ -36,6 +36,11 @@ object ApiEndpoints {
     /** Check-in from a scanned code, as opposed to a supervisor ticking a box. */
     fun attendanceScan(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/scan"
 
+    /** The supervisor ticking a box, as opposed to scanning a code. */
+    fun attendanceCheckIn(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/check-in"
+
+    fun attendanceRecords(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/records"
+
     fun member(id: String): String = "$MEMBERS/$id"
 
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"

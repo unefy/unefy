@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +74,10 @@ fun ScannerRoute(
         onSelectSession = viewModel::selectSession,
         onRetrySessions = viewModel::loadSessions,
         bindCamera = viewModel::bindToCamera,
+        onOpenManual = viewModel::openManualPick,
+        onCloseManual = viewModel::closeManualPick,
+        onManualQueryChange = viewModel::onManualQueryChange,
+        onCheckInManually = viewModel::checkInManually,
     )
 }
 
@@ -87,7 +92,20 @@ fun ScannerScreen(
     onRetrySessions: () -> Unit = {},
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit =
         { _, _ -> },
+    onOpenManual: () -> Unit = {},
+    onCloseManual: () -> Unit = {},
+    onManualQueryChange: (String) -> Unit = {},
+    onCheckInManually: (MemberPick) -> Unit = {},
 ) {
+    if (state.manual.open) {
+        ManualPickSheet(
+            state = state.manual,
+            onQueryChange = onManualQueryChange,
+            onPick = onCheckInManually,
+            onDismiss = onCloseManual,
+        )
+    }
+
     UnefyListScaffold(
         title = stringResource(R.string.scanner_title),
         // Reached from the check-in screen, so it needs a way back. Back belongs
@@ -100,7 +118,16 @@ fun ScannerScreen(
                 )
             }
         },
-        actions = actions,
+        actions = {
+            // Only with a session to check into — the action would otherwise
+            // open a list that cannot do anything.
+            if (state.selectedSessionId != null) {
+                TextButton(onClick = onOpenManual) {
+                    Text(stringResource(R.string.scanner_manual_action))
+                }
+            }
+            actions()
+        },
     ) {
         when {
             state.sessionsError != null -> item("error") {
@@ -181,14 +208,23 @@ private fun LazyListScope.scannerContent(
             verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
         ) {
             Text(
-                text = feedbackText(state.feedback),
+                // "Bereit" would be a lie while nothing is selected: a scan is
+                // dropped on the floor without a session, and the chips above
+                // do not explain themselves.
+                text = if (state.selectedSessionId == null) {
+                    stringResource(R.string.scanner_pick_session)
+                } else {
+                    feedbackText(state.feedback)
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(
-                text = stringResource(R.string.scanner_counted, state.checkedInCount),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (state.selectedSessionId != null) {
+                Text(
+                    text = stringResource(R.string.scanner_counted, state.checkedInCount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

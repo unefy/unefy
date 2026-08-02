@@ -45,6 +45,24 @@ sealed interface ScanFeedback {
     data class Failed(val error: ApiError) : ScanFeedback
 }
 
+/**
+ * The manual list: everyone who could be here, and who already is.
+ *
+ * Not an alternative to scanning but the other half of it. Someone always turns
+ * up with a flat battery, and the paper list they replace could always be ticked
+ * by hand — a scanner that cannot do that is a downgrade.
+ */
+data class ManualPickState(
+    val open: Boolean = false,
+    val query: String = "",
+    val members: List<MemberPick> = emptyList(),
+    val checkedIn: Set<String> = emptySet(),
+    val loading: Boolean = false,
+    val error: ApiError? = null,
+    /** The member whose check-in is in flight, so their row can lock. */
+    val pending: String? = null,
+)
+
 data class ScannerUiState(
     val sessions: List<AttendanceSessionSummary> = emptyList(),
     val selectedSessionId: String? = null,
@@ -55,6 +73,7 @@ data class ScannerUiState(
     val submitting: Boolean = false,
     val feedback: ScanFeedback? = null,
     val checkedInCount: Int = 0,
+    val manual: ManualPickState = ManualPickState(),
 )
 
 /**
@@ -190,6 +209,102 @@ class ScannerViewModel @Inject constructor(
         error.status == UNPROCESSABLE -> ScanFeedback.CodeInvalid
         else -> ScanFeedback.Failed(error)
     }
+
+    // --- Manual check-in ---
+
+    fun openManualPick() {
+        _uiState.update { it.copy(manual = it.manual.copy(open = true)) }
+        refreshManualPick()
+    }
+
+    fun closeManualPick() {
+        _uiState.update { it.copy(manual = it.manual.copy(open = false, query = "")) }
+    }
+
+    fun onManualQueryChange(query: String) {
+        _uiState.update { it.copy(manual = it.manual.copy(query = query)) }
+        refreshManualPick()
+    }
+
+    /**
+     * Reloads the list and who is already in it.
+     *
+     * Both, every time: the two are read together and shown together, and a
+     * list that says someone is missing when they were just scanned would send
+     * a supervisor to fetch them.
+     */
+    private fun refreshManualPick() {
+        val sessionId = _uiState.value.selectedSessionId ?: return
+        val query = _uiState.value.manual.query
+
+        _uiState.update { it.copy(manual = it.manual.copy(loading = true, error = null)) }
+        viewModelScope.launch {
+            val members = repository.members(query.takeIf(String::isNotBlank))
+            val present = repository.checkedInMemberIds(sessionId)
+
+            _uiState.update { state ->
+                // The query may have moved on while these were in flight.
+                if (state.manual.query != query) return@update state
+                state.copy(
+                    manual = when {
+                        members is ApiResult.Failure ->
+                            state.manual.copy(loading = false, error = members.error)
+
+                        else -> state.manual.copy(
+                            loading = false,
+                            members = (members as ApiResult.Success).data,
+                            // A failed record load is not worth an error screen:
+                            // the list still works, it just cannot mark anyone.
+                            checkedIn = (present as? ApiResult.Success)?.data
+                                ?: state.manual.checkedIn,
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    fun checkInManually(member: MemberPick) {
+        val sessionId = _uiState.value.selectedSessionId ?: return
+        if (_uiState.value.manual.pending != null) return
+
+        _uiState.update { it.copy(manual = it.manual.copy(pending = member.id)) }
+        viewModelScope.launch {
+            val result = repository.checkInManually(sessionId, member.id)
+            _uiState.update { state ->
+                when (result) {
+                    is ApiResult.Success -> state.copy(
+                        feedback = ScanFeedback.CheckedIn(member.name, member.memberNumber),
+                        checkedInCount = state.checkedInCount + 1,
+                        manual = state.manual.copy(
+                            pending = null,
+                            // Marked straight away rather than after a reload:
+                            // the supervisor is working down a queue and the row
+                            // has to settle before they look at the next name.
+                            checkedIn = state.manual.checkedIn + member.id,
+                        ),
+                    )
+
+                    is ApiResult.Failure -> state.copy(
+                        feedback = feedbackFor(result.error),
+                        manual = state.manual.copy(
+                            pending = null,
+                            // Already present is not a failure worth hiding: mark
+                            // the row, because that is what the list is claiming.
+                            checkedIn = if (isAlreadyPresent(result.error)) {
+                                state.manual.checkedIn + member.id
+                            } else {
+                                state.manual.checkedIn
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isAlreadyPresent(error: ApiError) =
+        error is ApiError.Http && error.code == ALREADY_CHECKED_IN
 
     override fun onCleared() {
         analysisUseCase.clearAnalyzer()
