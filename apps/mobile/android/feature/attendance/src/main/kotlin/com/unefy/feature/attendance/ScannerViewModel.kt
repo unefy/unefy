@@ -34,6 +34,14 @@ sealed interface ScanFeedback {
 
     data object CodeInvalid : ScanFeedback
 
+    /**
+     * No connection. Its own case because the consequence differs: the other
+     * failures mean the check-in did not happen and should not, this one means
+     * it did not happen but should have — and the supervisor has to note the
+     * person down, because nothing queues it yet.
+     */
+    data object Offline : ScanFeedback
+
     data class Failed(val error: ApiError) : ScanFeedback
 }
 
@@ -159,10 +167,12 @@ class ScannerViewModel @Inject constructor(
                         checkedInCount = current.checkedInCount + 1,
                     )
 
-                    is ApiResult.Failure -> current.copy(
-                        submitting = false,
-                        feedback = feedbackFor(result.error),
-                    )
+                    is ApiResult.Failure -> {
+                        // Never reached the server, so the code is unspent and
+                        // pointing the camera at it again must work.
+                        if (result.error is ApiError.Network) handled.remove(code)
+                        current.copy(submitting = false, feedback = feedbackFor(result.error))
+                    }
                 }
             }
         }
@@ -173,6 +183,7 @@ class ScannerViewModel @Inject constructor(
      * except when it was consumed, which is permanent.
      */
     private fun feedbackFor(error: ApiError): ScanFeedback = when {
+        error is ApiError.Network -> ScanFeedback.Offline
         error !is ApiError.Http -> ScanFeedback.Failed(error)
         error.code == ALREADY_CHECKED_IN -> ScanFeedback.AlreadyPresent
         error.code == CODE_ALREADY_USED -> ScanFeedback.CodeUsed

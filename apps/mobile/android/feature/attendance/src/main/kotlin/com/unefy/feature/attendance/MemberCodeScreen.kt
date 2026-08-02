@@ -1,5 +1,12 @@
 package com.unefy.feature.attendance
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,10 +14,11 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,14 +26,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.theme.UnefyMotion
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.ClubRole
@@ -99,59 +110,104 @@ fun MemberCodeScreen(
 
 @Composable
 private fun CodeCard(state: MemberCodeUiState.Content) {
+    // Full brightness for as long as this screen is up. A dimmed panel is the
+    // usual reason a code will not scan in a badly lit hall.
+    KeepScreenBrightAndAwake()
+
     Column(
-        modifier = Modifier.padding(UnefySpacing.screen),
-        verticalArrangement = Arrangement.spacedBy(UnefySpacing.md),
+        modifier = Modifier.padding(horizontal = UnefySpacing.screen),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(UnefySpacing.lg),
     ) {
         Text(
             text = stringResource(R.string.attendance_code_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
 
         // Always white on black, never the theme's colours: a scanner needs
         // contrast and a fixed polarity, and an inverted code in dark mode is
         // one many readers refuse.
         Surface(
-            shape = MaterialTheme.shapes.large,
+            shape = MaterialTheme.shapes.extraLarge,
             color = QR_BACKGROUND,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            QrCode(
-                content = state.code,
-                foreground = QR_FOREGROUND,
-                background = QR_BACKGROUND,
-                modifier = Modifier
-                    .padding(UnefySpacing.lg)
-                    .aspectRatio(1f),
-            )
+            // Crossfade rather than a hard swap. The code changes twice a
+            // minute while someone is holding the phone still, and an abrupt
+            // redraw reads as a glitch — a short dissolve reads as a refresh.
+            // Deliberately quick: a scanner must not spend long looking at two
+            // half-faded codes on top of each other.
+            AnimatedContent(
+                targetState = state.code,
+                transitionSpec = { fadeIn(UnefyMotion.effects()) togetherWith fadeOut(UnefyMotion.effects()) },
+                label = "attendance-code",
+            ) { code ->
+                QrCode(
+                    content = code,
+                    foreground = QR_FOREGROUND,
+                    background = QR_BACKGROUND,
+                    modifier = Modifier
+                        .padding(UnefySpacing.lg)
+                        .aspectRatio(1f),
+                )
+            }
         }
 
-        // The countdown is not decoration: without it a still image and a live
-        // code look identical, and a member cannot tell a frozen screen from a
-        // working one.
-        LinearProgressIndicator(
-            progress = { state.secondsRemaining.toFloat() / AttendanceCode.INTERVAL_SECONDS },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text = stringResource(
-                R.string.attendance_code_refresh_in,
-                state.secondsRemaining.toInt(),
-            ),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        CodeCountdown(state.secondsRemaining)
 
         if (state.seedStale) {
             Text(
                 text = stringResource(R.string.attendance_code_offline),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
     }
 }
+
+/**
+ * A ring that empties as the code ages, with the seconds in the middle.
+ *
+ * Not decoration: a still screenshot and a live code look identical, and this is
+ * the only thing telling a member which one they are holding out. A ring rather
+ * than a bar because it reads as a clock at a glance from arm's length, which is
+ * exactly the distance this screen is looked at from.
+ */
+@Composable
+private fun CodeCountdown(secondsRemaining: Long) {
+    // Animated, so the ring sweeps instead of stepping once a second. The
+    // duration matches the tick, so it arrives exactly as the next one starts.
+    val progress by animateFloatAsState(
+        targetValue = secondsRemaining.toFloat() / AttendanceCode.INTERVAL_SECONDS,
+        animationSpec = tween(durationMillis = TICK_MILLIS, easing = LinearEasing),
+        label = "countdown",
+    )
+
+    Box(contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.size(RING_SIZE),
+            strokeWidth = RING_STROKE,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            // No gap and a butt cap: the ring is a depleting quantity, not a
+            // set of segments.
+            gapSize = 0.dp,
+            strokeCap = StrokeCap.Butt,
+        )
+        Text(
+            text = "$secondsRemaining",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private val RING_SIZE = 56.dp
+private val RING_STROKE = 3.dp
+private const val TICK_MILLIS = 1_000
 
 @Composable
 private fun Message(title: String, body: String, onRetry: (() -> Unit)? = null) {

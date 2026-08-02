@@ -19,6 +19,7 @@
     <string name="scanner_already_present">Schon eingecheckt</string>
     <string name="scanner_code_used">Dieser Code wurde bereits verwendet. Lass dir einen frischen zeigen.</string>
     <string name="scanner_code_invalid">Code ungültig oder abgelaufen</string>
+    <string name="scanner_offline">Keine Verbindung — nicht erfasst. Person notieren und erneut scannen, sobald wieder Netz da ist.</string>
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
     <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
     <string name="scanner_permission_title">Kamera nötig</string>

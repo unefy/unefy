@@ -67,7 +67,6 @@ import com.unefy.app.nav.NavDragState
 import com.unefy.app.nav.LocalNavDragState
 import com.unefy.app.nav.NavSettingsViewModel
 import com.unefy.app.nav.TopLevel
-import com.unefy.app.nav.permittedDestinations
 import com.unefy.app.ui.accountActions
 import com.unefy.core.model.ClubRole
 import com.unefy.feature.attendance.MemberCodeRoute
@@ -142,9 +141,19 @@ fun MainNavigation(
     settings.setRole(role)
     val destinations by settings.visible.collectAsStateWithLifecycle()
 
-    val start = destinations.firstOrNull() ?: permittedDestinations(role).first()
+    // Nothing at all until the arrangement arrives. `rememberNavBackStack` seeds
+    // the stack once and never again, so a guessed start destination is not a
+    // brief flash — it is where the app stays. Falling back to the first
+    // *permitted* destination opened a member on Profil while their bar began
+    // with Check-in, and no tab was marked as current.
+    if (destinations.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize())
+        return
+    }
+
+    val start = destinations.first()
     val backStack = rememberNavBackStack(start.key)
-    var selected: TopLevel? by rememberSaveable(role) { mutableStateOf(null) }
+    var selected: TopLevel? by rememberSaveable(role) { mutableStateOf(start) }
 
     var onMoreTab by rememberSaveable(role) { mutableStateOf(false) }
 

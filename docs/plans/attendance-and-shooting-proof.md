@@ -420,6 +420,26 @@ möglich — das Backend kennt keinen Client.
 - Auf dem Gerät gesehen: Scanner mit laufender Kamera, Mitglieds-QR mit echtem
   Seed, Rotation und Countdown.
 
+### Offline-Stand nach Schritt 3
+
+| | Verhalten ohne Netz |
+|---|---|
+| Mitglieds-QR | **Funktioniert.** Seed liegt verschlüsselt auf dem Gerät, der Code wird lokal gerechnet. Ein abgelaufener Seed wird weiterbenutzt (das Backend gibt zwei Perioden Karenz) und der Screen sagt es. Nur wer noch nie einen Seed geholt hat, steht ohne da. |
+| Scanner | **Funktioniert nicht.** Die Liste der offenen Einheiten kommt vom Server, und jeder Scan wird sofort gepostet. Bricht die Verbindung, ist der Check-in weg. |
+
+Der Scanner meldet fehlendes Netz seit 2026-08-02 wenigstens als eigenen Fall
+(„nicht erfasst, Person notieren") statt als generischen Fehler, und der Code
+bleibt erneut scannbar, weil er den Server nie erreicht hat. Das ist Schadens-
+begrenzung, keine Lösung.
+
+**Was fehlt:** die Write-Queue, die dieser Plan oben schon beschreibt —
+`checked_in_at` (Gerätezeit) getrennt von `synced_at`, Nachträge bis zum
+Abschluss der Einheit. Die Spalte `attendance_records.synced_at` existiert und
+wird nicht geschrieben. Für einen Keller-Schießstand ist genau das der
+Normalfall, nicht die Ausnahme, also ist es der nächste sinnvolle Schritt vor
+allem anderen an dieser Funktion. Dazu gehört Room in der App (fehlt komplett,
+siehe `docs/plans/android-app.md`).
+
 **Wer darf scannen:** `owner`, `admin`, `board` — der Endpunkt hängt an
 `require_board`. **Achtung:** `attendance_sessions.supervisor_member_id` wird
 nur auf Existenz geprüft, nicht als Schranke. Jedes Vorstandsmitglied kann in

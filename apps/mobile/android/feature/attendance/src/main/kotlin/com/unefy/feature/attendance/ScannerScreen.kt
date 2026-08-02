@@ -226,6 +226,7 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.AlreadyPresent -> stringResource(R.string.scanner_already_present)
     ScanFeedback.CodeUsed -> stringResource(R.string.scanner_code_used)
     ScanFeedback.CodeInvalid -> stringResource(R.string.scanner_code_invalid)
+    ScanFeedback.Offline -> stringResource(R.string.scanner_offline)
     is ScanFeedback.Failed -> stringResource(R.string.scanner_failed)
 }
 
