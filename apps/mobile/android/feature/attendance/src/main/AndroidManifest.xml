@@ -10,4 +10,30 @@
         android:name="android.hardware.camera.any"
         android:required="false" />
 
+    <!-- The second transport. Not required: the QR path stays the universal
+         one, for iPhones and for phones without an NFC chip. -->
+    <uses-permission android:name="android.permission.NFC" />
+
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
+
+    <uses-feature
+        android:name="android.hardware.nfc.hce"
+        android:required="false" />
+
+    <application>
+        <service
+            android:name=".nfc.MemberCardService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/nfc_check_in_aid" />
+        </service>
+    </application>
+
 </manifest>

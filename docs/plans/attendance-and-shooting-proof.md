@@ -18,6 +18,40 @@ aber alle Vereine (Training, Jugendarbeit, Beschlussfähigkeit).
 | Aufbewahrung | Nachweisdaten jahrelang, Gerätekontext wenige Wochen. Getrennte Tabellen. |
 | Bescheinigung | Wird von einem Menschen ausgestellt, nie automatisch. |
 
+### NFC: revidiert am 2026-08-02
+
+Die Ablehnung unten galt NFC als **primärem** Verfahren, und das Argument steht
+weiterhin: für iPhone-Mitglieder bräuchte es ohnehin einen zweiten Weg, also
+wäre dieser zweite Weg der einzige. Als **zusätzlicher** Weg neben dem
+gebauten QR greift es nicht mehr — der zweite Weg existiert bereits.
+
+Anlass war eine Lücke, die erst der Test mit zwei Geräten zeigte: Das
+Mitgliedsgerät erfährt vom Check-in nichts, weil er auf einem fremden Telefon
+passiert. Jede serverbasierte Antwort — Polling, FCM, WebSocket — braucht auf
+beiden Seiten Netz und versagt damit genau im Keller, für den die Funktion
+gebaut ist. Nur ein Gerät-zu-Gerät-Kanal antwortet dort.
+
+Umgesetzt als **zweiter Transport für denselben rotierenden Code**: Host Card
+Emulation auf dem Mitgliedsgerät, Reader-Modus im Scanner, gemeinsames
+APDU-Protokoll in `nfc/CheckInApdu.kt`. Dieselbe HMAC, derselbe Counter,
+dieselbe Einmalsperre — **das Backend ändert sich nicht**. Nach dem Lesen
+schickt der Scanner das Ergebnis als zweites APDU zurück; erst das macht den
+Aufwand lohnend, denn sonst wüsste das Mitgliedsgerät nur, *dass* es gelesen
+wurde.
+
+Grenzen, bewusst in Kauf genommen:
+
+- Nur Android zu Android. QR bleibt der universelle Weg.
+- Das Mitgliedsgerät muss entsperrt sein (`requireDeviceUnlock`).
+- Offline sagt die Bestätigung „vom Scanner angenommen", nicht „auf dem Server"
+  — das ist dann dessen Queue. Ehrlicher als bisher, aber nicht dasselbe.
+- Ein unbekanntes Statusbyte gilt als Ablehnung, damit eine künftige Version
+  auf einem alten Gerät nicht fälschlich „eingecheckt" meldet.
+
+WebSocket als serverseitige Bestätigung für alle übrigen Fälle ist der
+vereinbarte nächste Schritt und noch nicht gebaut; bis dahin bleibt das Polling
+alle fünf Sekunden der Rückfall.
+
 ### Warum kein NFC
 
 Phone-to-Phone ist plattformseitig nicht symmetrisch verfügbar. Android beherrscht

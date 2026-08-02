@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
+import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -48,6 +49,13 @@ sealed interface ScanFeedback {
 
     /** Held on the device. Not lost, just not sent yet. */
     data class QueuedOffline(val memberLabel: String?) : ScanFeedback
+
+    /**
+     * A unefy phone was tapped, but it has never fetched a seed — so it has no
+     * code to give. Distinct because the remedy is "open the app once", not
+     * "ask for a fresh code".
+     */
+    data object CardNotReady : ScanFeedback
 
     data class Failed(val error: ApiError) : ScanFeedback
 }
@@ -241,7 +249,33 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    private fun onCodeScanned(code: String) {
+    /**
+     * A code that arrived by NFC instead of through the camera.
+     *
+     * Same path deliberately — same duplicate guard, same queue, same feedback
+     * — with one addition: the outcome is handed back over the still-open link
+     * so the member's phone can say it too. That back-channel is the reason NFC
+     * exists next to a QR that already worked.
+     */
+    fun onCodeTapped(code: String, respond: (CheckInApdu.Outcome) -> Unit) {
+        onCodeScanned(code) { feedback ->
+            respond(
+                when (feedback) {
+                    is ScanFeedback.CheckedIn -> CheckInApdu.Outcome.RECORDED
+                    is ScanFeedback.QueuedOffline -> CheckInApdu.Outcome.QUEUED
+                    ScanFeedback.AlreadyPresent -> CheckInApdu.Outcome.ALREADY_PRESENT
+                    else -> CheckInApdu.Outcome.REJECTED
+                },
+            )
+        }
+    }
+
+    /** A tap from a phone that has never fetched a seed. */
+    fun onTapNotReady() {
+        _uiState.update { it.copy(feedback = ScanFeedback.CardNotReady) }
+    }
+
+    private fun onCodeScanned(code: String, onResult: ((ScanFeedback) -> Unit)? = null) {
         val state = _uiState.value
         val sessionId = state.selectedSessionId ?: return
         if (state.submitting) return
@@ -253,6 +287,7 @@ class ScannerViewModel @Inject constructor(
         _uiState.update { it.copy(submitting = true) }
         viewModelScope.launch {
             val result = queue.scan(sessionId, code, deviceIdentity.installId())
+            var feedback: ScanFeedback? = null
             _uiState.update { current ->
                 when (result) {
                     is CheckInResult.Recorded -> current.copy(
@@ -275,8 +310,9 @@ class ScannerViewModel @Inject constructor(
                         submitting = false,
                         feedback = feedbackFor(result.error),
                     )
-                }
+                }.also { feedback = it.feedback }
             }
+            feedback?.let { onResult?.invoke(it) }
             // The list is the confirmation, so it has to follow every scan.
             refreshAttendance()
         }

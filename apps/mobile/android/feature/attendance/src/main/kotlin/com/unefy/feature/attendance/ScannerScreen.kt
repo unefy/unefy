@@ -52,6 +52,9 @@ import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
+import com.unefy.feature.attendance.nfc.CheckInApdu
+import com.unefy.feature.attendance.nfc.NfcReader
+import com.unefy.feature.attendance.nfc.TapResult
 
 @Composable
 fun ScannerRoute(
@@ -90,6 +93,8 @@ fun ScannerRoute(
         onGuestNameChange = viewModel::onGuestNameChange,
         onCheckInGuest = { viewModel.checkInGuest(state.manual.guestName) },
         onCreateSession = { viewModel.createSessionForToday(defaultTitle) },
+        onCodeTapped = viewModel::onCodeTapped,
+        onTapNotReady = viewModel::onTapNotReady,
     )
 }
 
@@ -111,6 +116,8 @@ fun ScannerScreen(
     onGuestNameChange: (String) -> Unit = {},
     onCheckInGuest: () -> Unit = {},
     onCreateSession: () -> Unit = {},
+    onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit = { _, _ -> },
+    onTapNotReady: () -> Unit = {},
 ) {
     if (state.manual.open) {
         ManualPickSheet(
@@ -168,7 +175,15 @@ fun ScannerScreen(
                 )
             }
 
-            else -> scannerContent(state, cameraGranted, onGrantCamera, onSelectSession, bindCamera)
+            else -> scannerContent(
+                state = state,
+                cameraGranted = cameraGranted,
+                onGrantCamera = onGrantCamera,
+                onSelectSession = onSelectSession,
+                bindCamera = bindCamera,
+                onCodeTapped = onCodeTapped,
+                onTapNotReady = onTapNotReady,
+            )
         }
     }
 }
@@ -179,6 +194,8 @@ private fun LazyListScope.scannerContent(
     onGrantCamera: () -> Unit,
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
+    onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit,
+    onTapNotReady: () -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -197,6 +214,19 @@ private fun LazyListScope.scannerContent(
                         label = { Text(session.title) },
                     )
                 }
+            }
+        }
+    }
+
+    item("nfc") {
+        // Alongside the camera, not instead of it: a member holds out either a
+        // screen or a phone back, and the supervisor should not have to know
+        // which before pointing at it.
+        NfcReader(enabled = state.selectedSessionId != null) { tap ->
+            when (tap) {
+                is TapResult.Code -> onCodeTapped(tap.value, tap.respond)
+                TapResult.NotReady -> onTapNotReady()
+                TapResult.Foreign -> Unit
             }
         }
     }
@@ -291,7 +321,7 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         is ScanFeedback.CheckedIn -> colors.successContainer
         is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.warningContainer
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.errorContainer
 
         null -> MaterialTheme.colorScheme.surfaceContainer
@@ -300,7 +330,7 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         is ScanFeedback.CheckedIn -> colors.onSuccessContainer
         is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.onWarningContainer
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.onErrorContainer
 
         null -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -396,6 +426,7 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.CodeUsed -> stringResource(R.string.scanner_code_used)
     ScanFeedback.CodeInvalid -> stringResource(R.string.scanner_code_invalid)
     ScanFeedback.Offline -> stringResource(R.string.scanner_offline)
+    ScanFeedback.CardNotReady -> stringResource(R.string.scanner_card_not_ready)
 
     is ScanFeedback.QueuedOffline -> stringResource(
         R.string.scanner_queued,

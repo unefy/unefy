@@ -23,6 +23,7 @@
     <string name="scanner_already_present">Schon eingecheckt</string>
     <string name="scanner_code_used">Dieser Code wurde bereits verwendet. Lass dir einen frischen zeigen.</string>
     <string name="scanner_code_invalid">Code ungültig oder abgelaufen</string>
+    <string name="scanner_card_not_ready">Auf dem Mitgliedsgerät ist noch kein Code hinterlegt. Einmal die App öffnen, dann erneut.</string>
     <string name="scanner_offline">Keine Verbindung — nicht erfasst. Person notieren und erneut scannen, sobald wieder Netz da ist.</string>
     <string name="scanner_queued">%1$s erfasst — wird ohne Verbindung gespeichert</string>
     <plurals name="scanner_pending">
@@ -31,6 +32,8 @@
     </plurals>
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
     <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
+    <string name="nfc_service_description">unefy Check-in</string>
+    <string name="nfc_aid_group_description">Anwesenheits-Check-in</string>
     <string name="scanner_row_scanned">Gescannt</string>
     <!-- Parallel to "Gescannt", and deliberately not "Manuell": that word is
          already the header action, and the two collided on screen. -->

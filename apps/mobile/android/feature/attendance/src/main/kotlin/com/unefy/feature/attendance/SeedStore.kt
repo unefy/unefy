@@ -43,6 +43,18 @@ class SeedStore @Inject constructor(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
+    /**
+     * Last seed read or written, for callers that cannot suspend.
+     *
+     * The NFC card service is one: `processCommandApdu` runs on the main thread
+     * and has milliseconds before the reader gives up, which is not enough to
+     * open DataStore and decrypt. Populated by [read] and [write], both of
+     * which run long before a tap.
+     */
+    @Volatile
+    var cached: AttendanceSeed? = null
+        private set
+
     suspend fun read(): AttendanceSeed? {
         val encrypted = context.seedDataStore.data.first()[KEY] ?: return null
         val plaintext = crypto.decrypt(encrypted) ?: return null
@@ -55,7 +67,7 @@ class SeedStore @Inject constructor(
             seed = stored.seed,
             tenantId = stored.tenantId,
             expiresAtEpochSeconds = stored.expiresAt,
-        )
+        ).also { cached = it }
     }
 
     suspend fun write(seed: AttendanceSeed) {
@@ -68,11 +80,13 @@ class SeedStore @Inject constructor(
             ),
         )
         context.seedDataStore.edit { it[KEY] = crypto.encrypt(payload) }
+        cached = seed
     }
 
     /** On sign-out. The next account must not inherit the last one's code. */
     suspend fun clear() {
         context.seedDataStore.edit { it.remove(KEY) }
+        cached = null
     }
 
     private companion object {

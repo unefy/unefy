@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.feature.attendance.nfc.CheckInApdu
+import com.unefy.feature.attendance.nfc.NfcCheckInSignals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -55,6 +57,7 @@ class MemberCodeViewModel @Inject constructor(
     private val repository: AttendanceRepository,
     private val seedStore: SeedStore,
     private val clock: AttendanceClock,
+    private val nfcSignals: NfcCheckInSignals,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<MemberCodeUiState>(MemberCodeUiState.Loading)
@@ -62,6 +65,23 @@ class MemberCodeViewModel @Inject constructor(
 
     init {
         start()
+
+        // The instant path. A tap tells this phone directly, in the same
+        // second and without a server — which is the only way the confirmation
+        // works in a basement, where the poll below cannot reach anything.
+        viewModelScope.launch {
+            nfcSignals.outcomes.collect { outcome ->
+                _uiState.value = when (outcome) {
+                    CheckInApdu.Outcome.RECORDED, CheckInApdu.Outcome.QUEUED,
+                    CheckInApdu.Outcome.ALREADY_PRESENT,
+                    -> MemberCodeUiState.Confirmed(sessionTitle = null)
+
+                    // Still showing a code is the right answer to a refusal:
+                    // the supervisor will ask for another go.
+                    CheckInApdu.Outcome.REJECTED -> _uiState.value
+                }
+            }
+        }
     }
 
     fun retry() = start()
@@ -82,10 +102,10 @@ class MemberCodeViewModel @Inject constructor(
             while (isActive) {
                 val now = clock.epochSeconds()
 
-                // Polled rather than pushed. FCM is not built, and a request
-                // every few seconds for the minute this screen is open is a far
-                // smaller cost than a member who cannot tell whether they are
-                // checked in. Offline it simply fails and the code stays up.
+                // The fallback, for a QR scan or a phone without NFC. Polled
+                // rather than pushed because FCM is not built; offline it
+                // simply fails and the code stays up. A tap does not wait for
+                // this — it arrives through nfcSignals immediately.
                 if (tick++ % POLL_EVERY_TICKS == 0) {
                     val own = (repository.latestOwnCheckIn() as? ApiResult.Success)?.data
                     if (own != null && own.checkedInAtEpochSeconds >= openedAt) {
