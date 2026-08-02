@@ -3,6 +3,7 @@ package com.unefy.app.nav
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.navigation3.runtime.NavKey
+import com.unefy.app.AttendanceCodeKey
 import com.unefy.app.CompetitionsKey
 import com.unefy.app.DirectoryKey
 import com.unefy.app.DuesKey
@@ -11,6 +12,7 @@ import com.unefy.app.MembersKey
 import com.unefy.app.MyDuesKey
 import com.unefy.app.ProfileKey
 import com.unefy.app.R
+import com.unefy.app.ScannerKey
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.model.ClubRole
 
@@ -35,9 +37,15 @@ enum class TopLevel(
 
     Competitions("competitions", CompetitionsKey, R.string.nav_competitions, DesignR.drawable.ic_trophy),
 
+    /** The member's own check-in code. Everyone has one; only members show it. */
+    CheckIn("check_in", AttendanceCodeKey, R.string.nav_check_in, DesignR.drawable.ic_qr_code),
+
     // Administrative
     Members("members", MembersKey, R.string.nav_members, DesignR.drawable.ic_group),
     Dues("dues", DuesKey, R.string.nav_dues, DesignR.drawable.ic_payments),
+
+    /** Scanning other people's codes — the supervisor's side of the same feature. */
+    Scanner("scanner", ScannerKey, R.string.nav_scanner, DesignR.drawable.ic_qr_scanner),
 }
 
 /**
@@ -50,9 +58,10 @@ enum class TopLevel(
 fun defaultDestinationsFor(role: ClubRole): List<TopLevel> = if (role.canAdminister) {
     listOf(TopLevel.Members, TopLevel.Events, TopLevel.Competitions, TopLevel.Dues)
 } else {
-    // Competitions rather than the directory: the ranking is what a member opens
-    // the app for. The directory stays reachable, just not as a tab.
-    listOf(TopLevel.Profile, TopLevel.Events, TopLevel.Competitions, TopLevel.MyDues)
+    // Check-in rather than the directory: on a training evening it is the first
+    // thing a member reaches for, and it is useless if it takes two taps to
+    // find. The directory stays reachable, just not as a tab.
+    listOf(TopLevel.CheckIn, TopLevel.Events, TopLevel.Competitions, TopLevel.Profile)
 }
 
 /**
@@ -68,8 +77,12 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         TopLevel.Events,
         TopLevel.Competitions,
         TopLevel.Dues,
+        TopLevel.Scanner,
         TopLevel.Directory,
         TopLevel.Profile,
+        // A board member is still a member: they check in like everyone else,
+        // and the scanner is the other half of the same evening.
+        TopLevel.CheckIn,
     )
 } else {
     listOf(
@@ -77,6 +90,7 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         TopLevel.Events,
         TopLevel.Competitions,
         TopLevel.MyDues,
+        TopLevel.CheckIn,
         TopLevel.Directory,
     )
 }

@@ -33,8 +33,12 @@ class ForbiddenError(AppError):
 
 
 class ConflictError(AppError):
-    def __init__(self, message: str = "Conflict") -> None:
-        super().__init__(status_code=409, code="CONFLICT", message=message)
+    def __init__(self, message: str = "Conflict", code: str = "CONFLICT") -> None:
+        # The code is overridable because some conflicts are routine and some
+        # are suspicious, and a client showing the right thing has to tell them
+        # apart without parsing prose. Default unchanged for every caller that
+        # does not care.
+        super().__init__(status_code=409, code=code, message=message)
 
 
 class ValidationError(AppError):

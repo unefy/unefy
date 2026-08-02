@@ -78,6 +78,9 @@ object TestNetworkModule {
     private fun bodyFor(path: String): String = when (path) {
         ApiEndpoints.MEMBERS_ME -> """{"data":$MEMBER}"""
         ApiEndpoints.DUES_SUMMARY -> """{"data":$DUES_SUMMARY}"""
+        // A real seed, so the check-in screen actually encodes and draws a QR
+        // during the smoke test rather than falling back to its error state.
+        ApiEndpoints.ATTENDANCE_ME_SEED -> """{"data":$SEED}"""
         else -> """{"data":[]}"""
     }
 
@@ -93,5 +96,18 @@ object TestNetworkModule {
 
     private const val DUES_SUMMARY = """
         {"open_count": 0, "open_amount": "0", "paid_count": 0, "paid_amount": "0"}
+    """
+
+    // Expiry far in the future so the screen never decides the seed is stale
+    // and shows the offline note instead of a plain code.
+    private const val SEED = """
+        {
+          "member_ref": "AAAAAAAAAAAAAAAA",
+          "seed": "DRNQW4ABVQPCVEXQQWBUVKVBSRZH6XCMZ2I7CNYGQHJU6H4FLYAA",
+          "tenant_id": "11111111-1111-1111-1111-111111111111",
+          "expires_at": 4102444800,
+          "interval_seconds": 30,
+          "algorithm": "uf1"
+        }
     """
 }

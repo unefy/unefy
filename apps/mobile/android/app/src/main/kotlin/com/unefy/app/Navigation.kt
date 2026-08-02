@@ -70,6 +70,8 @@ import com.unefy.app.nav.TopLevel
 import com.unefy.app.nav.permittedDestinations
 import com.unefy.app.ui.accountActions
 import com.unefy.core.model.ClubRole
+import com.unefy.feature.attendance.MemberCodeRoute
+import com.unefy.feature.attendance.ScannerRoute
 import com.unefy.feature.competitions.CompetitionsRoute
 import com.unefy.feature.competitions.ScoreboardRoute
 import com.unefy.feature.dues.DuesRoute
@@ -385,6 +387,8 @@ internal fun unefyEntryProvider(
     entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
     entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
     entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
+    entry<AttendanceCodeKey> { MemberCodeRoute(actions = accountActions) }
+    entry<ScannerKey> { ScannerRoute(actions = accountActions) }
     entry<CompetitionsKey> {
         CompetitionsRoute(
             actions = accountActions,

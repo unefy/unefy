@@ -254,7 +254,12 @@ class AttendanceService:
     ) -> AttendanceRecord:
         """The shared half of every check-in, whatever proved the person."""
         if await self.records.get_active(row.id, member_id) is not None:
-            raise ConflictError("Member is already checked in for this session")
+            # Its own code: for a supervisor scanning a queue this is a
+            # non-event, while a used code means someone passed a screenshot
+            # around. The two must not read the same on screen.
+            raise ConflictError(
+                "Member is already checked in for this session", code="ALREADY_CHECKED_IN"
+            )
 
         record = AttendanceRecord(
             tenant_id=self.tenant_id,
@@ -300,6 +305,7 @@ class AttendanceService:
         return AttendanceSeedResponse(
             member_ref=member.attendance_ref,
             seed=derive_seed(settings.ATTENDANCE_SECRET, self.tenant_id, member.id, period),
+            tenant_id=self.tenant_id,
             expires_at=seed_expires_at(period),
             interval_seconds=CODE_INTERVAL_SECONDS,
             algorithm=CODE_VERSION,
@@ -362,7 +368,9 @@ class AttendanceService:
         """
         key = replay_key(self.tenant_id, member_id, counter)
         if not await get_redis().set(key, "1", nx=True, ex=REPLAY_TTL_SECONDS):
-            raise ConflictError("This code has already been used. Ask for a fresh one.")
+            raise ConflictError(
+                "This code has already been used. Ask for a fresh one.", code="CODE_ALREADY_USED"
+            )
 
     async def _record_context(
         self, record: AttendanceRecord, counter: int, data: AttendanceScanCheckIn

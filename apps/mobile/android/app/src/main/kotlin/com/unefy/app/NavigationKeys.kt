@@ -42,5 +42,13 @@ data object CompetitionsKey : UnefyNavKey
 @Serializable
 data class ScoreboardKey(val competitionId: String, val competitionName: String) : UnefyNavKey
 
+/** The member's own rotating check-in code. */
+@Serializable
+data object AttendanceCodeKey : UnefyNavKey
+
+/** The supervisor's scanner. Board and above — see permittedDestinations. */
+@Serializable
+data object ScannerKey : UnefyNavKey
+
 @Serializable
 data object MoreKey : UnefyNavKey

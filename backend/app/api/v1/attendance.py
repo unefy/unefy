@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
+from app.models.attendance import AttendanceRecord
 from app.schemas.attendance import (
     REASON_MIN_LENGTH,
     AttendanceCheckIn,
@@ -257,7 +258,7 @@ async def check_in(
     """
     service = _get_service(session, auth)
     record = await service.check_in(session_id, data)
-    return {"data": AttendanceRecordResponse.model_validate(record).model_dump(mode="json")}
+    return {"data": await _record_with_member(service, record)}
 
 
 @router.post("/sessions/{session_id}/scan", status_code=201)
@@ -277,7 +278,26 @@ async def check_in_by_code(
     """
     service = _get_service(session, auth)
     record = await service.check_in_by_code(session_id, data)
-    return {"data": AttendanceRecordResponse.model_validate(record).model_dump(mode="json")}
+    return {"data": await _record_with_member(service, record)}
+
+
+async def _record_with_member(
+    service: AttendanceService, record: AttendanceRecord
+) -> dict[str, Any]:
+    """A record with the member's name filled in.
+
+    The scanner shows this straight back to the supervisor, and "checked in"
+    without a name is useless to someone watching a queue go past — they cannot
+    tell whether the person in front of them is the one that just registered.
+    """
+    payload = AttendanceRecordResponse.model_validate(record).model_dump(mode="json")
+    member = await service.members.get_by_id(record.member_id)
+    if member is not None:
+        payload |= {
+            "member_name": f"{member.first_name} {member.last_name}",
+            "member_number": member.member_number,
+        }
+    return payload
 
 
 @router.post("/records/{record_id}/check-out")

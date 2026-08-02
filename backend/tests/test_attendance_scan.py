@@ -125,6 +125,9 @@ async def test_seed_is_issued_and_mints_a_pseudonym(
     assert data["algorithm"] == "uf1"
     assert len(data["member_ref"]) == 16
     assert data["seed"]
+    # Every input the app needs to build a code, in one response.
+    assert data["tenant_id"] == str(test_tenant.id)
+    assert data["expires_at"] > 0
 
     await db_session.refresh(member)
     assert member.attendance_ref == data["member_ref"]
@@ -177,6 +180,10 @@ async def test_scan_creates_a_high_assurance_record(
     assert record["method"] == "staff_scan"
     assert record["assurance"] == "high"
     assert record["verified_by_user_id"] == str(test_user.id)
+    # The scanner shows this straight back to the supervisor. Without a name,
+    # "checked in" tells someone watching a queue nothing.
+    assert record["member_name"] == "Alice Example"
+    assert record["member_number"] == "001"
 
 
 async def test_scan_writes_a_context_row_and_a_lasting_digest(
@@ -258,6 +265,9 @@ async def test_the_same_code_cannot_be_used_twice(
         f"/api/v1/attendance/sessions/{second['id']}/scan", json={"code": code}
     )
     assert resp.status_code == 409, resp.text
+    # The scanner tells a replayed code apart from a routine duplicate by this
+    # code, so it is part of the contract, not an implementation detail.
+    assert resp.json()["error"]["code"] == "CODE_ALREADY_USED"
 
 
 async def test_a_stale_code_is_rejected(
@@ -361,6 +371,7 @@ async def test_scanning_twice_into_one_session_is_refused(
         json={"code": _current_code(seed["seed"], seed["member_ref"], test_tenant.id, later)},
     )
     assert second.status_code == 409, second.text
+    assert second.json()["error"]["code"] == "ALREADY_CHECKED_IN"
 
 
 async def test_scan_requires_board(

@@ -27,6 +27,8 @@
     <string name="nav_my_dues">Meine Beiträge</string>
     <string name="account_sign_out">Abmelden</string>
     <string name="nav_competitions">Wettkämpfe</string>
+    <string name="nav_check_in">Check-in</string>
+    <string name="nav_scanner">Scannen</string>
     <string name="nav_more">Mehr</string>
     <string name="nav_more_grid_hint">Tippen öffnet einen Bereich. Gedrückt halten und nach unten ziehen legt ihn in die Leiste — ein Feld aus der Leiste herausziehen nimmt es wieder heraus.</string>
     <string name="nav_more_grid_empty">Alle Bereiche liegen in der Leiste. Zieh ein Feld aus der Leiste heraus, um es hier abzulegen.</string>

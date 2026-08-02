@@ -28,6 +28,7 @@ include(":core:designsystem")
 include(":core:network")
 include(":core:auth")
 
+include(":feature:attendance")
 include(":feature:members")
 include(":feature:events")
 include(":feature:dues")

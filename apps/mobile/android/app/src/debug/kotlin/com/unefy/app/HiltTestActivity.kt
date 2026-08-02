@@ -1,5 +1,6 @@
 package com.unefy.app
 
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -17,4 +18,17 @@ import dagger.hilt.android.AndroidEntryPoint
  * builds do not.
  */
 @AndroidEntryPoint
-class HiltTestActivity : ComponentActivity()
+class HiltTestActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Wakes the screen and shows over the keyguard for as long as the test
+        // runs. Without this the device's screen timeout — 60 seconds on the
+        // test phone — tears the activity down mid-run, and the failure reads
+        // "No compose hierarchies found", which looks like a bug in the code
+        // under test rather than a sleeping phone. Debug variant only.
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+    }
+}

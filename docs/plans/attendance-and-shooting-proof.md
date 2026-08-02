@@ -358,7 +358,70 @@ sie fällt hier aus dem konkreten Fall ab, statt vorher geraten zu werden.
 1. **Kern ohne Kryptografie** — Sessions, Records, `manual`-Check-in, Anwesenheitsliste
    im Web, Audit-Trail (Stufe 0). Sofort für jeden Verein nutzbar, keine App nötig.
 2. **Retention** — beide Löschjobs, Tenant-Konfiguration, `context_digest`-Pfad.
-3. **Rotierender QR** — Seed-Endpunkt, Codeberechnung, Scanner-PWA, `staff_scan`.
+3. ~~**Rotierender QR**~~ — **umgesetzt am 2026-08-02**, allerdings als
+   Android-Scanner statt als PWA. Abweichungen und Entscheidungen unten.
 4. **Hash-Kette (Stufe 1)** — Session-Abschluss, Kettenglieder, Zeitstempel-Job.
+
+### Was in Schritt 3 tatsächlich gebaut wurde (2026-08-02)
+
+**Abweichung vom Plan:** Statt einer Scanner-PWA ist der Scanner ein
+Android-Feature (`feature:attendance`). Grund: die App existiert, eine PWA
+nicht, und die Aufsicht hat ohnehin ein Telefon dabei. Eine PWA bleibt später
+möglich — das Backend kennt keinen Client.
+
+**Backend**
+
+- `app/services/attendance_code.py` — reine Logik, ohne DB, Redis oder Uhr.
+  Format wie geplant `uf1.<ref>.<counter>.<mac>`.
+- Seeds werden aus `ATTENDANCE_SECRET` **abgeleitet, nicht gespeichert**. Kein
+  Tabellenschema, kein Aufräumjob, keine Replikationsfrage; das Rotieren des
+  Secrets entwertet alle offenen Codes. Preis: kein Widerruf einzelner Seeds.
+- `members.attendance_ref` ist ein **zufälliges** Pseudonym, nicht abgeleitet —
+  ein abgeleitetes wäre nur so privat wie sein Secret, und der Wert taucht
+  potenziell auf gedruckten Dingen auf. Wird beim ersten Seed-Abruf erzeugt,
+  Vereine ohne Scannen bekommen nie eins.
+- Einmalverbrauch über `SET NX` in Redis. Ist Redis weg, **scheitert** der
+  Check-in, statt durchzuwinken: ein Check-in, dessen Einmaligkeit nicht
+  garantiert ist, verfehlt den Zweck.
+- Zwei 409er mit **unterschiedlichen Codes**: `ALREADY_CHECKED_IN` (Alltag) und
+  `CODE_ALREADY_USED` (weitergereichter Screenshot). Der Scanner zeigt beides
+  verschieden an, deshalb nahm `ConflictError` einen Code-Parameter auf.
+- Alle Fehlerwege des Codes antworten mit **einer** Meldung — sonst wird der
+  Endpunkt zum Orakel dafür, welche Pseudonyme existieren.
+
+**Android** (`apps/mobile/android/feature/attendance`)
+
+- `AttendanceCode.kt` spiegelt die Python-Seite. Abgesichert durch
+  Testvektoren, die aus der echten Backend-Implementierung erzeugt wurden —
+  eine handgeschriebene Erwartung würde nur beweisen, dass die Datei mit sich
+  selbst übereinstimmt.
+- Seed liegt AES-GCM-verschlüsselt in DataStore (`TokenCrypto` aus `core:auth`
+  wiederverwendet). Er ist ein Bearer-Credential: wer ihn hat, erzeugt einen
+  Tag lang die Codes dieses Mitglieds.
+- Offline-Verhalten: abgelaufener Seed wird weiterbenutzt, wenn das Netz nicht
+  antwortet — das Backend akzeptiert zwei Perioden Karenz, und ein
+  wahrscheinlich gültiger Code schlägt eine Fehlermeldung an der Tür.
+- QR wird direkt auf die Canvas gezeichnet, ohne Bitmap; sonst fiele alle 30 s
+  eine Allokation an. Fest schwarz auf weiß, nie Themefarben — invertierte
+  Codes lesen viele Scanner nicht.
+
+**Verifiziert**
+
+- 26 Unit-Tests der Codelogik, 16 API-Tests, gesamte Backend-Suite grün.
+- End-to-end gegen laufendes Backend/Postgres/Redis: Seed geholt, Code gebaut,
+  gescannt → `staff_scan` / `high`; Replay → `CODE_ALREADY_USED`; frischer Code
+  in dieselbe Einheit → `ALREADY_CHECKED_IN`.
+- Auf dem Gerät gesehen: Scanner mit laufender Kamera, Mitglieds-QR mit echtem
+  Seed, Rotation und Countdown.
+
+**Noch nicht verifiziert:** ein echter Kamerascan eines echten Mitglieds-QR.
+Beide Seiten liefen auf demselben Telefon; dafür braucht es zwei Geräte.
+`QrAnalyzer` ist damit der einzige ungetestete Pfad der Kette.
+
+**Offen aus diesem Schritt:** der Löschjob über
+`attendance_checkin_contexts.expires_at` fehlt weiterhin — die Spalte und
+`tenants.attendance_context_retention_days` existieren, aber nichts räumt auf.
+Das ist Schritt 2 des Plans und jetzt keine Theorie mehr, weil echte
+Kontextzeilen entstehen.
 5. **Schießsport-Modul** — `require_module`, Detailtabelle, §14-Auswertung,
    Bescheinigung mit Prüfcode, öffentliche Prüfseite, Standbuch-Export.

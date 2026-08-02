@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attendance_code_title">Mein Check-in</string>
+    <string name="attendance_code_hint">Zeig diesen Code der Aufsicht. Er wechselt alle 30 Sekunden.</string>
+    <string name="attendance_code_refresh_in">Neuer Code in %1$d s</string>
+    <string name="attendance_code_offline">Ohne Verbindung erstellt. Der Code sollte funktionieren; falls nicht, kurz online gehen.</string>
+    <string name="attendance_code_error_title">Code nicht ladbar</string>
+    <string name="attendance_code_error_body">Der Check-in-Code konnte nicht geladen werden.</string>
+    <string name="attendance_code_no_membership_title">Kein Mitgliedsdatensatz</string>
+    <string name="attendance_code_no_membership_body">Dein Konto ist mit keinem Mitglied dieses Vereins verknüpft. Der Vorstand kann das nachtragen.</string>
+    <string name="attendance_retry">Erneut versuchen</string>
+
+    <string name="scanner_title">Check-in scannen</string>
+    <string name="scanner_waiting">Bereit — Code vor die Kamera halten</string>
+    <string name="scanner_checked_in">%1$s eingecheckt</string>
+    <string name="scanner_unknown_member">Mitglied</string>
+    <string name="scanner_already_present">Schon eingecheckt</string>
+    <string name="scanner_code_used">Dieser Code wurde bereits verwendet. Lass dir einen frischen zeigen.</string>
+    <string name="scanner_code_invalid">Code ungültig oder abgelaufen</string>
+    <string name="scanner_failed">Check-in fehlgeschlagen</string>
+    <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
+    <string name="scanner_permission_title">Kamera nötig</string>
+    <string name="scanner_permission_body">Zum Scannen der Mitglieds-Codes braucht die App Zugriff auf die Kamera.</string>
+    <string name="scanner_permission_action">Kamera freigeben</string>
+    <string name="scanner_no_sessions_title">Keine offene Einheit</string>
+    <string name="scanner_no_sessions_body">Leg zuerst eine Anwesenheitseinheit an. Nur in eine offene Einheit kann eingecheckt werden.</string>
+    <string name="scanner_sessions_error_title">Einheiten nicht ladbar</string>
+    <string name="scanner_sessions_error_body">Die offenen Einheiten konnten nicht geladen werden.</string>
+</resources>

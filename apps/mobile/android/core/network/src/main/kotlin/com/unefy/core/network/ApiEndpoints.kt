@@ -26,6 +26,16 @@ object ApiEndpoints {
 
     const val CLUB = "/api/v1/club"
 
+    const val ATTENDANCE = "/api/v1/attendance"
+    const val ATTENDANCE_SESSIONS = "$ATTENDANCE/sessions"
+
+    /** The 24h seed the app computes its rotating check-in code from. */
+    const val ATTENDANCE_ME_SEED = "$ATTENDANCE/me/seed"
+    const val ATTENDANCE_ME_RECORDS = "$ATTENDANCE/me/records"
+
+    /** Check-in from a scanned code, as opposed to a supervisor ticking a box. */
+    fun attendanceScan(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/scan"
+
     fun member(id: String): String = "$MEMBERS/$id"
 
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"

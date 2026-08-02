@@ -100,6 +100,11 @@ class AttendanceSeedResponse(BaseSchema):
 
     member_ref: str
     seed: str
+    # The MAC is taken over the tenant as well, so the app needs it. Returned
+    # here rather than read from the session: this response is then the single
+    # authoritative statement of every input the code is built from, and the
+    # two cannot drift apart.
+    tenant_id: uuid.UUID
     # Unix seconds. The app refreshes against this; a late refresh is not a
     # lockout, because the verifier accepts a couple of expired periods.
     expires_at: int

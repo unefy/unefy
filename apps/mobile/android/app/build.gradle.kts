@@ -46,6 +46,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:network"))
     implementation(project(":core:auth"))
+    implementation(project(":feature:attendance"))
     implementation(project(":feature:members"))
     implementation(project(":feature:events"))
     implementation(project(":feature:dues"))
