@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
+import android.util.Log
 import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,6 +57,15 @@ sealed interface ScanFeedback {
      * "ask for a fresh code".
      */
     data object CardNotReady : ScanFeedback
+
+    /** Nothing to check into. Previously this silently swallowed the scan. */
+    data object NoSessionChosen : ScanFeedback
+
+    /** A second scan arrived while the first was still in flight. */
+    data object Busy : ScanFeedback
+
+    /** Antennas found each other. Hold still. */
+    data object Detected : ScanFeedback
 
     data class Failed(val error: ApiError) : ScanFeedback
 }
@@ -258,7 +268,11 @@ class ScannerViewModel @Inject constructor(
      * exists next to a QR that already worked.
      */
     fun onCodeTapped(code: String, respond: (CheckInApdu.Outcome) -> Unit) {
-        onCodeScanned(code) { feedback ->
+        // A tap is one deliberate act, not thirty camera frames of the same QR,
+        // so the frame guard must not apply: tapping again after a rejection is
+        // the obvious thing to try, and swallowing it looks like a dead app.
+        onCodeScanned(code, deduplicate = false) { feedback ->
+            Log.i(TAG, "tap outcome: $feedback")
             respond(
                 when (feedback) {
                     is ScanFeedback.CheckedIn -> CheckInApdu.Outcome.RECORDED
@@ -270,19 +284,51 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Shows a refusal and tells the caller, so a tap always gets an answer.
+     */
+    private fun refuse(feedback: ScanFeedback, onResult: ((ScanFeedback) -> Unit)?) {
+        _uiState.update { it.copy(feedback = feedback) }
+        onResult?.invoke(feedback)
+    }
+
+    /**
+     * Contact made, nothing decided yet.
+     *
+     * Its own state so the screen can say "hold still" the instant the
+     * antennas find each other, which is the only cue that turns hunting for
+     * the spot into holding a found one.
+     */
+    fun onTagDetected() {
+        _uiState.update { it.copy(feedback = ScanFeedback.Detected) }
+    }
+
     /** A tap from a phone that has never fetched a seed. */
     fun onTapNotReady() {
         _uiState.update { it.copy(feedback = ScanFeedback.CardNotReady) }
     }
 
-    private fun onCodeScanned(code: String, onResult: ((ScanFeedback) -> Unit)? = null) {
+    /**
+     * @param deduplicate suppresses repeats of the same code. Right for camera
+     *   frames, wrong for a tap — see [onCodeTapped].
+     */
+    private fun onCodeScanned(
+        code: String,
+        deduplicate: Boolean = true,
+        onResult: ((ScanFeedback) -> Unit)? = null,
+    ) {
         val state = _uiState.value
-        val sessionId = state.selectedSessionId ?: return
-        if (state.submitting) return
-        // The analyzer fires per frame; without this the same QR would be sent
-        // repeatedly and every attempt after the first would come back as a
-        // used code, turning a good scan into an error on screen.
-        if (!handled.add(code)) return
+
+        // These three used to return in silence, which is how a tap could
+        // produce nothing at all: no message on the scanner and no reply to the
+        // card, so both phones looked broken. A refusal is a result and has to
+        // travel like one.
+        val sessionId = state.selectedSessionId ?: return refuse(
+            ScanFeedback.NoSessionChosen,
+            onResult,
+        )
+        if (state.submitting) return refuse(ScanFeedback.Busy, onResult)
+        if (deduplicate && !handled.add(code)) return
 
         _uiState.update { it.copy(submitting = true) }
         viewModelScope.launch {
@@ -507,6 +553,7 @@ class ScannerViewModel @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "unefy.nfc.reader"
         const val UNPROCESSABLE = 422
 
         /** Eight hours — longer than any evening, and closing is explicit. */

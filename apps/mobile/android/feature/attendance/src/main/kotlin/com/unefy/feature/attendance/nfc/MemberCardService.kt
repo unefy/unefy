@@ -4,6 +4,7 @@ import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import androidx.core.content.getSystemService
 import com.unefy.feature.attendance.AttendanceClock
 import com.unefy.feature.attendance.AttendanceCode
@@ -62,6 +63,7 @@ class MemberCardService : HostApduService() {
 
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         val command = commandApdu ?: return CheckInApdu.SW_UNKNOWN
+        Log.i(TAG, "apdu in: ${command.size} bytes")
 
         CheckInApdu.outcomeOrNull(command)?.let { outcome ->
             signals.publish(outcome)
@@ -70,6 +72,11 @@ class MemberCardService : HostApduService() {
         }
 
         if (!CheckInApdu.isSelect(command)) return CheckInApdu.SW_UNKNOWN
+
+        // Felt the moment contact is made, before anything is decided. The
+        // member is holding two phones together hunting for the spot, and the
+        // result buzz may be a second away or never come if the tap slips.
+        tick()
 
         // Warm cache normally. Cold only when the tap itself started this
         // process, and then a short blocking read beats failing the tap — the
@@ -83,7 +90,10 @@ class MemberCardService : HostApduService() {
         // Genuinely nothing stored: this account has never opened the check-in
         // screen. A distinct status, so the reader says "open the app once"
         // rather than blaming the code.
-        if (seed == null) return CheckInApdu.SW_NOT_READY
+        if (seed == null) {
+            Log.i(TAG, "no seed stored; answering not-ready")
+            return CheckInApdu.SW_NOT_READY
+        }
 
         val code = AttendanceCode.build(
             seed = seed.seed,
@@ -97,6 +107,7 @@ class MemberCardService : HostApduService() {
     private companion object {
         /** Short enough that a reader waiting on us does not give up first. */
         const val COLD_READ_MILLIS = 400L
+        const val TAG = "unefy.nfc.card"
     }
 
     /**
@@ -106,6 +117,12 @@ class MemberCardService : HostApduService() {
      * decides what happened next.
      */
     override fun onDeactivated(reason: Int) = Unit
+
+    /** A single light tick: "we touched", not "you are checked in". */
+    private fun tick() {
+        getSystemService<Vibrator>()
+            ?.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
 
     private fun vibrate(outcome: CheckInApdu.Outcome) {
         val vibrator = getSystemService<Vibrator>() ?: return

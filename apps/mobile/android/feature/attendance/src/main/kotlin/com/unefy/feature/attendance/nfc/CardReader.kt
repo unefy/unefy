@@ -2,7 +2,10 @@ package com.unefy.feature.attendance.nfc
 
 import android.app.Activity
 import android.nfc.NfcAdapter
+import android.content.Context
+import android.content.ContextWrapper
 import android.nfc.tech.IsoDep
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -36,24 +39,47 @@ sealed interface TapResult {
  * still with their arm out.
  */
 @Composable
-internal fun NfcReader(enabled: Boolean, onTap: (TapResult) -> Unit) {
+internal fun NfcReader(
+    enabled: Boolean,
+    onDetected: () -> Unit,
+    onTap: (TapResult) -> Unit,
+) {
     val context = LocalContext.current
-    val activity = context as? Activity ?: return
+    // Unwrapped rather than cast: LocalContext is not always the Activity
+    // itself, and a plain cast silently returned null — which disabled reader
+    // mode entirely while looking exactly like NFC not working.
+    val activity = context.findActivity() ?: return
     val currentOnTap by rememberUpdatedState(onTap)
+    val currentOnDetected by rememberUpdatedState(onDetected)
 
     DisposableEffect(activity, enabled) {
         val adapter = NfcAdapter.getDefaultAdapter(activity)
-        if (adapter == null || !enabled) return@DisposableEffect onDispose { }
+        if (adapter == null || !enabled) {
+            Log.i(TAG, "reader mode off (adapter=${adapter != null}, enabled=$enabled)")
+            return@DisposableEffect onDispose { }
+        }
 
+        Log.i(TAG, "reader mode on")
         adapter.enableReaderMode(
             activity,
-            { tag -> currentOnTap(exchange(IsoDep.get(tag))) },
+            { tag ->
+                Log.i(TAG, "tag discovered: ${tag.techList.joinToString()}")
+                // Announced before the exchange, not after. Finding the spot
+                // where two phones' antennas meet is guesswork, and until this
+                // the first sign of contact was the finished check-in — a
+                // second or more later, by which time the hand has moved on.
+                currentOnDetected()
+                currentOnTap(exchange(IsoDep.get(tag)))
+            },
             NfcAdapter.FLAG_READER_NFC_A or
                 NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
             null,
         )
-        onDispose { adapter.disableReaderMode(activity) }
+        onDispose {
+            Log.i(TAG, "reader mode off")
+            adapter.disableReaderMode(activity)
+        }
     }
 }
 
@@ -73,6 +99,7 @@ private fun exchange(isoDep: IsoDep?): TapResult {
         isoDep.timeout = TIMEOUT_MILLIS
 
         val response = isoDep.transceive(CheckInApdu.SELECT)
+        Log.i(TAG, "select answered with ${response.size} bytes")
         when {
             response.endsWith(CheckInApdu.SW_NOT_READY) -> TapResult.NotReady
 
@@ -94,7 +121,8 @@ private fun exchange(isoDep: IsoDep?): TapResult {
 
             else -> TapResult.Foreign
         }
-    } catch (_: IOException) {
+    } catch (e: IOException) {
+        Log.i(TAG, "tap lost: ${e.message}")
         // A tap that moved. The person will try again, and saying "hold still"
         // is the reader UI's job, not an exception's.
         TapResult.Foreign
@@ -104,5 +132,12 @@ private fun exchange(isoDep: IsoDep?): TapResult {
 private fun ByteArray.endsWith(suffix: ByteArray): Boolean =
     size >= suffix.size && copyOfRange(size - suffix.size, size).contentEquals(suffix)
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+private const val TAG = "unefy.nfc.reader"
 private const val STATUS_WORD_LENGTH = 2
 private const val TIMEOUT_MILLIS = 2_000

@@ -16,13 +16,16 @@
          account, and the longer wording was being truncated. -->
     <string name="scanner_title">Scannen</string>
     <string name="scanner_back">Zurück</string>
-    <string name="scanner_waiting">Bereit — Code vor die Kamera halten</string>
+    <string name="scanner_waiting">Bereit — Code scannen oder Telefone aneinanderhalten</string>
+    <string name="scanner_detected">Erkannt — kurz halten</string>
+    <string name="scanner_nfc_hint">Für NFC die Rückseiten im oberen Drittel aneinanderhalten, dort sitzt bei den meisten Telefonen die Antenne. Es vibriert, sobald sich die beiden finden.</string>
     <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>
     <string name="scanner_already_present">Schon eingecheckt</string>
     <string name="scanner_code_used">Dieser Code wurde bereits verwendet. Lass dir einen frischen zeigen.</string>
     <string name="scanner_code_invalid">Code ungültig oder abgelaufen</string>
+    <string name="scanner_busy">Moment — der letzte Check-in läuft noch</string>
     <string name="scanner_card_not_ready">Auf dem Mitgliedsgerät ist noch kein Code hinterlegt. Einmal die App öffnen, dann erneut.</string>
     <string name="scanner_offline">Keine Verbindung — nicht erfasst. Person notieren und erneut scannen, sobald wieder Netz da ist.</string>
     <string name="scanner_queued">%1$s erfasst — wird ohne Verbindung gespeichert</string>

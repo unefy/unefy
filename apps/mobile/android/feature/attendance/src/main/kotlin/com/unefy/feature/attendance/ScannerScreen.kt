@@ -95,6 +95,7 @@ fun ScannerRoute(
         onCreateSession = { viewModel.createSessionForToday(defaultTitle) },
         onCodeTapped = viewModel::onCodeTapped,
         onTapNotReady = viewModel::onTapNotReady,
+        onTagDetected = viewModel::onTagDetected,
     )
 }
 
@@ -118,6 +119,7 @@ fun ScannerScreen(
     onCreateSession: () -> Unit = {},
     onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit = { _, _ -> },
     onTapNotReady: () -> Unit = {},
+    onTagDetected: () -> Unit = {},
 ) {
     if (state.manual.open) {
         ManualPickSheet(
@@ -183,6 +185,7 @@ fun ScannerScreen(
                 bindCamera = bindCamera,
                 onCodeTapped = onCodeTapped,
                 onTapNotReady = onTapNotReady,
+                onTagDetected = onTagDetected,
             )
         }
     }
@@ -196,6 +199,7 @@ private fun LazyListScope.scannerContent(
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
     onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit,
     onTapNotReady: () -> Unit,
+    onTagDetected: () -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -222,7 +226,10 @@ private fun LazyListScope.scannerContent(
         // Alongside the camera, not instead of it: a member holds out either a
         // screen or a phone back, and the supervisor should not have to know
         // which before pointing at it.
-        NfcReader(enabled = state.selectedSessionId != null) { tap ->
+        NfcReader(
+            enabled = state.selectedSessionId != null,
+            onDetected = onTagDetected,
+        ) { tap ->
             when (tap) {
                 is TapResult.Code -> onCodeTapped(tap.value, tap.respond)
                 TapResult.NotReady -> onTapNotReady()
@@ -249,6 +256,18 @@ private fun LazyListScope.scannerContent(
                 )
             }
         }
+    }
+
+    // Under the viewfinder, where somebody who has just failed to find the
+    // spot is looking. Antenna placement is not something a user can be
+    // expected to know, and hunting for it blind was the worst part of the tap.
+    item("nfc-hint") {
+        Text(
+            text = stringResource(R.string.scanner_nfc_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = UnefySpacing.screen),
+        )
     }
 
     item("feedback") {
@@ -319,18 +338,26 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
     val colors = LocalUnefyColors.current
     val container = when (feedback) {
         is ScanFeedback.CheckedIn -> colors.successContainer
-        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.warningContainer
+        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent,
+        ScanFeedback.Busy,
+        -> colors.warningContainer
+
+        ScanFeedback.Detected -> MaterialTheme.colorScheme.secondaryContainer
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        ScanFeedback.CardNotReady, is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.errorContainer
 
         null -> MaterialTheme.colorScheme.surfaceContainer
     }
     val content = when (feedback) {
         is ScanFeedback.CheckedIn -> colors.onSuccessContainer
-        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent -> colors.onWarningContainer
+        is ScanFeedback.QueuedOffline, ScanFeedback.AlreadyPresent,
+        ScanFeedback.Busy,
+        -> colors.onWarningContainer
+
+        ScanFeedback.Detected -> MaterialTheme.colorScheme.onSecondaryContainer
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        ScanFeedback.CardNotReady, is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.onErrorContainer
 
         null -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -342,6 +369,8 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         // still buzzes — otherwise two people in a row would feel like one.
         when (feedback) {
             null -> Unit
+            // Distinct from both outcomes: this one means "keep holding".
+            ScanFeedback.Detected -> haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             is ScanFeedback.CheckedIn -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             else -> haptics.performHapticFeedback(HapticFeedbackType.Reject)
         }
@@ -427,6 +456,9 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.CodeInvalid -> stringResource(R.string.scanner_code_invalid)
     ScanFeedback.Offline -> stringResource(R.string.scanner_offline)
     ScanFeedback.CardNotReady -> stringResource(R.string.scanner_card_not_ready)
+    ScanFeedback.NoSessionChosen -> stringResource(R.string.scanner_pick_session)
+    ScanFeedback.Busy -> stringResource(R.string.scanner_busy)
+    ScanFeedback.Detected -> stringResource(R.string.scanner_detected)
 
     is ScanFeedback.QueuedOffline -> stringResource(
         R.string.scanner_queued,
