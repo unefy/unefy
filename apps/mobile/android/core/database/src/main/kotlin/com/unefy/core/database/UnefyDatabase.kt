@@ -14,16 +14,16 @@ import javax.inject.Singleton
 /**
  * The app's local database.
  *
- * Two tables, both earned rather than speculative: the check-in queue, and the
- * member list it needs to be usable offline. Caching for events and dues
- * belongs here too and is not built — see docs/plans/android-app.md.
+ * Three tables, all earned rather than speculative: the check-in queue, and the
+ * member and session lists it needs to be usable offline. Caching for events
+ * and dues belongs here too and is not built — see docs/plans/android-app.md.
  *
  * No `fallbackToDestructiveMigration`. The queue holds check-ins that exist
  * nowhere else until they sync, and dropping the table on a schema change would
  * silently lose an evening's attendance.
  */
 @Database(
-    entities = [PendingCheckIn::class, CachedMember::class],
+    entities = [PendingCheckIn::class, CachedMember::class, CachedSession::class],
     version = 1,
     exportSchema = true,
 )
@@ -31,6 +31,8 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun pendingCheckInDao(): PendingCheckInDao
 
     abstract fun cachedMemberDao(): CachedMemberDao
+
+    abstract fun cachedSessionDao(): CachedSessionDao
 }
 
 @Module
@@ -49,6 +51,10 @@ object DatabaseModule {
     @Provides
     fun provideCachedMemberDao(database: UnefyDatabase): CachedMemberDao =
         database.cachedMemberDao()
+
+    @Provides
+    fun provideCachedSessionDao(database: UnefyDatabase): CachedSessionDao =
+        database.cachedSessionDao()
 
     private const val DATABASE_NAME = "unefy.db"
 }

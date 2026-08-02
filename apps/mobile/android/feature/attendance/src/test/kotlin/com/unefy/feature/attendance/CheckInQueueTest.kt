@@ -22,7 +22,8 @@ class CheckInQueueTest {
 
     private val dao = FakeDao()
     private val repository = FakeRepository()
-    private val queue = CheckInQueue(repository, dao, clock = { NOW })
+    private val scheduler = RecordingScheduler()
+    private val queue = CheckInQueue(repository, dao, clock = { NOW }, scheduler = scheduler)
 
     @Test
     fun `a scan that cannot reach the server is held`() = runTest {
@@ -36,6 +37,34 @@ class CheckInQueueTest {
         // The device's clock, captured now. By the time this is sent the
         // server's will say something else entirely.
         assertEquals(NOW, dao.rows.single().checkedInAtEpochSeconds)
+    }
+
+    @Test
+    fun `buffering asks the platform to drain later`() = runTest {
+        repository.nextResult = offline()
+
+        queue.scan(SESSION, CODE, installId = null)
+
+        // Without this the queue only drains when someone opens the scanner,
+        // and a supervisor who pockets the phone takes the evening with them.
+        assertEquals(1, scheduler.scheduled)
+    }
+
+    @Test
+    fun `nothing is scheduled when the check-in got through`() = runTest {
+        queue.scan(SESSION, CODE, installId = null)
+
+        assertEquals(0, scheduler.scheduled)
+    }
+
+    @Test
+    fun `emptiness is what the worker asks about`() = runTest {
+        assertTrue(queue.isEmpty())
+
+        repository.nextResult = offline()
+        queue.scan(SESSION, CODE, installId = null)
+
+        assertTrue(!queue.isEmpty())
     }
 
     @Test
@@ -190,6 +219,14 @@ private class FakeDao : PendingCheckInDao {
         if (index >= 0) {
             rows[index] = rows[index].copy(attempts = rows[index].attempts + 1, lastError = error)
         }
+    }
+}
+
+private class RecordingScheduler : SyncScheduler {
+    var scheduled = 0
+
+    override fun scheduleDrain() {
+        scheduled++
     }
 }
 

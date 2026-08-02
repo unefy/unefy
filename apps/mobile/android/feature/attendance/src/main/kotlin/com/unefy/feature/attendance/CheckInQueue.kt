@@ -42,8 +42,15 @@ class CheckInQueue @Inject constructor(
     private val repository: AttendanceRepository,
     private val dao: PendingCheckInDao,
     private val clock: AttendanceClock,
+    /**
+     * Null in unit tests. Scheduling is a side effect on the platform, and the
+     * queue's rules are worth testing without one.
+     */
+    private val scheduler: SyncScheduler? = null,
 ) {
     val pendingCount: Flow<Int> = dao.countStream()
+
+    suspend fun isEmpty(): Boolean = dao.all().isEmpty()
 
     suspend fun scan(
         sessionId: String,
@@ -93,6 +100,9 @@ class CheckInQueue @Inject constructor(
         is ApiResult.Failure ->
             if (result.error is ApiError.Network) {
                 dao.insert(enqueue())
+                // Hands the drain to the platform, so it happens when the
+                // network returns rather than when someone next opens a screen.
+                scheduler?.scheduleDrain()
                 CheckInResult.Queued
             } else {
                 CheckInResult.Rejected(result.error)
@@ -177,4 +187,15 @@ class CheckInQueue @Inject constructor(
     private companion object {
         const val ALREADY_CHECKED_IN = "ALREADY_CHECKED_IN"
     }
+}
+
+/**
+ * Asks the platform to drain the queue once there is a connection.
+ *
+ * An interface so the queue does not depend on WorkManager directly — the
+ * decision *that* a drain is due belongs to the queue, the machinery for
+ * surviving process death does not.
+ */
+fun interface SyncScheduler {
+    fun scheduleDrain()
 }

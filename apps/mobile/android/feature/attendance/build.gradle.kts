@@ -38,6 +38,12 @@ dependencies {
     implementation(libs.androidx.camera.compose)
     implementation(libs.mlkit.barcode.scanning)
 
+    // Draining the queue must outlive the app: WorkManager keeps the job across
+    // process death and starts it when the network constraint is met.
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

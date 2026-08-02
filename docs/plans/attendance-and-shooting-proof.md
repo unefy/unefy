@@ -434,7 +434,7 @@ möglich — das Backend kennt keinen Client.
 | Mitglieds-QR | **Funktioniert.** Seed liegt verschlüsselt auf dem Gerät, der Code wird lokal gerechnet. Abgelaufener Seed wird weiterbenutzt (zwei Perioden Karenz), der Screen sagt es. |
 | Scannen | **Funktioniert.** Der Check-in landet in der Queue und geht raus, sobald wieder Verbindung da ist. |
 | Manuell | **Funktioniert.** Die Mitgliederliste wird gecacht — ohne sie wäre die Queue sinnlos, weil man niemanden abhaken kann, den man nicht sieht. |
-| Einheitenliste | **Nicht gecacht.** Wer den Scanner erstmals ohne Verbindung öffnet, sieht keine Einheit und kann nichts erfassen. |
+| Einheitenliste | **Funktioniert**, sofern der Scanner einmal mit Verbindung offen war. |
 
 **Wie es gebaut ist.** `core:database` (Room, neu) hält zwei Tabellen:
 `pending_check_ins` und `cached_members`. Bei Netzfehler puffert
@@ -463,11 +463,21 @@ von einer geleerten Queue.
 - **Kein `fallbackToDestructiveMigration`.** In der Queue liegen Check-ins, die
   es sonst nirgends gibt.
 
-**Noch offen:** Synchronisiert wird beim Öffnen des Scanners, nicht automatisch
-bei wiederkehrender Verbindung — kein Connectivity-Listener, kein WorkManager.
-Wer die App zumacht, während etwas wartet, muss den Scanner nochmal öffnen. Die
-Zahl der wartenden Check-ins steht im Scanner, *warum* eine Zeile abgelehnt
-wurde, ist nicht sichtbar.
+**Synchronisiert wird von WorkManager**, mit Constraint
+`NetworkType.CONNECTED` und als Unique Work. Das läuft, wenn die Verbindung
+zurückkommt, und überlebt Prozesstod und Neustart — die Queue leert sich also
+auf der Heimfahrt und nicht erst beim nächsten Übungsabend. Zusätzlich beim
+Öffnen des Scanners, weil unmittelbare Rückmeldung mehr wert ist als korrektes
+Scheduling, und beim App-Start, weil ein Force Stop geplante Jobs verwirft.
+
+Damit ein Worker die Queue injiziert bekommt, konfiguriert `UnefyApplication`
+WorkManager mit Hilts `WorkerFactory` — und der automatische Initialisierer muss
+im Manifest abgeschaltet werden, sonst initialisiert sich WorkManager zuerst
+selbst und sieht die Konfiguration nie.
+
+**Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
+Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch
+nie mit Verbindung offen hatte, hat weder Einheiten- noch Mitgliederliste.
 
 **Wer darf scannen:** `owner`, `admin`, `board` — der Endpunkt hängt an
 `require_board`. **Achtung:** `attendance_sessions.supervisor_member_id` wird

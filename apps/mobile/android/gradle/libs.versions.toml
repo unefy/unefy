@@ -15,6 +15,10 @@ nav3Core = "1.0.1"
 lifecycleViewmodelNav3 = "2.11.0"
 androidxDatastore = "1.2.1"
 androidxRoom = "2.8.4"
+androidxWork = "2.11.2"
+# androidx.hilt: the Worker bridge and its processor, versioned together and
+# separately from Dagger Hilt itself.
+androidxHilt = "1.4.0"
 
 # Libraries
 androidxCamera = "1.5.2"
@@ -83,6 +87,9 @@ haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = 
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidxHilt" }
+androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidxHilt" }
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidxWork" }
 
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

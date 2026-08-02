@@ -2,6 +2,8 @@ package com.unefy.feature.attendance
 
 import com.unefy.core.database.CachedMember
 import com.unefy.core.database.CachedMemberDao
+import com.unefy.core.database.CachedSession
+import com.unefy.core.database.CachedSessionDao
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiEndpoints
@@ -154,6 +156,7 @@ interface AttendanceRepository {
 class DefaultAttendanceRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val memberCache: CachedMemberDao,
+    private val sessionCache: CachedSessionDao,
 ) : AttendanceRepository {
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = apiClient
@@ -167,14 +170,41 @@ class DefaultAttendanceRepository @Inject constructor(
             )
         }
 
-    override suspend fun openSessions(): ApiResult<List<AttendanceSessionSummary>> = apiClient
-        .get<List<AttendanceSessionDto>>(ApiEndpoints.ATTENDANCE_SESSIONS) {
-            parameter("status", "open")
-            parameter("per_page", SESSION_PAGE_SIZE)
+    /**
+     * Open sessions, cached. Without this the scanner has nothing to check into
+     * offline, and with nothing to check into the queue never gets a chance to
+     * hold anything.
+     */
+    override suspend fun openSessions(): ApiResult<List<AttendanceSessionSummary>> {
+        val result = apiClient
+            .get<List<AttendanceSessionDto>>(ApiEndpoints.ATTENDANCE_SESSIONS) {
+                parameter("status", "open")
+                parameter("per_page", SESSION_PAGE_SIZE)
+            }
+            .map { dtos ->
+                dtos.map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
+            }
+
+        return when {
+            result is ApiResult.Success -> {
+                sessionCache.upsert(
+                    result.data.map { CachedSession(it.id, it.title, it.location, it.recordCount) },
+                )
+                // Prunes what closed upstream — an offline scan into a closed
+                // session is only refused later.
+                sessionCache.retainOnly(result.data.map(AttendanceSessionSummary::id))
+                result
+            }
+
+            result is ApiResult.Failure && result.error is ApiError.Network ->
+                ApiResult.Success(
+                    sessionCache.all()
+                        .map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) },
+                )
+
+            else -> result
         }
-        .map { dtos ->
-            dtos.map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
-        }
+    }
 
     override suspend fun scan(
         sessionId: String,
