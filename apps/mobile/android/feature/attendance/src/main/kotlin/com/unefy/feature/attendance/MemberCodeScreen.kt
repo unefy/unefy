@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,31 +18,62 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
+import com.unefy.core.model.ClubRole
 
 @Composable
 fun MemberCodeRoute(
+    role: ClubRole,
+    onOpenScanner: () -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
     viewModel: MemberCodeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    MemberCodeScreen(state = state, actions = actions, onRetry = viewModel::retry)
+    MemberCodeScreen(
+        state = state,
+        // The backend gates scanning on board and above, so offering it to a
+        // member would only produce a 403 at the far end of a camera session.
+        canScan = role.canAdminister,
+        actions = actions,
+        onOpenScanner = onOpenScanner,
+        onRetry = viewModel::retry,
+    )
 }
 
 @Composable
 fun MemberCodeScreen(
     state: MemberCodeUiState,
+    canScan: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
+    onOpenScanner: () -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
-    UnefyListScaffold(title = stringResource(R.string.attendance_code_title), actions = actions) {
+    UnefyListScaffold(
+        title = stringResource(R.string.attendance_code_title),
+        actions = {
+            // Ahead of the account actions: on a training evening this is the
+            // button a supervisor reaches for, and it belongs next to the
+            // content rather than at the end of a row of avatars.
+            if (canScan) {
+                IconButton(onClick = onOpenScanner) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_qr_scanner),
+                        contentDescription = stringResource(R.string.attendance_open_scanner),
+                    )
+                }
+            }
+            actions()
+        },
+    ) {
         when (state) {
             MemberCodeUiState.Loading -> Unit
 
@@ -157,6 +190,7 @@ private fun MemberCodePreview() {
                 secondsRemaining = 18,
                 seedStale = false,
             ),
+            canScan = true,
         )
     }
 }

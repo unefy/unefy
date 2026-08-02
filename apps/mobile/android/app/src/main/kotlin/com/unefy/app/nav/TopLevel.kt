@@ -12,7 +12,6 @@ import com.unefy.app.MembersKey
 import com.unefy.app.MyDuesKey
 import com.unefy.app.ProfileKey
 import com.unefy.app.R
-import com.unefy.app.ScannerKey
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.model.ClubRole
 
@@ -37,15 +36,17 @@ enum class TopLevel(
 
     Competitions("competitions", CompetitionsKey, R.string.nav_competitions, DesignR.drawable.ic_trophy),
 
-    /** The member's own check-in code. Everyone has one; only members show it. */
+    /**
+     * The evening's check-in. A member sees their own code here; a board member
+     * also reaches the scanner from it. One destination, because "my code" and
+     * "other people's codes" are two views of the same thing, and two tiles with
+     * near-identical QR icons were not tellable apart in the shelf.
+     */
     CheckIn("check_in", AttendanceCodeKey, R.string.nav_check_in, DesignR.drawable.ic_qr_code),
 
     // Administrative
     Members("members", MembersKey, R.string.nav_members, DesignR.drawable.ic_group),
     Dues("dues", DuesKey, R.string.nav_dues, DesignR.drawable.ic_payments),
-
-    /** Scanning other people's codes — the supervisor's side of the same feature. */
-    Scanner("scanner", ScannerKey, R.string.nav_scanner, DesignR.drawable.ic_qr_scanner),
 }
 
 /**
@@ -77,7 +78,6 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         TopLevel.Events,
         TopLevel.Competitions,
         TopLevel.Dues,
-        TopLevel.Scanner,
         TopLevel.Directory,
         TopLevel.Profile,
         // A board member is still a member: they check in like everyone else,

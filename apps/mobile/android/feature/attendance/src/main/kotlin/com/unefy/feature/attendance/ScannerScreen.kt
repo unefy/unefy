@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,18 +33,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 
 @Composable
 fun ScannerRoute(
+    onBack: () -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
     viewModel: ScannerViewModel = hiltViewModel(),
 ) {
@@ -63,6 +68,7 @@ fun ScannerRoute(
         state = state,
         cameraGranted = granted,
         actions = actions,
+        onBack = onBack,
         onGrantCamera = { requestPermission.launch(Manifest.permission.CAMERA) },
         onSelectSession = viewModel::selectSession,
         onRetrySessions = viewModel::loadSessions,
@@ -75,13 +81,27 @@ fun ScannerScreen(
     state: ScannerUiState,
     cameraGranted: Boolean,
     actions: @Composable RowScope.() -> Unit = {},
+    onBack: () -> Unit = {},
     onGrantCamera: () -> Unit = {},
     onSelectSession: (String) -> Unit = {},
     onRetrySessions: () -> Unit = {},
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit =
         { _, _ -> },
 ) {
-    UnefyListScaffold(title = stringResource(R.string.scanner_title), actions = actions) {
+    UnefyListScaffold(
+        title = stringResource(R.string.scanner_title),
+        // Reached from the check-in screen, so it needs a way back. Back belongs
+        // on the left on Android, which is what the leading slot is for.
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(DesignR.drawable.ic_arrow_back),
+                    contentDescription = stringResource(R.string.scanner_back),
+                )
+            }
+        },
+        actions = actions,
+    ) {
         when {
             state.sessionsError != null -> item("error") {
                 Message(

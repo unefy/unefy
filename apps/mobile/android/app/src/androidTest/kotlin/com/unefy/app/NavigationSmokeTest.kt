@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.unefy.app.nav.NavPreferences
@@ -15,6 +16,7 @@ import com.unefy.app.nav.defaultDestinationsFor
 import com.unefy.app.nav.permittedDestinations
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.ClubRole
+import com.unefy.feature.attendance.R as AttendanceR
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
@@ -63,7 +65,42 @@ class NavigationSmokeTest {
     @Test
     fun member_opens_every_permitted_destination() = openEveryDestination(ClubRole.MEMBER)
 
+    /**
+     * The scanner is no longer a section, so the sweep above cannot reach it.
+     * It hangs off the check-in screen's header instead, and that route is the
+     * only way in — which makes it worth its own test rather than none.
+     */
+    @Test
+    fun board_reaches_the_scanner_from_the_check_in_screen() {
+        show(ClubRole.BOARD)
+        openFromMoreShelf(TopLevel.CheckIn)
+
+        composeRule.onNodeWithContentDescription(string(AttendanceR.string.attendance_open_scanner))
+            .performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(string(AttendanceR.string.scanner_title)).assertIsDisplayed()
+    }
+
+    /** A member may hold a code; the way to the scanner must not be offered. */
+    @Test
+    fun member_is_not_offered_the_scanner() {
+        show(ClubRole.MEMBER)
+        openFromBar(TopLevel.CheckIn)
+
+        composeRule.onNodeWithContentDescription(string(AttendanceR.string.attendance_open_scanner))
+            .assertDoesNotExist()
+    }
+
     private fun openEveryDestination(role: ClubRole) {
+        val inBar = show(role)
+
+        inBar.forEach(::openFromBar)
+        (permittedDestinations(role) - inBar.toSet()).forEach(::openFromMoreShelf)
+    }
+
+    /** Puts the shell on screen with a known bar, and returns what is in it. */
+    private fun show(role: ClubRole): List<TopLevel> {
         val inBar = defaultDestinationsFor(role).take(NavPreferences.MAX_VISIBLE)
         runBlocking { navPreferences.setVisibleDestinations(role, inBar) }
 
@@ -78,9 +115,7 @@ class NavigationSmokeTest {
                 )
             }
         }
-
-        inBar.forEach(::openFromBar)
-        (permittedDestinations(role) - inBar.toSet()).forEach(::openFromMoreShelf)
+        return inBar
     }
 
     /** A bar tab: tap it, and the bar should report it as the current section. */

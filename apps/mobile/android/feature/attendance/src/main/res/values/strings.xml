@@ -8,9 +8,11 @@
     <string name="attendance_code_error_body">Der Check-in-Code konnte nicht geladen werden.</string>
     <string name="attendance_code_no_membership_title">Kein Mitgliedsdatensatz</string>
     <string name="attendance_code_no_membership_body">Dein Konto ist mit keinem Mitglied dieses Vereins verknüpft. Der Vorstand kann das nachtragen.</string>
+    <string name="attendance_open_scanner">Codes scannen</string>
     <string name="attendance_retry">Erneut versuchen</string>
 
     <string name="scanner_title">Check-in scannen</string>
+    <string name="scanner_back">Zurück</string>
     <string name="scanner_waiting">Bereit — Code vor die Kamera halten</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>

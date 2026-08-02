@@ -387,8 +387,16 @@ internal fun unefyEntryProvider(
     entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
     entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
     entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
-    entry<AttendanceCodeKey> { MemberCodeRoute(actions = accountActions) }
-    entry<ScannerKey> { ScannerRoute(actions = accountActions) }
+    entry<AttendanceCodeKey> {
+        MemberCodeRoute(
+            role = role,
+            actions = accountActions,
+            // A detail, not a section: the scanner is opened from here and
+            // backs out to here, so it is pushed rather than swapped in.
+            onOpenScanner = { onOpen(ScannerKey) },
+        )
+    }
+    entry<ScannerKey> { ScannerRoute(onBack = onBack, actions = accountActions) }
     entry<CompetitionsKey> {
         CompetitionsRoute(
             actions = accountActions,

@@ -391,6 +391,12 @@ möglich — das Backend kennt keinen Client.
 
 **Android** (`apps/mobile/android/feature/attendance`)
 
+- **Ein Navigationsziel, nicht zwei.** „Mein Check-in" zeigt den eigenen Code;
+  Vorstandsrollen erreichen den Scanner über ein Icon in der Kopfzeile, er
+  öffnet als Detailseite mit Zurück. Anfangs waren es zwei Top-Level-Ziele —
+  im „Mehr"-Raster standen dann zwei fast identische QR-Kacheln nebeneinander,
+  die niemand auseinanderhält.
+
 - `AttendanceCode.kt` spiegelt die Python-Seite. Abgesichert durch
   Testvektoren, die aus der echten Backend-Implementierung erzeugt wurden —
   eine handgeschriebene Erwartung würde nur beweisen, dass die Datei mit sich
@@ -413,6 +419,13 @@ möglich — das Backend kennt keinen Client.
   in dieselbe Einheit → `ALREADY_CHECKED_IN`.
 - Auf dem Gerät gesehen: Scanner mit laufender Kamera, Mitglieds-QR mit echtem
   Seed, Rotation und Countdown.
+
+**Wer darf scannen:** `owner`, `admin`, `board` — der Endpunkt hängt an
+`require_board`. **Achtung:** `attendance_sessions.supervisor_member_id` wird
+nur auf Existenz geprüft, nicht als Schranke. Jedes Vorstandsmitglied kann in
+jede offene Einheit scannen; wer bestätigt hat, steht in
+`verified_by_user_id`. Ob die eingetragene Standaufsicht die einzige sein soll,
+die scannen darf, ist noch nicht entschieden.
 
 **Noch nicht verifiziert:** ein echter Kamerascan eines echten Mitglieds-QR.
 Beide Seiten liefen auf demselben Telefon; dafür braucht es zwei Geräte.
