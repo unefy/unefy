@@ -269,6 +269,6 @@ private class FakeRepository : AttendanceRepository {
 
     override suspend fun members(search: String?): ApiResult<List<MemberPick>> = error("not used")
 
-    override suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>> =
+    override suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>> =
         error("not used")
 }

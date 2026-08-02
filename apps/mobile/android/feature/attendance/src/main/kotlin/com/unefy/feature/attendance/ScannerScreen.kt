@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
+// The List overload of items(); without it the Int-count one is resolved.
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -44,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 
@@ -241,6 +244,45 @@ private fun LazyListScope.scannerContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+
+    // The attendance list itself. Without it the screen can say that somebody
+    // was scanned but not who is in the room, which is the question the paper
+    // list answered and the one the supervisor actually has.
+    items(state.attendance, key = { it.memberId + it.checkedInAtEpochSeconds }) { entry ->
+        AttendanceRow(entry)
+        UnefyRowDivider()
+    }
+}
+
+@Composable
+private fun AttendanceRow(entry: CheckedInEntry) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = entry.memberName.ifBlank { stringResource(R.string.scanner_unknown_member) },
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = stringResource(
+                    if (entry.pending) {
+                        R.string.scanner_row_pending
+                    } else if (entry.method == "staff_scan") {
+                        R.string.scanner_row_scanned
+                    } else {
+                        R.string.scanner_row_manual
+                    },
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

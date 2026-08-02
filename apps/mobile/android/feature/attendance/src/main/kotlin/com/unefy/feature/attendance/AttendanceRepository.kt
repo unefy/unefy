@@ -4,6 +4,8 @@ import com.unefy.core.database.CachedMember
 import com.unefy.core.database.CachedMemberDao
 import com.unefy.core.database.CachedSession
 import com.unefy.core.database.CachedSessionDao
+import com.unefy.core.database.CachedSessionRecord
+import com.unefy.core.database.CachedSessionRecordDao
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiEndpoints
@@ -14,6 +16,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.request.parameter
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.SerialName
@@ -95,6 +98,7 @@ internal data class SessionRecordDto(
     @SerialName("member_id") val memberId: String,
     @SerialName("member_name") val memberName: String? = null,
     val method: String,
+    @SerialName("checked_in_at") val checkedInAt: String,
 )
 
 /** The seed plus the parameters it is valid under. */
@@ -113,6 +117,22 @@ data class AttendanceSessionSummary(
 )
 
 data class ScanOutcome(val memberName: String?, val memberNumber: String?, val assurance: String)
+
+/**
+ * Somebody already checked into a session — one line of the attendance list.
+ *
+ * `pending` marks a check-in this device is still holding. Shown alongside the
+ * confirmed ones rather than in a separate place: to the supervisor the person
+ * is in the room either way, and splitting the list would invite them to check
+ * someone in twice.
+ */
+data class CheckedInEntry(
+    val memberId: String,
+    val memberName: String,
+    val method: String,
+    val checkedInAtEpochSeconds: Long,
+    val pending: Boolean = false,
+)
 
 /** A member as shown in the manual pick list. */
 data class MemberPick(
@@ -148,8 +168,8 @@ interface AttendanceRepository {
 
     suspend fun members(search: String?): ApiResult<List<MemberPick>>
 
-    /** Who is already in this session, so the pick list can say so. */
-    suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>>
+    /** The session's attendance list, newest first. Cached for offline use. */
+    suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>>
 }
 
 @Singleton
@@ -157,6 +177,7 @@ class DefaultAttendanceRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val memberCache: CachedMemberDao,
     private val sessionCache: CachedSessionDao,
+    private val recordCache: CachedSessionRecordDao,
 ) : AttendanceRepository {
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = apiClient
@@ -279,9 +300,46 @@ class DefaultAttendanceRepository @Inject constructor(
         }
     }
 
-    override suspend fun checkedInMemberIds(sessionId: String): ApiResult<Set<String>> = apiClient
-        .get<List<SessionRecordDto>>(ApiEndpoints.attendanceRecords(sessionId))
-        .map { records -> records.map(SessionRecordDto::memberId).toSet() }
+    override suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>> {
+        val result = apiClient
+            .get<List<SessionRecordDto>>(ApiEndpoints.attendanceRecords(sessionId))
+            .map { records ->
+                records.map { dto ->
+                    CachedSessionRecord(
+                        id = dto.id,
+                        sessionId = sessionId,
+                        memberId = dto.memberId,
+                        memberName = dto.memberName.orEmpty(),
+                        method = dto.method,
+                        checkedInAtEpochSeconds = parseInstant(dto.checkedInAt),
+                    )
+                }
+            }
+
+        return when {
+            result is ApiResult.Success -> {
+                recordCache.upsert(result.data)
+                recordCache.retainOnly(sessionId, result.data.map(CachedSessionRecord::id))
+                ApiResult.Success(recordCache.forSession(sessionId).map(::toEntry))
+            }
+
+            result is ApiResult.Failure && result.error is ApiError.Network ->
+                ApiResult.Success(recordCache.forSession(sessionId).map(::toEntry))
+
+            else -> result as ApiResult.Failure
+        }
+    }
+
+    private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
+        memberId = row.memberId,
+        memberName = row.memberName,
+        method = row.method,
+        checkedInAtEpochSeconds = row.checkedInAtEpochSeconds,
+    )
+
+    /** A time the server sent. Unparseable means 0 — sorts last, never crashes. */
+    private fun parseInstant(value: String): Long =
+        runCatching { Instant.parse(value).epochSecond }.getOrDefault(0L)
 
     private companion object {
         const val SESSION_PAGE_SIZE = 50

@@ -30,6 +30,9 @@
     </plurals>
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
     <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
+    <string name="scanner_row_scanned">Gescannt</string>
+    <string name="scanner_row_manual">Manuell</string>
+    <string name="scanner_row_pending">Wartet auf Verbindung</string>
     <string name="scanner_permission_title">Kamera nötig</string>
     <string name="scanner_permission_body">Zum Scannen der Mitglieds-Codes braucht die App Zugriff auf die Kamera.</string>
     <string name="scanner_permission_action">Kamera freigeben</string>

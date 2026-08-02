@@ -435,6 +435,7 @@ möglich — das Backend kennt keinen Client.
 | Scannen | **Funktioniert.** Der Check-in landet in der Queue und geht raus, sobald wieder Verbindung da ist. |
 | Manuell | **Funktioniert.** Die Mitgliederliste wird gecacht — ohne sie wäre die Queue sinnlos, weil man niemanden abhaken kann, den man nicht sieht. |
 | Einheitenliste | **Funktioniert**, sofern der Scanner einmal mit Verbindung offen war. |
+| Anwesenheitsliste | **Funktioniert** aus demselben Cache, ergänzt um die noch wartenden Check-ins dieses Geräts. |
 
 **Wie es gebaut ist.** `core:database` (Room, neu) hält zwei Tabellen:
 `pending_check_ins` und `cached_members`. Bei Netzfehler puffert
@@ -479,6 +480,14 @@ Damit ein Worker die Queue injiziert bekommt, konfiguriert `UnefyApplication`
 WorkManager mit Hilts `WorkerFactory` — und der automatische Initialisierer muss
 im Manifest abgeschaltet werden, sonst initialisiert sich WorkManager zuerst
 selbst und sieht die Konfiguration nie.
+
+**Der Scanner zeigt die Anwesenheitsliste** unter dem Sucher, neueste zuerst,
+mit „Gescannt" / „Manuell" / „Wartet auf Verbindung" je Zeile. Erfasste und
+gepufferte stehen in einer Liste: für die Aufsicht ist die Person so oder so im
+Raum, und zwei getrennte Listen laden dazu ein, jemanden doppelt einzuchecken.
+Die Liste ist auch die Quelle für den Zähler und für die Häkchen in der
+manuellen Auswahl — vorher waren das drei Stellen, die auseinanderlaufen
+konnten.
 
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch

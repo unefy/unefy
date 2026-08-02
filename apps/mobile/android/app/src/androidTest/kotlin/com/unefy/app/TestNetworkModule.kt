@@ -87,7 +87,9 @@ object TestNetworkModule {
         // One open session, so the scanner preselects it and the manual action
         // appears — it is hidden without a session to check into.
         ApiEndpoints.ATTENDANCE_SESSIONS -> """{"data":[$SESSION]}"""
-        else -> """{"data":[]}"""
+        // Suffix rather than an exact path: the session id is generated, and
+        // the attendance list is what the scanner shows below the viewfinder.
+        else -> if (path.endsWith("/records")) """{"data":[$RECORD]}""" else """{"data":[]}"""
     }
 
     private const val MEMBER = """
@@ -108,6 +110,24 @@ object TestNetworkModule {
           "closes_at": "2026-08-02T21:00:00+00:00",
           "status": "open",
           "record_count": 0
+        }
+    """
+
+    // A different member from the one in MEMBERS, which is both realistic — a
+    // session holds some of the club — and what keeps the two lists on screen
+    // distinguishable to a test.
+    private const val RECORD = """
+        {
+          "id": "00000000-0000-0000-0000-0000000000bb",
+          "session_id": "00000000-0000-0000-0000-0000000000aa",
+          "member_id": "00000000-0000-0000-0000-000000000002",
+          "member_name": "Erika Beispiel",
+          "member_number": "2",
+          "occurred_on": "2026-08-02",
+          "checked_in_at": "2026-08-02T17:10:00Z",
+          "method": "staff_scan",
+          "assurance": "high",
+          "created_at": "2026-08-02T17:10:00Z"
         }
     """
 

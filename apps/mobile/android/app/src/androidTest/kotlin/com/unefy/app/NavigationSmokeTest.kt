@@ -106,6 +106,25 @@ class NavigationSmokeTest {
         composeRule.onNodeWithText("Test Mitglied").assertIsDisplayed()
     }
 
+    /**
+     * The scanner has to answer "who is in the room", not just "someone was
+     * scanned" — that is the question the paper list answered.
+     */
+    @Test
+    fun the_scanner_lists_who_is_checked_in() {
+        show(ClubRole.BOARD)
+        openFromMoreShelf(TopLevel.CheckIn)
+        composeRule.onNodeWithContentDescription(string(AttendanceR.string.attendance_open_scanner))
+            .performClick()
+        composeRule.waitForIdle()
+
+        // Loaded through the real repository and its cache, so the row proves
+        // the fetch, the decoding and the merge — not just that a list renders.
+        composeRule.onNodeWithText("Erika Beispiel").assertIsDisplayed()
+        composeRule.onNodeWithText(string(AttendanceR.string.scanner_row_scanned))
+            .assertIsDisplayed()
+    }
+
     /** A member may hold a code; the way to the scanner must not be offered. */
     @Test
     fun member_is_not_offered_the_scanner() {

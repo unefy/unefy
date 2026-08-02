@@ -79,6 +79,8 @@ data class ScannerUiState(
     val manual: ManualPickState = ManualPickState(),
     /** Check-ins taken while offline and not yet sent. */
     val pending: Int = 0,
+    /** Who is in this session, newest first. Recorded and buffered together. */
+    val attendance: List<CheckedInEntry> = emptyList(),
 )
 
 /**
@@ -134,15 +136,18 @@ class ScannerViewModel @Inject constructor(
         _uiState.update { it.copy(loadingSessions = true, sessionsError = null) }
         viewModelScope.launch {
             when (val result = repository.openSessions()) {
-                is ApiResult.Success -> _uiState.update { state ->
-                    state.copy(
-                        sessions = result.data,
-                        // Preselect when there is no choice to make — the common
-                        // case is one training evening running right now.
-                        selectedSessionId = state.selectedSessionId
-                            ?: result.data.singleOrNull()?.id,
-                        loadingSessions = false,
-                    )
+                is ApiResult.Success -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            sessions = result.data,
+                            // Preselect when there is no choice to make — the
+                            // common case is one training evening running now.
+                            selectedSessionId = state.selectedSessionId
+                                ?: result.data.singleOrNull()?.id,
+                            loadingSessions = false,
+                        )
+                    }
+                    refreshAttendance()
                 }
 
                 is ApiResult.Failure -> _uiState.update {
@@ -156,7 +161,15 @@ class ScannerViewModel @Inject constructor(
         // A new session means the same person may legitimately be scanned
         // again, so the seen-code memory starts over.
         handled.clear()
-        _uiState.update { it.copy(selectedSessionId = sessionId, feedback = null, checkedInCount = 0) }
+        _uiState.update {
+            it.copy(
+                selectedSessionId = sessionId,
+                feedback = null,
+                checkedInCount = 0,
+                attendance = emptyList(),
+            )
+        }
+        refreshAttendance()
     }
 
     suspend fun bindToCamera(context: Context, lifecycleOwner: LifecycleOwner) {
@@ -196,7 +209,6 @@ class ScannerViewModel @Inject constructor(
                             result.outcome.memberName,
                             result.outcome.memberNumber,
                         ),
-                        checkedInCount = current.checkedInCount + 1,
                     )
 
                     // Counted like any other: from where the supervisor stands
@@ -205,7 +217,6 @@ class ScannerViewModel @Inject constructor(
                     CheckInResult.Queued -> current.copy(
                         submitting = false,
                         feedback = ScanFeedback.QueuedOffline(memberLabel = null),
-                        checkedInCount = current.checkedInCount + 1,
                     )
 
                     is CheckInResult.Rejected -> current.copy(
@@ -214,6 +225,8 @@ class ScannerViewModel @Inject constructor(
                     )
                 }
             }
+            // The list is the confirmation, so it has to follow every scan.
+            refreshAttendance()
         }
     }
 
@@ -260,25 +273,56 @@ class ScannerViewModel @Inject constructor(
         _uiState.update { it.copy(manual = it.manual.copy(loading = true, error = null)) }
         viewModelScope.launch {
             val members = repository.members(query.takeIf(String::isNotBlank))
-            val present = repository.checkedInMemberIds(sessionId)
 
             _uiState.update { state ->
                 // The query may have moved on while these were in flight.
                 if (state.manual.query != query) return@update state
                 state.copy(
-                    manual = when {
-                        members is ApiResult.Failure ->
+                    manual = when (members) {
+                        is ApiResult.Failure ->
                             state.manual.copy(loading = false, error = members.error)
 
-                        else -> state.manual.copy(
-                            loading = false,
-                            members = (members as ApiResult.Success).data,
-                            // A failed record load is not worth an error screen:
-                            // the list still works, it just cannot mark anyone.
-                            checkedIn = (present as? ApiResult.Success)?.data
-                                ?: state.manual.checkedIn,
-                        )
+                        is ApiResult.Success ->
+                            state.manual.copy(loading = false, members = members.data)
                     },
+                )
+            }
+        }
+        refreshAttendance()
+    }
+
+    /**
+     * Reloads who is in the session, and merges in what this device still
+     * holds.
+     *
+     * Both together, always: a list that omitted the buffered ones would tell a
+     * supervisor to fetch someone who is standing in front of them.
+     */
+    fun refreshAttendance() {
+        val sessionId = _uiState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            val recorded = when (val result = repository.sessionRecords(sessionId)) {
+                is ApiResult.Success -> result.data
+                is ApiResult.Failure -> emptyList()
+            }
+            val queued = queue.pendingFor(sessionId).map { entry ->
+                CheckedInEntry(
+                    memberId = entry.memberId.orEmpty(),
+                    memberName = entry.memberLabel.orEmpty(),
+                    method = if (entry.code != null) "staff_scan" else "manual",
+                    checkedInAtEpochSeconds = entry.checkedInAtEpochSeconds,
+                    pending = true,
+                )
+            }
+
+            // Queued first only where it is genuinely newer; the merged list
+            // stays in one order so nothing appears to jump.
+            val merged = (recorded + queued).sortedByDescending { it.checkedInAtEpochSeconds }
+            _uiState.update { state ->
+                state.copy(
+                    attendance = merged,
+                    checkedInCount = merged.size,
+                    manual = state.manual.copy(checkedIn = merged.map { it.memberId }.toSet()),
                 )
             }
         }
@@ -299,7 +343,6 @@ class ScannerViewModel @Inject constructor(
                         } else {
                             ScanFeedback.CheckedIn(member.name, member.memberNumber)
                         },
-                        checkedInCount = state.checkedInCount + 1,
                         manual = state.manual.copy(
                             pending = null,
                             // Marked straight away rather than after a reload:
@@ -326,6 +369,7 @@ class ScannerViewModel @Inject constructor(
                     )
                 }
             }
+            refreshAttendance()
         }
     }
 

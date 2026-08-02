@@ -17,8 +17,8 @@ import javax.inject.Singleton
 /**
  * The app's local database.
  *
- * Three tables, all earned rather than speculative: the check-in queue, and the
- * member and session lists it needs to be usable offline. Caching for events
+ * Four tables, all earned rather than speculative: the check-in queue, and the
+ * member, session and attendance lists it needs to be usable offline. Caching for events
  * and dues belongs here too and is not built — see docs/plans/android-app.md.
  *
  * No `fallbackToDestructiveMigration`. The queue holds check-ins that exist
@@ -26,8 +26,13 @@ import javax.inject.Singleton
  * silently lose an evening's attendance.
  */
 @Database(
-    entities = [PendingCheckIn::class, CachedMember::class, CachedSession::class],
-    version = 2,
+    entities = [
+        PendingCheckIn::class,
+        CachedMember::class,
+        CachedSession::class,
+        CachedSessionRecord::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -36,6 +41,8 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun cachedMemberDao(): CachedMemberDao
 
     abstract fun cachedSessionDao(): CachedSessionDao
+
+    abstract fun cachedSessionRecordDao(): CachedSessionRecordDao
 }
 
 @Module
@@ -46,7 +53,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): UnefyDatabase =
         Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     /**
@@ -95,6 +102,28 @@ object DatabaseModule {
     @Provides
     fun provideCachedSessionDao(database: UnefyDatabase): CachedSessionDao =
         database.cachedSessionDao()
+
+    @Provides
+    fun provideCachedSessionRecordDao(database: UnefyDatabase): CachedSessionRecordDao =
+        database.cachedSessionRecordDao()
+
+    /** The attendance list the scanner shows, so it survives losing signal. */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cached_session_records (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT NOT NULL,
+                    memberId TEXT NOT NULL,
+                    memberName TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    checkedInAtEpochSeconds INTEGER NOT NULL
+                )
+                """,
+            )
+        }
+    }
 
     private const val DATABASE_NAME = "unefy.db"
 }
