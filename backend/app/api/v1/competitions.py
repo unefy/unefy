@@ -81,7 +81,7 @@ def _paginated(items: list[dict[str, Any]], total: int, page: int, per_page: int
 
 @router.get("")
 async def list_competitions(
-    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
@@ -108,7 +108,7 @@ async def create_competition(
 @router.get("/{competition_id}")
 async def get_competition(
     competition_id: uuid.UUID,
-    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     repo = _comp_repo(session, auth)
@@ -150,7 +150,7 @@ async def delete_competition(
 @router.get("/{competition_id}/scoreboard")
 async def scoreboard(
     competition_id: uuid.UUID,
-    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     discipline: str | None = Query(default=None),
 ) -> dict[str, Any]:

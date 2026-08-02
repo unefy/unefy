@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.database import get_db_session
-from app.dependencies import AuthContext, require_role
+from app.dependencies import AuthContext, get_current_user, require_role
+from app.repositories.member import MemberRepository
 from app.schemas.due import (
     DueGenerateRequest,
     DuePayRequest,
@@ -200,6 +201,45 @@ async def list_dues(
         offset=offset, limit=per_page, status=status, member_id=member_id, year=year
     )
     total = await service.dues.count(status=status, member_id=member_id, year=year)
+    return {
+        "data": [
+            DueResponse.model_validate(due).model_dump(mode="json")
+            | {"member_name": f"{first} {last}"}
+            for due, first, last in rows
+        ],
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": math.ceil(total / per_page) if total > 0 else 1,
+        },
+    }
+
+
+@router.get("/me")
+async def list_my_dues(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None, pattern="^(open|paid|cancelled)$"),
+) -> dict[str, Any]:
+    """The caller's own dues.
+
+    Self-service: the member_id is taken from the caller's linked member record,
+    never from a query parameter, so this cannot be pointed at someone else.
+    """
+    member_repo = MemberRepository(session, auth.tenant)
+    member = await member_repo.get_by_user_id(auth.user_id)
+    if member is None:
+        raise NotFoundError("No member record is linked to this account")
+
+    service = _get_service(session, auth)
+    offset = (page - 1) * per_page
+    rows = await service.dues.get_all_with_member(
+        offset=offset, limit=per_page, status=status, member_id=member.id, year=None
+    )
+    total = await service.dues.count(status=status, member_id=member.id, year=None)
     return {
         "data": [
             DueResponse.model_validate(due).model_dump(mode="json")

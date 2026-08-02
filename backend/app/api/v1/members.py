@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.database import get_db_session
-from app.dependencies import AuthContext, require_role
+from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
 from app.schemas.member import (
     MemberBulkDelete,
     MemberCreate,
+    MemberDirectoryEntry,
     MemberResponse,
     MemberUpdate,
 )
@@ -71,6 +72,58 @@ async def list_members(
             "per_page": per_page,
             "total_pages": math.ceil(total / per_page) if total > 0 else 1,
             "status_counts": status_counts,
+        },
+    }
+
+
+@router.get("/me")
+async def get_my_member(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """The caller's own member record.
+
+    Self-service, so it takes no role: every signed-in member of the tenant may
+    read their own row and nobody else's. Declared before `/{member_id}` because
+    that route parses its path segment as a UUID and would reject "me".
+    """
+    repo = MemberRepository(session, auth.tenant)
+    member = await repo.get_by_user_id(auth.user_id)
+    if member is None:
+        # A user account without a linked member row is a normal state — board
+        # members administer clubs they are not themselves a member of.
+        raise NotFoundError("No member record is linked to this account")
+    return {"data": MemberResponse.model_validate(member).model_dump(mode="json")}
+
+
+@router.get("/directory")
+async def list_member_directory(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None, max_length=100),
+) -> dict[str, Any]:
+    """The club directory as a member sees it.
+
+    Open to every signed-in member, unlike the administrative list above, and
+    narrow in return: active members, names and category only. See
+    `MemberDirectoryEntry` for why that narrowing is a separate schema.
+    """
+    repo = MemberRepository(session, auth.tenant)
+    offset = (page - 1) * per_page
+    members = await repo.directory(offset=offset, limit=per_page, search=search)
+    total = await repo.directory_count(search=search)
+    return {
+        "data": [
+            MemberDirectoryEntry.model_validate(member).model_dump(mode="json")
+            for member in members
+        ],
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": math.ceil(total / per_page) if total > 0 else 1,
         },
     }
 

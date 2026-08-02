@@ -65,6 +65,49 @@ class MemberRepository(
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def directory(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+        search: str | None = None,
+    ) -> list[Member]:
+        """Active members for the member-facing directory.
+
+        Deliberately not `get_all` with a filter: that one also matches on email
+        and member number, which would let any member confirm whether a given
+        address belongs to the club. This searches names only, and returns only
+        active members — a directory of former members answers no question a
+        member has.
+        """
+        query = self._base_query().where(Member.status == "active")
+        if search:
+            term = f"%{search}%"
+            query = query.where(or_(Member.first_name.ilike(term), Member.last_name.ilike(term)))
+        query = (
+            query.order_by(Member.last_name.asc(), Member.first_name.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def directory_count(self, *, search: str | None = None) -> int:
+        query = (
+            select(func.count())
+            .select_from(Member)
+            .where(
+                Member.tenant_id == self.tenant_id,
+                Member.deleted_at.is_(None),
+                Member.status == "active",
+            )
+        )
+        if search:
+            term = f"%{search}%"
+            query = query.where(or_(Member.first_name.ilike(term), Member.last_name.ilike(term)))
+        result = await self.session.execute(query)
+        return int(result.scalar_one())
+
     async def status_counts(
         self,
         *,

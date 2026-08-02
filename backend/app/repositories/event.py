@@ -139,6 +139,25 @@ class EventRegistrationRepository(
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def registered_event_ids_for_member(
+        self, member_id: uuid.UUID, event_ids: list[uuid.UUID]
+    ) -> set[uuid.UUID]:
+        """Which of these events the member is already on.
+
+        One query for the whole page rather than one per event: the alternative
+        is an N+1 that grows with page size.
+        """
+        if not event_ids:
+            return set()
+        result = await self.session.execute(
+            select(EventRegistration.event_id).where(
+                EventRegistration.tenant_id == self.tenant_id,
+                EventRegistration.member_id == member_id,
+                EventRegistration.event_id.in_(event_ids),
+            )
+        )
+        return {row[0] for row in result}
+
     async def count_registered(self, event_id: uuid.UUID) -> int:
         query = (
             select(func.count())

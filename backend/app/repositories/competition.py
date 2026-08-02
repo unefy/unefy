@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.competition import Competition, Entry, Session
+from app.models.member import Member
 from app.repositories.base import BaseRepository
 from app.schemas.competition import (
     CompetitionCreate,
@@ -292,12 +293,18 @@ class ScoreboardRepository:
         query = (
             select(
                 Entry.member_id,
+                # Joined here rather than fetched per row: a scoreboard of UUIDs
+                # answers no question, and one query per rank would be an N+1
+                # that grows with the field.
+                Member.first_name,
+                Member.last_name,
                 func.sum(Entry.score_value).label("total_score"),
                 func.count(Entry.id).label("entry_count"),
                 func.avg(Entry.score_value).label("average_score"),
                 func.max(Entry.score_value).label("best_score"),
             )
             .join(Session, Session.id == Entry.session_id)
+            .join(Member, Member.id == Entry.member_id)
             .where(Session.competition_id == competition_id)
             .where(Entry.tenant_id == self.tenant_id)
             .where(Session.tenant_id == self.tenant_id)
@@ -308,13 +315,14 @@ class ScoreboardRepository:
             query = query.where(
                 (Entry.discipline == discipline) | (Session.discipline == discipline)
             )
-        query = query.group_by(Entry.member_id)
+        query = query.group_by(Entry.member_id, Member.first_name, Member.last_name)
 
         result = await self.session.execute(query)
         rows = result.all()
         return [
             {
                 "member_id": str(row.member_id),
+                "member_name": f"{row.first_name} {row.last_name}",
                 "total_score": float(row.total_score),
                 "entry_count": row.entry_count,
                 "average_score": round(float(row.average_score), 2),

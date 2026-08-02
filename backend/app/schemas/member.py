@@ -89,3 +89,19 @@ class MemberResponse(BaseSchema):
 class MemberListResponse(BaseSchema):
     data: list[MemberResponse]
     meta: PaginationMeta
+
+
+class MemberDirectoryEntry(BaseSchema):
+    """What one member may see about another.
+
+    A separate schema rather than a subset of `MemberResponse`, because the
+    guard has to be structural: adding a field to the admin response must not
+    silently widen what the directory exposes. Contact details, address,
+    birthday and banking are absent by design — sharing those between members
+    needs a legal basis and a club-level setting, not a default.
+    """
+
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    category: str | None = None
