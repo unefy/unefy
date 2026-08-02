@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dues_title">Dues</string>
+    <string name="dues_retry">Try again</string>
+    <string name="dues_error_title">Could not load dues</string>
+    <string name="dues_open">%1$d open</string>
+    <string name="dues_paid">%1$d paid</string>
+    <string name="dues_due">Due %1$s</string>
+    <string name="dues_filter_all">All</string>
+    <string name="dues_filter_open">Open</string>
+    <string name="dues_filter_paid">Paid</string>
+    <string name="dues_status_open">Open</string>
+    <string name="dues_status_paid">Paid</string>
+    <string name="dues_status_overdue">Overdue</string>
+    <string name="dues_status_cancelled">Cancelled</string>
+    <string name="dues_status_unknown">Unknown</string>
+    <string name="dues_mine_title">My dues</string>
+</resources>

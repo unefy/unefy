@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="competitions_title">Competitions</string>
+    <string name="competitions_retry">Try again</string>
+    <string name="competitions_error_title">Something went wrong</string>
+    <string name="competitions_error_body">The competitions could not be loaded.</string>
+    <string name="competitions_empty_title">No competitions</string>
+    <string name="competitions_empty_body">None has been created for this club yet.</string>
+    <string name="scoreboard_back">Back</string>
+    <string name="scoreboard_subtitle">%1$d participants · %2$s</string>
+    <string name="scoreboard_detail">Best %1$s · %2$d rounds</string>
+    <string name="scoreboard_error_body">The ranking could not be loaded.</string>
+    <string name="scoreboard_empty_title">No results yet</string>
+    <string name="scoreboard_empty_body">The ranking appears once rounds have been recorded.</string>
+</resources>

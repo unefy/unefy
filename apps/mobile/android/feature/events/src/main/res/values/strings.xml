@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="events_title">Termine</string>
+    <string name="events_upcoming">Bevorstehend</string>
+    <string name="events_past">Vergangen</string>
+    <string name="events_retry">Erneut versuchen</string>
+    <string name="events_empty_title">Keine Termine</string>
+    <string name="events_empty_body">Für diesen Verein ist noch nichts geplant.</string>
+    <string name="events_error_title">Etwas ist schiefgelaufen</string>
+    <string name="events_error_body">Die Termine konnten nicht geladen werden.</string>
+    <string name="events_registered">%1$d angemeldet</string>
+    <string name="events_registered_of">%1$d von %2$d angemeldet</string>
+    <string name="events_register">Anmelden</string>
+    <string name="events_unregister">Abmelden</string>
+    <string name="events_registration_closed">Anmeldung geschlossen</string>
+</resources>

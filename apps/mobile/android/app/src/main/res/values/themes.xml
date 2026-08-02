@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Framework themes only: the app is pure Compose, so there is no AppCompat
+     dependency to inherit a DayNight theme from. Night is handled by the
+     values-night variant rather than a DayNight parent, because the framework
+     has no Theme.DeviceDefault.DayNight.NoActionBar. -->
+<resources>
+    <style name="Theme.Unefy" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>

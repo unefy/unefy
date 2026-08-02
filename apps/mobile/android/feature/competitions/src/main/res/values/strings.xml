@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="competitions_title">Wettkämpfe</string>
+    <string name="competitions_retry">Erneut versuchen</string>
+    <string name="competitions_error_title">Etwas ist schiefgelaufen</string>
+    <string name="competitions_error_body">Die Wettkämpfe konnten nicht geladen werden.</string>
+    <string name="competitions_empty_title">Keine Wettkämpfe</string>
+    <string name="competitions_empty_body">Für diesen Verein ist noch keiner angelegt.</string>
+    <string name="scoreboard_back">Zurück</string>
+    <string name="scoreboard_subtitle">%1$d Teilnehmende · %2$s</string>
+    <string name="scoreboard_detail">Beste %1$s · %2$d Durchgänge</string>
+    <string name="scoreboard_error_body">Die Rangliste konnte nicht geladen werden.</string>
+    <string name="scoreboard_empty_title">Noch keine Ergebnisse</string>
+    <string name="scoreboard_empty_body">Sobald Durchgänge erfasst sind, erscheint hier die Rangliste.</string>
+</resources>

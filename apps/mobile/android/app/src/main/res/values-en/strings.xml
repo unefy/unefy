@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="members_title">Members</string>
+    <string name="members_add">Add member</string>
+    <string name="members_empty_title">No members yet</string>
+    <string name="members_empty_body">Create the first member to get started.</string>
+    <string name="member_status_active">Active</string>
+    <string name="member_status_inactive">Inactive</string>
+    <string name="member_status_pending">Pending</string>
+    <string name="member_status_resigned">Resigned</string>
+    <string name="login_title">Sign in</string>
+    <string name="login_subtitle">Sign in with your email address.</string>
+    <string name="login_email">Email</string>
+    <string name="login_submit">Sign in</string>
+    <string name="login_failed">Sign-in failed. Check the email address.</string>
+    <string name="login_offline">Backend unreachable.</string>
+    <string name="sign_out">Sign out</string>
+    <string name="nav_members">Members</string>
+    <string name="nav_events">Events</string>
+    <string name="nav_dues">Dues</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_directory">Directory</string>
+    <string name="nav_my_dues">My dues</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="nav_competitions">Competitions</string>
+    <string name="nav_more">More</string>
+    <string name="nav_more_grid_hint">Tap to open a section. Press and hold, then drag down to put it in the bar — drag a tile out of the bar to take it back out.</string>
+    <string name="nav_more_grid_empty">Every section is in the bar. Drag one out of the bar to put it back here.</string>
+</resources>

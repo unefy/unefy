@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch window background only. Matches the theme's `surface` so there is no
+     flash before Compose draws. Every other colour lives in core:designsystem. -->
+<resources>
+    <color name="window_background">#FFFFFFFF</color>
+</resources>

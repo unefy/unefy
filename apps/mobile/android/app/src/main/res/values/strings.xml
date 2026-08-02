@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German is the default locale: the primary audience is DACH clubs.
+     English lives in values-en/. -->
+<resources>
+    <!-- Brand name: never translated. -->
+    <string name="app_name" translatable="false">unefy</string>
+    <string name="members_title">Mitglieder</string>
+    <string name="members_add">Mitglied hinzufügen</string>
+    <string name="members_empty_title">Noch keine Mitglieder</string>
+    <string name="members_empty_body">Lege das erste Mitglied an, um mit der Verwaltung zu beginnen.</string>
+    <string name="member_status_active">Aktiv</string>
+    <string name="member_status_inactive">Inaktiv</string>
+    <string name="member_status_pending">Ausstehend</string>
+    <string name="member_status_resigned">Ausgetreten</string>
+    <string name="login_title">Anmelden</string>
+    <string name="login_subtitle">Melde dich mit deiner E-Mail-Adresse an.</string>
+    <string name="login_email">E-Mail</string>
+    <string name="login_submit">Anmelden</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen. Prüfe die E-Mail-Adresse.</string>
+    <string name="login_offline">Backend nicht erreichbar.</string>
+    <string name="sign_out">Abmelden</string>
+    <string name="nav_members">Mitglieder</string>
+    <string name="nav_events">Termine</string>
+    <string name="nav_dues">Beiträge</string>
+    <string name="nav_profile">Profil</string>
+    <string name="nav_directory">Verzeichnis</string>
+    <string name="nav_my_dues">Meine Beiträge</string>
+    <string name="account_sign_out">Abmelden</string>
+    <string name="nav_competitions">Wettkämpfe</string>
+    <string name="nav_more">Mehr</string>
+    <string name="nav_more_grid_hint">Tippen öffnet einen Bereich. Gedrückt halten und nach unten ziehen legt ihn in die Leiste — ein Feld aus der Leiste herausziehen nimmt es wieder heraus.</string>
+    <string name="nav_more_grid_empty">Alle Bereiche liegen in der Leiste. Zieh ein Feld aus der Leiste heraus, um es hier abzulegen.</string>
+</resources>

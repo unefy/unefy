@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="events_title">Events</string>
+    <string name="events_upcoming">Upcoming</string>
+    <string name="events_past">Past</string>
+    <string name="events_retry">Try again</string>
+    <string name="events_empty_title">No events</string>
+    <string name="events_empty_body">Nothing is planned for this club yet.</string>
+    <string name="events_error_title">Something went wrong</string>
+    <string name="events_error_body">The events could not be loaded.</string>
+    <string name="events_registered">%1$d registered</string>
+    <string name="events_registered_of">%1$d of %2$d registered</string>
+    <string name="events_register">Register</string>
+    <string name="events_unregister">Cancel</string>
+    <string name="events_registration_closed">Registration closed</string>
+</resources>

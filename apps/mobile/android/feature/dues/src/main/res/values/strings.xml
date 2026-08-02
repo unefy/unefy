@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dues_title">Beiträge</string>
+    <string name="dues_retry">Erneut versuchen</string>
+    <string name="dues_error_title">Beiträge nicht ladbar</string>
+    <string name="dues_open">%1$d offen</string>
+    <string name="dues_paid">%1$d bezahlt</string>
+    <string name="dues_due">Fällig %1$s</string>
+    <string name="dues_filter_all">Alle</string>
+    <string name="dues_filter_open">Offen</string>
+    <string name="dues_filter_paid">Bezahlt</string>
+    <string name="dues_status_open">Offen</string>
+    <string name="dues_status_paid">Bezahlt</string>
+    <string name="dues_status_overdue">Überfällig</string>
+    <string name="dues_status_cancelled">Storniert</string>
+    <string name="dues_status_unknown">Unbekannt</string>
+    <string name="dues_mine_title">Meine Beiträge</string>
+</resources>
