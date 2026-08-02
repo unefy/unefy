@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     INTERNAL_API_SECRET: str = PLACEHOLDER_SECRET
     SESSION_SECRET: str = PLACEHOLDER_SECRET
     JWT_SECRET: str = PLACEHOLDER_SECRET
+    # Seeds for the rotating attendance code are derived from this rather than
+    # stored, so rotating it invalidates every code currently on a phone. Its
+    # own secret and not JWT_SECRET: the two have different lifetimes, and
+    # rotating tokens should not lock every member out of checking in.
+    ATTENDANCE_SECRET: str = PLACEHOLDER_SECRET
 
     # Mobile JWT lifetimes
     JWT_ACCESS_TTL_SECONDS: int = 900  # 15 min
@@ -70,7 +75,7 @@ class Settings(BaseSettings):
     # credential sitting in an inbox.
     MAGIC_LINK_TTL_SECONDS: int = 900  # 15 min
 
-    @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET")
+    @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET", "ATTENDANCE_SECRET")
     @classmethod
     def _validate_secret_length(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]
         # In DEBUG mode we allow the placeholder so `docker compose up` works
@@ -84,7 +89,7 @@ class Settings(BaseSettings):
         if self.DEBUG:
             return self
         problems: list[str] = []
-        for name in ("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET"):
+        for name in ("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET", "ATTENDANCE_SECRET"):
             value = getattr(self, name)
             if value == PLACEHOLDER_SECRET:
                 problems.append(f"{name} is still set to the placeholder value")

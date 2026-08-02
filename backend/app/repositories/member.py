@@ -171,3 +171,13 @@ class MemberRepository(
         query = self._base_query().where(Member.user_id == user_id)
         result = await self.session.execute(query)
         return result.scalars().first()
+
+    async def get_by_attendance_ref(self, ref: str) -> Member | None:
+        """Resolve a scanned pseudonym back to a member.
+
+        Tenant-scoped through `_base_query`, so a code from another club cannot
+        resolve here even in the vanishing case of a colliding ref.
+        """
+        query = self._base_query().where(Member.attendance_ref == ref)
+        result = await self.session.execute(query)
+        return result.scalars().first()

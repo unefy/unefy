@@ -1,5 +1,6 @@
+import hashlib
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -8,10 +9,18 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.dependencies import AuthContext
-from app.models.attendance import ASSURANCE_BY_METHOD, AttendanceRecord, AttendanceSession
+from app.models.attendance import (
+    ASSURANCE_BY_METHOD,
+    AttendanceCheckinContext,
+    AttendanceRecord,
+    AttendanceSession,
+)
+from app.models.member import Member
 from app.models.tenant import Tenant
+from app.redis import get_redis
 from app.repositories.attendance import (
     AttendanceRecordRepository,
     AttendanceSessionRepository,
@@ -20,8 +29,23 @@ from app.repositories.member import MemberRepository
 from app.schemas.attendance import (
     AttendanceCheckIn,
     AttendanceRecordUpdate,
+    AttendanceScanCheckIn,
+    AttendanceSeedResponse,
     AttendanceSessionCreate,
     AttendanceSessionUpdate,
+)
+from app.services.attendance_code import (
+    CODE_INTERVAL_SECONDS,
+    CODE_VERSION,
+    REPLAY_TTL_SECONDS,
+    InvalidCodeError,
+    derive_seed,
+    new_member_ref,
+    parse_code,
+    replay_key,
+    seed_expires_at,
+    seed_period,
+    verify_code,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
 
@@ -29,6 +53,23 @@ logger = structlog.get_logger()
 
 SESSION_TARGET = "attendance_session"
 RECORD_TARGET = "attendance_record"
+
+# One message for every way a code can fail. Which half of a guess was right is
+# not something the endpoint should confirm.
+INVALID_CODE_MESSAGE = "Code is not valid. Ask the member for a fresh one."
+
+
+def _context_digest(context: AttendanceCheckinContext) -> str:
+    """Fingerprint of the context row, canonical and order-independent.
+
+    Written to the record so the context stays *attestable* after the row
+    itself has been deleted by the retention job.
+    """
+    canonical = "|".join(
+        f"{field}={getattr(context, field) or ''}"
+        for field in ("install_id", "staff_device_id", "code_counter")
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class AttendanceService:
@@ -198,13 +239,27 @@ class AttendanceService:
 
         if await self.members.get_by_id(data.member_id) is None:
             raise NotFoundError("Member not found")
-        if await self.records.get_active(session_id, data.member_id) is not None:
+
+        return await self._record_check_in(
+            row, member_id=data.member_id, method=data.method, note=data.note
+        )
+
+    async def _record_check_in(
+        self,
+        row: AttendanceSession,
+        *,
+        member_id: uuid.UUID,
+        method: str,
+        note: str | None,
+    ) -> AttendanceRecord:
+        """The shared half of every check-in, whatever proved the person."""
+        if await self.records.get_active(row.id, member_id) is not None:
             raise ConflictError("Member is already checked in for this session")
 
         record = AttendanceRecord(
             tenant_id=self.tenant_id,
-            session_id=session_id,
-            member_id=data.member_id,
+            session_id=row.id,
+            member_id=member_id,
             # The calendar day comes from the session, not from the moment the
             # box was ticked: every record of one evening has to count as the
             # same appointment, even one entered an hour later. Resolved in the
@@ -212,12 +267,13 @@ class AttendanceService:
             # night rather than the previous UTC day.
             occurred_on=row.opens_at.astimezone(await self.club_timezone()).date(),
             checked_in_at=datetime.now(UTC),
-            method=data.method,
-            assurance=ASSURANCE_BY_METHOD[data.method],
+            method=method,
+            assurance=ASSURANCE_BY_METHOD[method],
             # Who vouches for it. For `manual` this is the whole proof of
-            # person, which is why it is never optional.
+            # person; for `staff_scan` it is who operated the scanner. Never
+            # optional either way.
             verified_by_user_id=self.auth.user_id,
-            note=data.note,
+            note=note,
             created_by=self.auth.user_id,
             updated_by=self.auth.user_id,
         )
@@ -225,6 +281,117 @@ class AttendanceService:
         await self.session.flush()
         await self.session.refresh(record)
         return record
+
+    # --- Rotating code ---
+
+    async def member_seed(self, member: Member) -> AttendanceSeedResponse:
+        """Hand a member the seed their app computes codes from.
+
+        Mints the pseudonym on first use. Doing it here rather than at member
+        creation keeps the column empty for the clubs that never scan, and means
+        an existing database needs no backfill.
+        """
+        if member.attendance_ref is None:
+            member.attendance_ref = new_member_ref()
+            await self.session.flush()
+
+        settings = get_settings()
+        period = seed_period(int(datetime.now(UTC).timestamp()))
+        return AttendanceSeedResponse(
+            member_ref=member.attendance_ref,
+            seed=derive_seed(settings.ATTENDANCE_SECRET, self.tenant_id, member.id, period),
+            expires_at=seed_expires_at(period),
+            interval_seconds=CODE_INTERVAL_SECONDS,
+            algorithm=CODE_VERSION,
+        )
+
+    async def check_in_by_code(
+        self, session_id: uuid.UUID, data: AttendanceScanCheckIn
+    ) -> AttendanceRecord:
+        """Check a member in from their rotating code.
+
+        The order matters. Structure, then identity, then signature, then
+        single-use — each step is cheap relative to the next, and the burn only
+        happens once the code is known to be genuine, so a garbled scan cannot
+        consume a window the member still needs.
+        """
+        row = await self.get_session(session_id)
+        await self._require_open(row)
+
+        try:
+            parsed = parse_code(data.code)
+        except InvalidCodeError as exc:
+            # A camera reads whatever is in front of it, so garbage arriving
+            # here is routine input, not an exceptional condition.
+            raise ValidationError(INVALID_CODE_MESSAGE) from exc
+
+        member = await self.members.get_by_attendance_ref(parsed.member_ref)
+        if member is None:
+            # Deliberately the same error as a bad signature: distinguishing
+            # "no such member" from "wrong code" turns the endpoint into an
+            # oracle for which pseudonyms exist.
+            raise ValidationError(INVALID_CODE_MESSAGE)
+
+        settings = get_settings()
+        try:
+            verify_code(
+                parsed,
+                secret=settings.ATTENDANCE_SECRET,
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                now=int(datetime.now(UTC).timestamp()),
+            )
+        except InvalidCodeError as exc:
+            raise ValidationError(INVALID_CODE_MESSAGE) from exc
+
+        await self._burn_code(member.id, parsed.counter)
+
+        record = await self._record_check_in(
+            row, member_id=member.id, method="staff_scan", note=data.note
+        )
+        await self._record_context(record, parsed.counter, data)
+        return record
+
+    async def _burn_code(self, member_id: uuid.UUID, counter: int) -> None:
+        """Make a code single-use. This is what kills screenshot replay.
+
+        `nx=True` is the whole mechanism: the first caller sets the key, every
+        later one finds it there. Redis being unavailable fails the check-in
+        rather than waving it through — a check-in that cannot be guaranteed
+        unique is worth less than no check-in at all, given the point is proof.
+        """
+        key = replay_key(self.tenant_id, member_id, counter)
+        if not await get_redis().set(key, "1", nx=True, ex=REPLAY_TTL_SECONDS):
+            raise ConflictError("This code has already been used. Ask for a fresh one.")
+
+    async def _record_context(
+        self, record: AttendanceRecord, counter: int, data: AttendanceScanCheckIn
+    ) -> None:
+        """Write the short-lived technical context and its lasting fingerprint.
+
+        The digest goes on the record, which outlives the context by years. Once
+        the context row is gone, what stays provable is "a technical context
+        with this fingerprint existed for this check-in and was unremarkable" —
+        the statement that is actually needed in a dispute, without keeping the
+        behavioural trail around to make it.
+        """
+        tenant = await self.session.get(Tenant, self.tenant_id)
+        retention_days = tenant.attendance_context_retention_days if tenant else 90
+
+        context = AttendanceCheckinContext(
+            tenant_id=self.tenant_id,
+            attendance_record_id=record.id,
+            install_id=data.install_id,
+            staff_device_id=data.staff_device_id,
+            code_counter=counter,
+            expires_at=datetime.now(UTC) + timedelta(days=retention_days),
+        )
+        self.session.add(context)
+
+        record.context_digest = _context_digest(context)
+        # No abuse detection yet — saying "ok" would be a claim nothing checked.
+        record.context_verdict = "unchecked"
+        await self.session.flush()
 
     async def get_record(self, record_id: uuid.UUID) -> AttendanceRecord:
         record = await self.records.get_by_id(record_id)

@@ -6,9 +6,9 @@ from pydantic import Field, model_validator
 
 from app.schemas.base import BaseSchema
 
-# Only `manual` is built. The other methods exist in the model so assurance can
-# be reasoned about as one scale; accepting them here would let a caller claim a
-# level of proof no code path actually delivers.
+# `manual` and `staff_scan` are built. The remaining methods exist in the model
+# so assurance can be reasoned about as one scale; accepting them here would let
+# a caller claim a level of proof no code path actually delivers.
 METHOD_PATTERN = "^(manual)$"
 
 # Corrections to the evidence layer must carry a human reason — that is what
@@ -73,6 +73,38 @@ class AttendanceCheckIn(BaseSchema):
     # `checked_in_at` and `assurance` are deliberately not accepted. The time is
     # the server's, and the level of proof follows from the method — neither is
     # the caller's to assert.
+
+
+class AttendanceScanCheckIn(BaseSchema):
+    """A supervisor scanning a member's rotating code.
+
+    A separate schema rather than an optional `code` on [AttendanceCheckIn]:
+    the two carry different proof. Here the member is not named at all — they
+    are derived from the code, which is the entire reason this method rates
+    `high` while a ticked box rates `low`. Letting one schema express both would
+    let a caller send a member id *and* a code and leave the question of which
+    one wins to the implementation.
+    """
+
+    code: str = Field(min_length=1, max_length=128)
+    note: str | None = Field(default=None, max_length=1000)
+
+    # Context of the scan, all optional — the check-in must not fail because a
+    # scanner withheld its identity. Retained on the short clock.
+    install_id: str | None = Field(default=None, max_length=64)
+    staff_device_id: str | None = Field(default=None, max_length=64)
+
+
+class AttendanceSeedResponse(BaseSchema):
+    """What a member's app needs to compute its own codes offline."""
+
+    member_ref: str
+    seed: str
+    # Unix seconds. The app refreshes against this; a late refresh is not a
+    # lockout, because the verifier accepts a couple of expired periods.
+    expires_at: int
+    interval_seconds: int
+    algorithm: str
 
 
 class AttendanceRecordUpdate(BaseSchema):

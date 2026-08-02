@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import Date, ForeignKey, Index, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
@@ -15,6 +15,15 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
         UniqueConstraint("tenant_id", "member_number"),
         Index("ix_members_tenant_status", "tenant_id", "status"),
         Index("ix_members_tenant_name", "tenant_id", "last_name", "first_name"),
+        # Unique and indexed: every scan resolves a ref to a member through it,
+        # and two members sharing one would check the wrong person in.
+        Index(
+            "uq_members_tenant_attendance_ref",
+            "tenant_id",
+            "attendance_ref",
+            unique=True,
+            postgresql_where=text("attendance_ref IS NOT NULL"),
+        ),
     )
 
     # Member number (auto-generated from tenant format)
@@ -51,3 +60,10 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
 
     # Optional link to User (for self-service portal)
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), nullable=True)
+
+    # Tenant-wide pseudonym, used by the rotating attendance code. Kept off the
+    # primary key on purpose: the code is displayed as a QR that anyone in the
+    # room can photograph, and a photograph must not hand out a member id.
+    # Null until the member first asks for a seed — there is no reason to mint
+    # one for a club that never turns scanning on.
+    attendance_ref: Mapped[str | None] = mapped_column(String(16), nullable=True)

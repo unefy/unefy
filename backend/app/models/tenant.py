@@ -86,6 +86,17 @@ class Tenant(Base, TimestampMixin):
         comment=ATTENDANCE_RETENTION_COMMENT,
     )
 
+    # The second clock. The technical context of a scan — which installation,
+    # which scanning device, which counter — is a behavioural trail and lives
+    # for weeks, while the record it belongs to lives for years. What survives
+    # the deletion is the digest and the verdict on the record itself.
+    attendance_context_retention_days: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=90,
+        server_default="90",
+    )
+
     # Configurable member status list (JSON array of {key, label} objects).
     # The DB-level default is English for neutrality; new tenants are seeded
     # with locale-appropriate labels at creation time (see core/seeds.py).

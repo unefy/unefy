@@ -14,6 +14,8 @@ from app.schemas.attendance import (
     AttendanceCheckIn,
     AttendanceRecordResponse,
     AttendanceRecordUpdate,
+    AttendanceScanCheckIn,
+    AttendanceSeedResponse,
     AttendanceSessionCreate,
     AttendanceSessionResponse,
     AttendanceSessionUpdate,
@@ -258,6 +260,26 @@ async def check_in(
     return {"data": AttendanceRecordResponse.model_validate(record).model_dump(mode="json")}
 
 
+@router.post("/sessions/{session_id}/scan", status_code=201)
+async def check_in_by_code(
+    session_id: uuid.UUID,
+    data: AttendanceScanCheckIn,
+    auth: AuthContext = Depends(require_board),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Check a member in from their rotating code.
+
+    Its own endpoint rather than a branch of `check-in`: this path proves the
+    person cryptographically and rates `high`, while the other rates `low`
+    because a human asserted it. Same board authorisation either way — the code
+    proves who the member is, not that the scanner is entitled to check anyone
+    in, and that second half is what the session's supervisor is for.
+    """
+    service = _get_service(session, auth)
+    record = await service.check_in_by_code(session_id, data)
+    return {"data": AttendanceRecordResponse.model_validate(record).model_dump(mode="json")}
+
+
 @router.post("/records/{record_id}/check-out")
 async def check_out(
     record_id: uuid.UUID,
@@ -317,6 +339,25 @@ async def get_record_audit(
 
 
 # --- Member self-service ---
+
+
+@router.get("/me/seed")
+async def get_my_seed(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """The seed a member's app computes its rotating code from.
+
+    Any member, not board only: this is the member's own credential. It is
+    handed out for 24 hours at a time so the app keeps working in a basement
+    with no signal, which is where shooting ranges tend to be.
+    """
+    service = _get_service(session, auth)
+    member = await service.members.get_by_user_id(auth.user_id)
+    if member is None:
+        raise NotFoundError("No member record is linked to this account")
+    seed = await service.member_seed(member)
+    return {"data": AttendanceSeedResponse.model_validate(seed).model_dump(mode="json")}
 
 
 @router.get("/me/records")
