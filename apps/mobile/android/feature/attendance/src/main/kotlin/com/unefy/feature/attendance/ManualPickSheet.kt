@@ -71,27 +71,6 @@ internal fun ManualPickSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Below the search, above the list: a guest is the exception, and
-            // putting the exception first would push the common case down.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                UnefySearchField(
-                    value = state.guestName,
-                    onValueChange = onGuestNameChange,
-                    placeholder = stringResource(R.string.scanner_guest_placeholder),
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = onCheckInGuest,
-                    enabled = state.guestName.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.scanner_guest_action))
-                }
-            }
-
             when {
                 state.error != null -> Notice(stringResource(R.string.scanner_manual_error))
 
@@ -112,6 +91,36 @@ internal fun ManualPickSheet(
                         )
                         UnefyRowDivider()
                     }
+                }
+            }
+
+            // Last, after the members. Somebody who is not on the list is the
+            // exception, and the exception belongs where you land once looking
+            // for a name has failed — not above the list you came here to use.
+            UnefyRowDivider(startInset = 0.dp)
+            Text(
+                text = stringResource(R.string.scanner_guest_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = UnefySpacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                UnefySearchField(
+                    value = state.guestName,
+                    onValueChange = onGuestNameChange,
+                    placeholder = stringResource(R.string.scanner_guest_placeholder),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = onCheckInGuest,
+                    enabled = state.guestName.isNotBlank(),
+                ) {
+                    Text(stringResource(R.string.scanner_guest_action))
                 }
             }
         }

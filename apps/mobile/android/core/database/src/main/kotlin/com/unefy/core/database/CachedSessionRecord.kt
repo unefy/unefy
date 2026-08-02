@@ -19,7 +19,8 @@ import androidx.room.Upsert
 data class CachedSessionRecord(
     @PrimaryKey val id: String,
     val sessionId: String,
-    val memberId: String,
+    /** Null for a guest; `memberName` carries their name either way. */
+    val memberId: String?,
     val memberName: String,
     val method: String,
     /** Unix seconds, so ordering does not depend on parsing a string. */

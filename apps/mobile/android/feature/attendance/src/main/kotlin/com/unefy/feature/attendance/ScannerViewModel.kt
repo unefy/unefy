@@ -359,7 +359,8 @@ class ScannerViewModel @Inject constructor(
             }
             val queued = queue.pendingFor(sessionId).map { entry ->
                 CheckedInEntry(
-                    memberId = entry.memberId.orEmpty(),
+                    key = "pending-${entry.id}",
+                    memberId = entry.memberId,
                     memberName = entry.memberLabel.orEmpty(),
                     method = if (entry.code != null) "staff_scan" else "manual",
                     checkedInAtEpochSeconds = entry.checkedInAtEpochSeconds,
@@ -374,7 +375,11 @@ class ScannerViewModel @Inject constructor(
                 state.copy(
                     attendance = merged,
                     checkedInCount = merged.size,
-                    manual = state.manual.copy(checkedIn = merged.map { it.memberId }.toSet()),
+                    // Only real member ids: a guest has none, and folding a
+                    // null or a blank in here would tick an arbitrary row.
+                    manual = state.manual.copy(
+                        checkedIn = merged.mapNotNull { it.memberId }.toSet(),
+                    ),
                 )
             }
         }

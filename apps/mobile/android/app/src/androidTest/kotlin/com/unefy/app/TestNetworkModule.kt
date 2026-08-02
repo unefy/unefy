@@ -89,7 +89,11 @@ object TestNetworkModule {
         ApiEndpoints.ATTENDANCE_SESSIONS -> """{"data":[$SESSION]}"""
         // Suffix rather than an exact path: the session id is generated, and
         // the attendance list is what the scanner shows below the viewfinder.
-        else -> if (path.endsWith("/records")) """{"data":[$RECORD]}""" else """{"data":[]}"""
+        else -> if (path.endsWith("/records")) {
+            """{"data":[$RECORD,$GUEST_RECORD]}"""
+        } else {
+            """{"data":[]}"""
+        }
     }
 
     private const val MEMBER = """
@@ -128,6 +132,25 @@ object TestNetworkModule {
           "method": "staff_scan",
           "assurance": "high",
           "created_at": "2026-08-02T17:10:00Z"
+        }
+    """
+
+    // A guest: no member id at all. Declaring that field non-null once made the
+    // entire attendance list fail to decode the moment one guest was present,
+    // so the list must be tested with one in it.
+    private const val GUEST_RECORD = """
+        {
+          "id": "00000000-0000-0000-0000-0000000000cc",
+          "session_id": "00000000-0000-0000-0000-0000000000aa",
+          "member_id": null,
+          "guest_name": "Jonas Gast",
+          "member_name": "Jonas Gast",
+          "member_number": null,
+          "occurred_on": "2026-08-02",
+          "checked_in_at": "2026-08-02T17:20:00Z",
+          "method": "manual",
+          "assurance": "low",
+          "created_at": "2026-08-02T17:20:00Z"
         }
     """
 

@@ -104,7 +104,9 @@ internal data class MemberPickDto(
 @Serializable
 internal data class SessionRecordDto(
     val id: String,
-    @SerialName("member_id") val memberId: String,
+    // Null for a guest. Declaring it non-null made the whole list fail to
+    // decode the moment one guest was in the session — not just the guest.
+    @SerialName("member_id") val memberId: String? = null,
     @SerialName("member_name") val memberName: String? = null,
     val method: String,
     @SerialName("checked_in_at") val checkedInAt: String,
@@ -136,7 +138,10 @@ data class ScanOutcome(val memberName: String?, val memberNumber: String?, val a
  * someone in twice.
  */
 data class CheckedInEntry(
-    val memberId: String,
+    /** Stable across refreshes: the record id, or the queue row for a pending one. */
+    val key: String,
+    /** Null for a guest, who has no member record. */
+    val memberId: String?,
     val memberName: String,
     val method: String,
     val checkedInAtEpochSeconds: Long,
@@ -370,6 +375,7 @@ class DefaultAttendanceRepository @Inject constructor(
     }
 
     private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
+        key = row.id,
         memberId = row.memberId,
         memberName = row.memberName,
         method = row.method,

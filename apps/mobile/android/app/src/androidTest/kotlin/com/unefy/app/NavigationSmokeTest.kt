@@ -95,7 +95,8 @@ class NavigationSmokeTest {
             .performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(string(AttendanceR.string.scanner_manual_action)).performClick()
+        // By role: a plain text match also hits row labels in the list behind.
+        composeRule.onNode(button(string(AttendanceR.string.scanner_manual_action))).performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText(string(AttendanceR.string.scanner_manual_title))
@@ -123,6 +124,9 @@ class NavigationSmokeTest {
         composeRule.onNodeWithText("Erika Beispiel").assertIsDisplayed()
         composeRule.onNodeWithText(string(AttendanceR.string.scanner_row_scanned))
             .assertIsDisplayed()
+        // A guest has no member id, and the list once decoded that as a whole
+        // or not at all — so the member above disappeared along with them.
+        composeRule.onNodeWithText("Jonas Gast").assertIsDisplayed()
     }
 
     /** A member may hold a code; the way to the scanner must not be offered. */
@@ -192,6 +196,9 @@ class NavigationSmokeTest {
      * carry the same word, so "Termine" matches twice as soon as the Termine
      * screen is open.
      */
+    private fun button(label: String) =
+        hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+
     private fun tab(label: String) =
         hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 

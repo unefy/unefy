@@ -264,7 +264,7 @@ private fun LazyListScope.scannerContent(
     // The attendance list itself. Without it the screen can say that somebody
     // was scanned but not who is in the room, which is the question the paper
     // list answered and the one the supervisor actually has.
-    items(state.attendance, key = { it.memberId + it.checkedInAtEpochSeconds }) { entry ->
+    items(state.attendance, key = { it.key }) { entry ->
         AttendanceRow(entry)
         UnefyRowDivider()
     }

@@ -32,7 +32,7 @@ import javax.inject.Singleton
         CachedSession::class,
         CachedSessionRecord::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -53,7 +53,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): UnefyDatabase =
         Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     /**
@@ -129,6 +129,32 @@ object DatabaseModule {
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("ALTER TABLE pending_check_ins ADD COLUMN guestName TEXT")
+        }
+    }
+
+    /**
+     * `memberId` becomes nullable, for guests.
+     *
+     * Dropped and recreated rather than rebuilt in place: SQLite cannot relax a
+     * NOT NULL, and this table is a cache — it refills from the server on the
+     * next load, so nothing is lost. The same shortcut would be indefensible
+     * for `pending_check_ins`, which holds the only copy of what it stores.
+     */
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("DROP TABLE IF EXISTS cached_session_records")
+            connection.execSQL(
+                """
+                CREATE TABLE cached_session_records (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT NOT NULL,
+                    memberId TEXT,
+                    memberName TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    checkedInAtEpochSeconds INTEGER NOT NULL
+                )
+                """,
+            )
         }
     }
 

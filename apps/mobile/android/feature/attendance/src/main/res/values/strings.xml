@@ -31,7 +31,9 @@
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
     <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
     <string name="scanner_row_scanned">Gescannt</string>
-    <string name="scanner_row_manual">Manuell</string>
+    <!-- Parallel to "Gescannt", and deliberately not "Manuell": that word is
+         already the header action, and the two collided on screen. -->
+    <string name="scanner_row_manual">Von Hand</string>
     <string name="scanner_row_pending">Wartet auf Verbindung</string>
     <string name="scanner_permission_title">Kamera nötig</string>
     <string name="scanner_permission_body">Zum Scannen der Mitglieds-Codes braucht die App Zugriff auf die Kamera.</string>
@@ -40,7 +42,8 @@
     <string name="scanner_no_sessions_body">Es läuft gerade keine Einheit. Du kannst hier eine starten — Titel und Ende lassen sich später im Web korrigieren.</string>
     <string name="scanner_create_session">Einheit starten</string>
     <string name="scanner_default_session_title">Übungsabend</string>
-    <string name="scanner_guest_placeholder">Gast: Name</string>
+    <string name="scanner_guest_label">Nicht dabei? Gast erfassen</string>
+    <string name="scanner_guest_placeholder">Name des Gasts</string>
     <string name="scanner_guest_action">Erfassen</string>
     <string name="scanner_sessions_error_title">Einheiten nicht ladbar</string>
     <string name="scanner_sessions_error_body">Die offenen Einheiten konnten nicht geladen werden.</string>
