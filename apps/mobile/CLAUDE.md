@@ -39,13 +39,15 @@ Native mobile apps for unefy club management. Two separate codebases — Swift/S
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin 2.x |
-| UI | Jetpack Compose (Material 3 / Material You) |
+| Language | Kotlin 2.x (K2 compiler, KSP — no kapt) |
+| UI | Jetpack Compose with **Material 3 Expressive** |
+| Adaptive UI | `material3-adaptive` + `WindowSizeClass` (not optional — see Build Requirements) |
 | Architecture | MVVM with ViewModel + StateFlow |
-| Navigation | Compose Navigation 3 (type-safe) |
+| Navigation | Navigation 3 (stable since 1.0, Nov 2025) — back stack as Compose state |
+| Dependency Injection | Hilt (KSP) |
 | Networking | Ktor Client + kotlinx.serialization |
-| Persistence | Room (local cache) |
-| Secure Storage | EncryptedSharedPreferences / Android Keystore |
+| Persistence | Room (local cache) + DataStore (preferences) |
+| Secure Storage | Android Keystore (AES-GCM key) + DataStore for ciphertext |
 | Camera | CameraX Compose-native (`CameraXViewfinder` composable, stable) |
 | ML (custom models) | MediaPipe + LiteRT (formerly TFLite) + ML Kit |
 | ML (on-device LLM) | Gemini Nano via AICore (flagships) OR MediaPipe LLM Inference + Gemma 2B (broader) |
@@ -53,8 +55,21 @@ Native mobile apps for unefy club management. Two separate codebases — Swift/S
 | Push | Firebase Cloud Messaging (FCM) |
 | Biometrics | BiometricPrompt |
 | Testing | JUnit 5 + Compose Testing + Espresso |
-| Dependencies | Gradle with Version Catalog |
-| Min Target | API 28 (Android 9) |
+| Build | AGP 9.3.1 + Gradle 9.5.0, Kotlin DSL + Version Catalog + convention plugins in `build-logic/` |
+| Min Target | API 31 (Android 12) — Dynamic Color and Splash Screen API available natively |
+| Build SDK | compileSdk 37 (Android 17), targetSdk 36 — AndroidX AAR metadata requires compiling against 37; targeting stays at 36 |
+
+**Secure storage note:** `androidx.security:security-crypto` (`EncryptedSharedPreferences`) was deprecated in 1.1.0 — all APIs, no further releases, no successor library and no official migration path. Google's guidance is "direct use of Android Keystore". So `TokenManager` owns a hardware-backed, non-exportable AES-GCM key in the Keystore and writes only ciphertext to DataStore. Never store tokens unencrypted.
+
+### Android Build Requirements (Play Store)
+
+These are enforced, not stylistic:
+
+- **Adaptive layouts are mandatory.** At targetSdk 36, Android ignores orientation and resizability restrictions on displays ≥ 600dp. A portrait-only phone app is no longer possible — tablets and foldables must be designed for.
+- **16 KB page size.** Native libraries must be 16-KB-aligned for Play uploads at targetSdk 36+. This affects the `.so` files shipped by LiteRT and MediaPipe — pin versions that comply, or uploads are rejected.
+- **Edge-to-edge is the default**, not opt-in. Handle window insets explicitly.
+- **Predictive back** is active at current targetSdk — affects custom back handlers.
+- **targetSdk deadline:** Play requires a recent API level every late summer. Plan one bump per year.
 
 ## Architecture (Both Platforms)
 
@@ -81,7 +96,8 @@ API Client (networking) + Local DB (offline cache)
 ### Shared API Contract
 
 Both apps consume the same backend API. Keep consistency via:
-- **OpenAPI spec** generated from FastAPI → use to validate both clients
+- **Hand-written DTOs and API clients on both platforms** — no code generation. Deliberate choice: lean, readable models that match each platform's conventions (iOS keeps all models under ~260 lines), full control over the response envelope and error mapping.
+- **OpenAPI spec** generated from FastAPI → used to *validate*, not to generate. A CI test checks the hand-written DTOs against the spec so backend drift fails the build instead of surfacing as a runtime decoding error.
 - **Identical data models** — same field names, types, enums
 - **Shared test cases** — same API scenarios tested on both platforms
 
@@ -159,74 +175,84 @@ ios/
 
 ```
 android/
-├── app/
-│   ├── build.gradle.kts
+├── settings.gradle.kts
+├── build.gradle.kts
+├── gradle/
+│   └── libs.versions.toml                    # Version catalog — the only place versions live
+├── build-logic/                              # Convention plugins (no config duplicated per module)
+│   └── convention/src/main/kotlin/
+│       ├── AndroidApplicationConvention.kt
+│       ├── AndroidLibraryConvention.kt
+│       ├── AndroidComposeConvention.kt
+│       ├── AndroidFeatureConvention.kt       # library + compose + hilt + testing, in one plugin
+│       └── HiltConvention.kt
+├── app/                                      # Thin shell only — no business logic
 │   └── src/main/
 │       ├── java/com/unefy/app/
-│       │   ├── UnefyApp.kt              # Application class
-│       │   ├── MainActivity.kt
-│       │   ├── navigation/
-│       │   │   └── AppNavGraph.kt
-│       │   ├── features/
-│       │   │   ├── auth/
-│       │   │   │   ├── ui/
-│       │   │   │   │   ├── LoginScreen.kt
-│       │   │   │   │   ├── MagicLinkScreen.kt
-│       │   │   │   │   └── PasskeyButton.kt
-│       │   │   │   ├── AuthViewModel.kt
-│       │   │   │   └── AuthService.kt
-│       │   │   ├── members/
-│       │   │   │   ├── ui/
-│       │   │   │   │   ├── MemberListScreen.kt
-│       │   │   │   │   ├── MemberDetailScreen.kt
-│       │   │   │   │   └── MemberFormScreen.kt
-│       │   │   │   ├── MembersViewModel.kt
-│       │   │   │   └── MemberRepository.kt
-│       │   │   ├── events/
-│       │   │   │   └── ...
-│       │   │   ├── scan/                 # AI target scanning
-│       │   │   │   ├── ui/
-│       │   │   │   │   ├── ScannerScreen.kt
-│       │   │   │   │   ├── TargetOverlay.kt
-│       │   │   │   │   └── ScanResultScreen.kt
-│       │   │   │   ├── ScanViewModel.kt
-│       │   │   │   ├── TargetDetector.kt  # MediaPipe / LiteRT inference
-│       │   │   │   └── ScoringEngine.kt
-│       │   │   └── settings/
-│       │   │       └── ...
-│       │   ├── core/
-│       │   │   ├── network/
-│       │   │   │   ├── ApiClient.kt
-│       │   │   │   ├── ApiEndpoints.kt
-│       │   │   │   └── AuthInterceptor.kt # Auto token refresh
-│       │   │   ├── auth/
-│       │   │   │   ├── TokenManager.kt    # EncryptedSharedPrefs
-│       │   │   │   ├── BiometricAuth.kt
-│       │   │   │   └── PasskeyManager.kt
-│       │   │   ├── storage/
-│       │   │   │   └── LocalDatabase.kt   # Room DB
-│       │   │   └── di/
-│       │   │       └── AppModule.kt       # Hilt / Koin DI
-│       │   ├── models/
-│       │   │   ├── Member.kt
-│       │   │   ├── Event.kt
-│       │   │   ├── ScanResult.kt
-│       │   │   └── ...
-│       │   └── components/                # Reusable Compose components
-│       │       ├── LoadingState.kt
-│       │       ├── ErrorView.kt
-│       │       ├── EmptyState.kt
-│       │       └── ...
-│       ├── res/
-│       │   ├── values/strings.xml         # i18n
-│       │   └── ...
-│       └── assets/
-│           └── ml/
-│               └── target_detector.tflite
-├── gradle/
-│   └── libs.versions.toml                # Version catalog
-└── build.gradle.kts
+│       │   ├── UnefyApplication.kt           # @HiltAndroidApp
+│       │   ├── MainActivity.kt               # edge-to-edge, single activity
+│       │   └── navigation/
+│       │       ├── UnefyNavDisplay.kt        # Navigation 3 NavDisplay + entry providers
+│       │       └── TopLevelRoute.kt          # NavigationSuiteScaffold destinations
+│       └── res/values/strings.xml            # app-level strings only
+├── core/
+│   ├── model/                                # Pure Kotlin — domain models, no Android deps
+│   │   ├── Member.kt
+│   │   ├── Event.kt
+│   │   └── ScanResult.kt
+│   ├── network/
+│   │   ├── ApiClient.kt                      # Ktor HttpClient, envelope decoding
+│   │   ├── ApiEndpoints.kt                   # Typed endpoint definitions
+│   │   ├── ApiError.kt                       # Error code → typed app error
+│   │   └── AuthPlugin.kt                     # Ktor Auth: bearer + refreshTokens
+│   ├── database/                             # Room: entities, DAOs, offline cache + write queue
+│   ├── datastore/                            # DataStore preferences
+│   ├── auth/
+│   │   ├── TokenManager.kt                   # Keystore AES-GCM key + ciphertext in DataStore
+│   │   ├── BiometricAuth.kt                  # BiometricPrompt
+│   │   └── PasskeyManager.kt                 # Credential Manager
+│   ├── designsystem/                         # M3 Expressive theme, tokens, shared components
+│   │   ├── theme/                            # Color, type, shape, motion; Dynamic Color opt-in
+│   │   └── component/
+│   │       ├── LoadingState.kt               # Skeletons, not spinners
+│   │       ├── ErrorView.kt
+│   │       ├── EmptyState.kt
+│   │       └── OfflineBanner.kt
+│   └── testing/                              # Fakes, fixtures, coroutine + Turbine rules
+└── feature/                                  # Each: ui/ + ViewModel + Repository + own strings.xml
+    ├── auth/
+    │   ├── ui/{LoginScreen,MagicLinkScreen,PasskeyButton}.kt
+    │   ├── AuthViewModel.kt
+    │   └── AuthRepository.kt
+    ├── members/
+    │   ├── ui/{MemberListScreen,MemberDetailScreen,MemberFormScreen}.kt
+    │   ├── MembersViewModel.kt
+    │   └── MemberRepository.kt
+    ├── events/
+    ├── scan/                                 # AI target scanning
+    │   ├── ui/{ScannerScreen,TargetOverlay,ScanResultScreen}.kt
+    │   ├── ScanViewModel.kt
+    │   ├── TargetDetector.kt                 # MediaPipe / LiteRT inference
+    │   ├── ScoringEngine.kt                  # Pure geometry — unit-tested, no Android deps
+    │   └── src/main/assets/ml/target_detector.tflite
+    └── settings/
 ```
+
+#### Android Module Dependency Rules
+
+Enforced by convention, and the reason for the module split in the first place:
+
+| Module | May depend on | Must never depend on |
+|--------|---------------|----------------------|
+| `app` | all `feature:*`, `core:designsystem` | — |
+| `feature:*` | `core:*` | another `feature:*` |
+| `core:network`, `core:database` | `core:model` | any `feature:*`, `core:designsystem` |
+| `core:model` | nothing (pure Kotlin) | everything |
+| `core:designsystem` | `core:model` | `core:network`, `core:database`, any `feature:*` |
+
+- **Features never talk to each other.** Shared navigation goes through `app`, shared data through `core:*`.
+- **`app` stays thin** — Application class, MainActivity, navigation wiring. No screens, no repositories.
+- **New feature = new module** using the `AndroidFeatureConvention` plugin, not a package inside an existing one.
 
 ## Authentication (Both Platforms)
 
@@ -470,17 +496,26 @@ GlassEffectContainer {
 - **Loading**: `ProgressView` with `.redacted(reason: .placeholder)` for skeletons
 - **3D Layout**: SwiftUI now supports 3D view layout (use sparingly, where it adds value)
 
-### Android (Material 3 / Material You)
+### Android (Material 3 Expressive)
 
-- **Navigation**: Compose Navigation with `Scaffold`, top app bar, back button
+**Material 3 Expressive** is the current Material design language — richer motion, new shape and motion tokens, more emphatic component styling. It is the Android counterpart to iOS's Liquid Glass; build on it from the start rather than migrating later.
+
+**Concrete values — colour scheme, type scale, shape and motion tokens — live in [docs/design-system-android.md](../../docs/design-system-android.md). Read it before building any screen.** The short version: the design is deliberately **neutral and type-led** — `primary` is near-black (near-white in dark), derived from the web app's tokens, with hue reserved for status roles only. Typography is **Fira Sans**, matching web. Because the palette carries no hue, typography, surface steps, spacing and motion carry the hierarchy; the "Avoiding flatness" rules in that document are acceptance criteria for screen reviews, not polish.
+
+- **Navigation**: Navigation 3 `NavDisplay` with an explicit back stack held as Compose state
+- **Top-level navigation**: `NavigationSuiteScaffold` — adapts between bottom bar, rail and drawer by window size class (required, see Build Requirements)
+- **Adaptive detail views**: `ListDetailPaneScaffold` for members/events on tablets and foldables
 - **Lists**: `LazyColumn` with swipe-to-dismiss, pull-to-refresh
 - **Forms**: `OutlinedTextField` with Material 3 theming
 - **Modals**: `ModalBottomSheet` for forms, full-screen for scanner
-- **Bottom Navigation**: `NavigationBar` with Material icons
 - **Search**: `SearchBar` (Material 3)
 - **Haptics**: `HapticFeedbackType` via `LocalHapticFeedback`
-- **Loading**: Shimmer effect with `placeholder` modifier, Material 3 `CircularProgressIndicator`
-- **Dynamic Color**: Support Material You (monet) color extraction
+- **Motion**: the `UnefyMotion` spring specs from `core:designsystem` — no hand-rolled `tween` durations. `MotionScheme.expressive()` is `internal` in material3 1.4.0; see docs/design-system-android.md
+- **Transitions**: shared element transitions between list row and detail screen, reversible under predictive back
+- **Loading**: Skeleton placeholders matched to the geometry of the content they become, not spinners
+- **Dynamic Color**: **off.** It would inject the user's wallpaper hue into a deliberately hueless design. `dynamicLightColorScheme()` / `dynamicDarkColorScheme()` are not used.
+- **Contrast**: medium and high contrast scheme variants are required — Android 14+ exposes a system contrast setting, and a neutral palette has less headroom than a coloured one
+- **Insets**: edge-to-edge is the default; every screen handles window insets explicitly
 
 ### Shared UI Conventions (both platforms)
 - Dark mode from day one
@@ -553,11 +588,11 @@ func processImage(_ image: CGImage) async -> DetectionResult {
 ### Kotlin (Android)
 - Kotlin Coroutines + Flow for async operations
 - Jetpack Compose for all UI — no XML layouts
-- Hilt or Koin for dependency injection
+- Hilt (KSP) for dependency injection — constructor injection, `@HiltViewModel` for ViewModels
 - `StateFlow` + `MutableStateFlow` for ViewModel state
 - `sealed class` / `sealed interface` for UI state modeling
-- `kotlinx.serialization` for JSON (or Moshi)
-- Material 3 components and theming
+- `kotlinx.serialization` for JSON
+- Material 3 Expressive components and theming
 - `stringResource()` for all user-facing text (i18n)
 - No `!!` (non-null assertion) — use safe calls, `requireNotNull`, or sealed states
 - Compose previews for all screens and key components
@@ -609,7 +644,11 @@ Both platforms must pass the same functional test cases:
 - [ ] Dark mode tested
 - [ ] i18n for all user-facing text
 - [ ] Haptic feedback for key actions
-- [ ] Secure storage for tokens (never UserDefaults / SharedPreferences)
+- [ ] Secure storage for tokens (iOS Keychain / Android Keystore — never UserDefaults, SharedPreferences or unencrypted DataStore)
+- [ ] Android: layout verified at phone, tablet and foldable window size classes
+- [ ] Android: one filled `primary` action per screen, everything else outlined/text/tonal
+- [ ] Android: interaction states (selected, pressed, disabled, focused) distinguishable in greyscale
+- [ ] Android: Roborazzi matrix green — light/dark × phone/tablet/foldable × default/high contrast
 - [ ] Camera/ML tested with various target types and lighting conditions
 
 ## Commands
@@ -621,11 +660,17 @@ Both platforms must pass the same functional test cases:
 - Open in Xcode: `open ios/unefy.xcodeproj`
 
 ### Android
+Run from `apps/mobile/android/`:
+
 - `./gradlew assembleDebug` — Debug build
-- `./gradlew testDebugUnitTest` — Unit tests
+- `./gradlew testDebugUnitTest` — Unit tests (all modules)
+- `./gradlew :feature:members:testDebugUnitTest` — Unit tests for one module (fast inner loop)
 - `./gradlew connectedDebugAndroidTest` — Instrumented tests
 - `./gradlew lint` — Android Lint
 - `./gradlew ktlintCheck` — Kotlin style check
+- `./gradlew verifyRoborazziDebug` / `recordRoborazziDebug` — Screenshot tests: verify / re-record
+
+**Toolchain:** JDK 21 + Android SDK (platform 36, build-tools 36). Neither is installed on this machine yet — `brew install --cask temurin@21 android-studio`.
 
 ## Forbidden
 
@@ -650,7 +695,14 @@ Both platforms must pass the same functional test cases:
 ### Android-Specific
 - XML layouts (Compose only)
 - Java code (Kotlin only)
-- `SharedPreferences` for sensitive data (use EncryptedSharedPreferences)
+- `SharedPreferences` or plain DataStore for sensitive data (encrypt with an Android Keystore key)
+- `androidx.security:security-crypto` / `EncryptedSharedPreferences` — deprecated, no successor
+- XML-based top-level navigation or `NavHost` from Navigation 2 (Navigation 3 only)
+- `dynamicLightColorScheme()` / `dynamicDarkColorScheme()` — the design is deliberately hueless
+- `lightColorScheme()` / `darkColorScheme()` defaults — the scheme is hand-written, see docs/design-system-android.md
+- Literal `Color(0xFF…)` or `.dp` spacing values at the call site — use theme and spacing tokens
+- `tween()` with hand-picked durations — use `UnefyMotion.spatial()` / `UnefyMotion.effects()`
+- `shadowElevation` on in-flow surfaces — elevation comes from `surfaceContainer*` steps
 - `GlobalScope` for coroutines (use `viewModelScope` or structured concurrency)
 - `LiveData` for new code (use `StateFlow`)
 - `AndroidView` for CameraX (use `CameraXViewfinder` composable)
