@@ -5,5 +5,15 @@
     xmlns:tools="http://schemas.android.com/tools">
     <application
         android:networkSecurityConfig="@xml/network_security_config"
-        tools:replace="android:networkSecurityConfig" />
+        tools:replace="android:networkSecurityConfig">
+
+        <!-- Host for composables under test. It lives in the debug variant
+             rather than in androidTest because an activity declared in the test
+             APK resolves to the com.unefy.app.test process, which
+             Instrumentation refuses to start from com.unefy.app. -->
+        <activity
+            android:name="com.unefy.app.HiltTestActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Unefy" />
+    </application>
 </manifest>

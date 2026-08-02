@@ -42,8 +42,8 @@ lesbar, `tenant_sports` (n:m) samt Migration, `GET /club` liefert `sports` +
 Diese Punkte sind keine Politur, sondern bestehende Verstöße gegen die eigenen
 Regeln.
 
-1. **Instrumentierter Smoke-Test über alle Navigationsziele.** *Geschrieben,
-   Erstlauf auf dem Gerät steht aus.* Zwei Ebenen:
+1. ~~Instrumentierter Smoke-Test über alle Navigationsziele.~~ **Erledigt**,
+   beide Ebenen laufen grün (Gerät SM-S936B, Android 16):
    - `app/src/test/.../EntryProviderCoverageTest` — läuft auf der JVM, also in
      jedem CI-Lauf. Die Keys sind jetzt eine `sealed interface UnefyNavKey`,
      der Test zählt die Subklassen per Reflection auf und verlangt für jede
@@ -56,11 +56,22 @@ Regeln.
      für BOARD bzw. MEMBER erlaubte Ziel, die vier Leisten-Tabs direkt und den
      Rest über „Mehr“. Hilt-Testrunner plus `TestNetworkModule`, das per
      `@TestInstallIn` nur die Ktor-Engine gegen `MockEngine` tauscht — echte
-     Repositories, echtes Envelope-Decoding, feste Antworten. Achtung: der Test
-     schreibt die Navigationsanordnung in den DataStore des Geräts.
+     Repositories, echtes Envelope-Decoding, feste Antworten. Gegengeprüft:
+     ein Ziel auf eine werfende Composable gezeigt → Test schlägt fehl, der
+     JVM-Test bleibt grün. Genau die Lücke, die er schließen soll.
 
-   Offen: der erste `connectedDebugAndroidTest`-Lauf. Es gibt kein AVD und kein
-   System-Image auf der Maschine, das Testgerät war beim Schreiben gesperrt.
+   Fallstricke, die dabei Zeit gekostet haben:
+   - **`HiltTestActivity` gehört in `src/debug`, nicht in `androidTest`.** Eine
+     im Test-APK deklarierte Activity läuft im Prozess `com.unefy.app.test`,
+     und Instrumentation aus `com.unefy.app` weigert sich, sie zu starten.
+   - **Tabs per `Role.Tab` ansprechen, nicht per Text.** Der Reiter „Termine“
+     und die Überschrift „Termine“ sind zwei Treffer, sobald der Screen offen
+     ist.
+   - Der Test schreibt die Navigationsanordnung in den DataStore des Geräts —
+     die Leiste muss in einem bekannten Zustand sein. Auf einem Gerät, auf dem
+     die App auch von Hand benutzt wird, setzt das die Anordnung zurück.
+   - Es gibt weder AVD noch System-Image auf der Maschine; `connectedCheck`
+     braucht also das Testgerät.
 2. **Unit-Tests für die ViewModels** (JUnit + Turbine). Aktuell sechs
    Testdateien im ganzen Projekt. Vorgabe: 80 % für Logik, 100 % für Auth. Der
    `TokenManager` ist die riskanteste ungetestete Stelle (Refresh-Serialisierung,

@@ -1,7 +1,11 @@
 package com.unefy.app
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -81,9 +85,9 @@ class NavigationSmokeTest {
 
     /** A bar tab: tap it, and the bar should report it as the current section. */
     private fun openFromBar(destination: TopLevel) {
-        composeRule.onNodeWithText(label(destination)).performClick()
+        composeRule.onNode(tab(label(destination))).performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText(label(destination)).assertIsSelected()
+        composeRule.onNode(tab(label(destination))).assertIsSelected()
     }
 
     /**
@@ -94,14 +98,24 @@ class NavigationSmokeTest {
     private fun openFromMoreShelf(destination: TopLevel) {
         val hint = string(R.string.nav_more_grid_hint)
 
-        composeRule.onNodeWithText(string(R.string.nav_more)).performClick()
+        composeRule.onNode(tab(string(R.string.nav_more))).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(hint).assertIsDisplayed()
 
+        // The tile, unambiguously: the grid only holds sections that are not in
+        // the bar, so nothing else on screen carries this label.
         composeRule.onNodeWithText(label(destination)).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(hint).assertDoesNotExist()
     }
+
+    /**
+     * By role, not by text alone: a section's tab and that section's heading
+     * carry the same word, so "Termine" matches twice as soon as the Termine
+     * screen is open.
+     */
+    private fun tab(label: String) =
+        hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
     private fun label(destination: TopLevel): String = string(destination.label)
 
