@@ -110,3 +110,10 @@ class ClubUpdate(BaseSchema):
     timezone: str | None = Field(default=None, max_length=64)
 
     _check_timezone = field_validator("timezone")(_validate_timezone)
+
+
+class ClubSportsUpdate(BaseSchema):
+    """The club's sports, replaced as a set."""
+
+    sport_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    primary_sport_id: uuid.UUID | None = None

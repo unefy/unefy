@@ -22,6 +22,7 @@ from app.models.invitation import Invitation
 from app.models.member import Member
 from app.models.sport import CatalogUnit, Sport
 from app.models.tenant import Tenant
+from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership, User
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "SoftDeleteMixin",
     "Sport",
     "Tenant",
+    "TenantSport",
     "TenantAuditLog",
     "TenantMembership",
     "TenantMixin",
