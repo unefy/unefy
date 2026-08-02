@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The member's phone, acting as a contactless card.
@@ -69,10 +71,19 @@ class MemberCardService : HostApduService() {
 
         if (!CheckInApdu.isSelect(command)) return CheckInApdu.SW_UNKNOWN
 
-        // Nobody has fetched a seed on this device yet. Answered as a distinct
-        // status so the reader can say "open the app once" instead of blaming
-        // the code.
-        val seed = seedStore.cached ?: return CheckInApdu.SW_NOT_READY
+        // Warm cache normally. Cold only when the tap itself started this
+        // process, and then a short blocking read beats failing the tap — the
+        // alternative is telling somebody with their phone against a reader to
+        // open an app and try again. Bounded well inside the ISO-DEP timeout,
+        // and skipped entirely on every subsequent tap.
+        val seed = seedStore.cached ?: runBlocking {
+            withTimeoutOrNull(COLD_READ_MILLIS) { seedStore.read() }
+        }
+
+        // Genuinely nothing stored: this account has never opened the check-in
+        // screen. A distinct status, so the reader says "open the app once"
+        // rather than blaming the code.
+        if (seed == null) return CheckInApdu.SW_NOT_READY
 
         val code = AttendanceCode.build(
             seed = seed.seed,
@@ -81,6 +92,11 @@ class MemberCardService : HostApduService() {
             counter = AttendanceCode.counterFor(clock.epochSeconds()),
         )
         return code.toByteArray(Charsets.US_ASCII) + CheckInApdu.SW_OK
+    }
+
+    private companion object {
+        /** Short enough that a reader waiting on us does not give up first. */
+        const val COLD_READ_MILLIS = 400L
     }
 
     /**
