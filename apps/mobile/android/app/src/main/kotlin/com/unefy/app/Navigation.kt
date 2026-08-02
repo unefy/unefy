@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -337,50 +338,73 @@ private fun NavHost(
         // Same motion, but scrubbed by the predictive-back gesture instead
         // of played: it follows the finger and reverses if released.
         predictivePopTransitionSpec = { backward() },
-        entryProvider = entryProvider {
-            entry<MembersKey> {
-                MembersRoute(
-                    clubName = clubName,
-                    actions = accountActions,
-                    onMemberClick = { id -> backStack.add(MemberDetailKey(id)) },
-                )
-            }
-            entry<MemberDetailKey> { key ->
-                MemberDetailRoute(
-                    memberId = key.memberId,
-                    onBack = { backStack.removeLastOrNull() },
-                )
-            }
-            entry<EventsKey> { EventsRoute(actions = accountActions) }
-            entry<DuesKey> { DuesRoute(actions = accountActions) }
-            entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
-            entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
-            entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
-            entry<CompetitionsKey> {
-                CompetitionsRoute(
-                    actions = accountActions,
-                    onCompetitionClick = { id, name -> backStack.add(ScoreboardKey(id, name)) },
-                )
-            }
-            entry<MoreKey> {
-                MoreRoute(
-                    role = role,
-                    actions = accountActions,
-                    onDestinationClick = { destination ->
-                        // Tapping a section in "more" goes there without adding it
-                        // to the bar; adding is the explicit button below.
-                        backStack.clear()
-                        backStack.add(destination.key)
-                    },
-                )
-            }
-            entry<ScoreboardKey> { key ->
-                ScoreboardRoute(
-                    competitionId = key.competitionId,
-                    competitionName = key.competitionName,
-                    onBack = { backStack.removeLastOrNull() },
-                )
-            }
-        },
+        entryProvider = unefyEntryProvider(
+            clubName = clubName,
+            role = role,
+            accountActions = accountActions,
+            onOpen = { key -> backStack.add(key) },
+            onSwitchSection = { key ->
+                backStack.clear()
+                backStack.add(key)
+            },
+            onBack = { backStack.removeLastOrNull() },
+        ),
     )
+}
+
+/**
+ * Key → screen, as a plain function of callbacks rather than of the back stack.
+ *
+ * Split out of [NavHost] for one reason: a missing `entry<>` is invisible to the
+ * compiler and only surfaces as a crash when someone taps that section — which
+ * is exactly how the Wettkämpfe tab once shipped broken. Without the back stack
+ * in the signature this is callable from a plain JVM test, so
+ * `EntryProviderCoverageTest` can ask for every [UnefyNavKey] and fail the build
+ * instead of the device.
+ */
+internal fun unefyEntryProvider(
+    clubName: String?,
+    role: ClubRole,
+    accountActions: @Composable RowScope.() -> Unit,
+    onOpen: (NavKey) -> Unit,
+    onSwitchSection: (NavKey) -> Unit,
+    onBack: () -> Unit,
+): (NavKey) -> NavEntry<NavKey> = entryProvider {
+    entry<MembersKey> {
+        MembersRoute(
+            clubName = clubName,
+            actions = accountActions,
+            onMemberClick = { id -> onOpen(MemberDetailKey(id)) },
+        )
+    }
+    entry<MemberDetailKey> { key ->
+        MemberDetailRoute(memberId = key.memberId, onBack = onBack)
+    }
+    entry<EventsKey> { EventsRoute(actions = accountActions) }
+    entry<DuesKey> { DuesRoute(actions = accountActions) }
+    entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
+    entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
+    entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
+    entry<CompetitionsKey> {
+        CompetitionsRoute(
+            actions = accountActions,
+            onCompetitionClick = { id, name -> onOpen(ScoreboardKey(id, name)) },
+        )
+    }
+    entry<MoreKey> {
+        MoreRoute(
+            role = role,
+            actions = accountActions,
+            // Tapping a section in "more" goes there without adding it to the
+            // bar; adding is the explicit gesture below.
+            onDestinationClick = { destination -> onSwitchSection(destination.key) },
+        )
+    }
+    entry<ScoreboardKey> { key ->
+        ScoreboardRoute(
+            competitionId = key.competitionId,
+            competitionName = key.competitionName,
+            onBack = onBack,
+        )
+    }
 }

@@ -19,6 +19,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+
+        // Hilt's runner swaps in HiltTestApplication, so instrumented tests can
+        // replace modules with @TestInstallIn.
+        testInstrumentationRunner = "com.unefy.app.UnefyTestRunner"
     }
 
     buildFeatures {
@@ -79,8 +83,20 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // sealedSubclasses — how EntryProviderCoverageTest enumerates the keys.
+    testImplementation(libs.kotlin.reflect)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
+    // The smoke test drives the real dependency graph and swaps only the Ktor
+    // engine, so DTO decoding is exercised rather than mocked away.
+    androidTestImplementation(libs.ktor.client.mock)
+    androidTestImplementation(libs.ktor.client.core)
+    androidTestImplementation(libs.ktor.client.auth)
+    androidTestImplementation(libs.ktor.client.content.negotiation)
+    androidTestImplementation(libs.ktor.serialization.kotlinx.json)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

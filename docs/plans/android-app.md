@@ -28,11 +28,11 @@ lesbar, `tenant_sports` (n:m) samt Migration, `GET /club` liefert `sports` +
 
 ### Unmittelbare Risiken
 
-1. **Alles ist uncommitted.** `apps/mobile/android/` ist komplett untracked, die
-   Backend-Änderungen sind ungestaged. Erster Schritt: committen, thematisch
-   getrennt (Backend-Selfservice / tenant_sports / Android / Doku).
-2. **`backend/package.json` und `backend/package-lock.json` sind untracked** und
-   sehen versehentlich aus — prüfen, ob sie hingehören, sonst entfernen.
+1. ~~Alles ist uncommitted.~~ Erledigt — Backend-Selfservice, `tenant_sports`,
+   Android und Doku liegen als getrennte Commits vor.
+2. ~~`backend/package.json` und `backend/package-lock.json`~~ waren ein
+   versehentliches `npm install zod` im Backend-Verzeichnis; `zod` wird nirgends
+   im Repo referenziert, beide Dateien sind entfernt.
 3. **Das Drag & Drop der Navigation ist nie manuell getestet worden.** Long-Press
    mit anschließendem Ziehen ist per `adb input` nicht zuverlässig
    reproduzierbar. Muss von Hand ausprobiert werden, bevor es als fertig gilt.
@@ -42,11 +42,25 @@ lesbar, `tenant_sports` (n:m) samt Migration, `GET /club` liefert `sports` +
 Diese Punkte sind keine Politur, sondern bestehende Verstöße gegen die eigenen
 Regeln.
 
-1. **Instrumentierter Smoke-Test über alle Navigationsziele.** Es gibt null
-   `androidTest`-Dateien. Ein fehlendes `entry<>` im `NavDisplay` ist zur
-   Compile-Zeit unsichtbar — genau das hat schon einmal beim Antippen von
-   „Wettkämpfe“ zum Absturz geführt. Ein Test, der jedes Ziel öffnet, hätte das
-   gefangen. Höchste Priorität, weil billig und wirksam.
+1. **Instrumentierter Smoke-Test über alle Navigationsziele.** *Geschrieben,
+   Erstlauf auf dem Gerät steht aus.* Zwei Ebenen:
+   - `app/src/test/.../EntryProviderCoverageTest` — läuft auf der JVM, also in
+     jedem CI-Lauf. Die Keys sind jetzt eine `sealed interface UnefyNavKey`,
+     der Test zählt die Subklassen per Reflection auf und verlangt für jede
+     einen Treffer im `entryProvider`. Dafür ist der Entry-Graph als
+     `unefyEntryProvider(...)` aus dem `@Composable NavHost` herausgezogen —
+     er hängt an Callbacks statt am Back-Stack und ist damit ohne Gerät
+     aufrufbar. Gegengeprüft: `entry<CompetitionsKey>` entfernt → Test schlägt
+     mit `[CompetitionsKey]` fehl.
+   - `app/src/androidTest/.../NavigationSmokeTest` — öffnet auf dem Gerät jedes
+     für BOARD bzw. MEMBER erlaubte Ziel, die vier Leisten-Tabs direkt und den
+     Rest über „Mehr“. Hilt-Testrunner plus `TestNetworkModule`, das per
+     `@TestInstallIn` nur die Ktor-Engine gegen `MockEngine` tauscht — echte
+     Repositories, echtes Envelope-Decoding, feste Antworten. Achtung: der Test
+     schreibt die Navigationsanordnung in den DataStore des Geräts.
+
+   Offen: der erste `connectedDebugAndroidTest`-Lauf. Es gibt kein AVD und kein
+   System-Image auf der Maschine, das Testgerät war beim Schreiben gesperrt.
 2. **Unit-Tests für die ViewModels** (JUnit + Turbine). Aktuell sechs
    Testdateien im ganzen Projekt. Vorgabe: 80 % für Logik, 100 % für Auth. Der
    `TokenManager` ist die riskanteste ungetestete Stelle (Refresh-Serialisierung,
