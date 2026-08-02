@@ -3,6 +3,7 @@ package com.unefy.feature.members
 import com.unefy.core.model.Member
 import com.unefy.core.model.MemberStatus
 import com.unefy.core.network.ApiError
+import com.unefy.core.network.ApiMeta
 import com.unefy.core.network.ApiResult
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -161,6 +162,68 @@ class MembersViewModelTest {
         assertTrue(viewModel.uiState.value is MembersUiState.Failure)
     }
 
+    /**
+     * The bug this exists for: the backend caps a page at 100, so a club bigger
+     * than one page simply lost the rest, with nothing on screen to say so.
+     */
+    @Test
+    fun `a club larger than one page keeps going`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = (1..120).map { member("$it") })
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+        assertEquals(50, (viewModel.uiState.value as MembersUiState.Content).members.size)
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(120, state.members.size)
+        assertEquals(120, state.members.distinctBy { it.id }.size)
+        assertEquals(listOf(1, 2, 3), repository.requestedPages)
+    }
+
+    /** The header counts the club, not the pages fetched so far. */
+    @Test
+    fun `the count is the club total, not what is loaded`() = runTest(dispatcher) {
+        val viewModel = MembersViewModel(FakeMembersRepository((1..120).map { member("$it") }))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(50, state.members.size)
+        assertEquals(120, state.total)
+    }
+
+    @Test
+    fun `load more past the last page asks for nothing`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = listOf(member("1")))
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+
+        repeat(5) { viewModel.loadMore() }
+        advanceUntilIdle()
+
+        assertEquals(listOf(1), repository.requestedPages)
+    }
+
+    /** Pages carry the search term, or page two would ignore what was typed. */
+    @Test
+    fun `paging a search stays inside the search`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = (1..120).map { member("$it") })
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onQueryChange("bauer")
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals("bauer", repository.lastSearch)
+        // A new search restarts at page one, then pages on from there.
+        assertEquals(listOf(1, 1, 2), repository.requestedPages)
+    }
+
     private fun member(id: String) = Member(
         id = id,
         memberNumber = "TV-0$id",
@@ -187,9 +250,24 @@ private class FakeMembersRepository(
 ) : MembersRepository {
     var lastSearch: String? = null
 
+    /** Every page number asked for, in order. */
+    val requestedPages = mutableListOf<Int>()
+
+    /**
+     * Pages the way the backend does, so a ViewModel that ignores meta fails.
+     * The search term is recorded but not applied — what these tests check is
+     * that it travels with every page, not how the backend matches it.
+     */
     override suspend fun list(page: Int, perPage: Int, search: String?): ApiResult<List<Member>> {
         lastSearch = search
-        return failure?.let { ApiResult.Failure(it) } ?: ApiResult.Success(members)
+        requestedPages += page
+        failure?.let { return ApiResult.Failure(it) }
+
+        val totalPages = if (members.isEmpty()) 1 else (members.size + perPage - 1) / perPage
+        return ApiResult.Success(
+            members.drop((page - 1) * perPage).take(perPage),
+            ApiMeta(total = members.size, page = page, perPage = perPage, totalPages = totalPages),
+        )
     }
 
     override suspend fun me(): ApiResult<Member> =

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.unefy.core.model.Member
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.core.network.PageTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -24,10 +25,18 @@ sealed interface MembersUiState {
 
     data class Content(
         val members: List<Member>,
+        /**
+         * How many the club has, not how many are loaded. With paging those
+         * differ, and the header claiming "50 Mitglieder" for a club of 300
+         * would be a plain lie.
+         */
+        val total: Int = members.size,
         val query: String = "",
         val isRefreshing: Boolean = false,
         /** A refresh that failed, so the screen can say so and then forget it. */
         val refreshFailed: Boolean = false,
+        /** A further page is on its way, so the list can show a footer. */
+        val isLoadingMore: Boolean = false,
     ) : MembersUiState
 
     data class Failure(val error: ApiError) : MembersUiState
@@ -43,6 +52,14 @@ class MembersViewModel @Inject constructor(
 
     private var query: String = ""
     private var inFlight: Job? = null
+
+    private val pages = PageTracker()
+
+    /**
+     * Cancelled by [load]: a page that lands after a new search has started
+     * would append members who do not match what was typed.
+     */
+    private var moreInFlight: Job? = null
 
     init {
         load()
@@ -64,10 +81,46 @@ class MembersViewModel @Inject constructor(
         (state as? MembersUiState.Content)?.copy(refreshFailed = false) ?: state
     }
 
+    /**
+     * Appends the next page of the current search. Called from scroll position,
+     * so it is asked far more often than there are pages — [PageTracker]
+     * absorbs that.
+     */
+    fun loadMore() {
+        if (!pages.start()) return
+        _uiState.update { state ->
+            (state as? MembersUiState.Content)?.copy(isLoadingMore = true) ?: state
+        }
+
+        moreInFlight = viewModelScope.launch {
+            when (val result = repository.list(page = pages.next, search = query)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    _uiState.update { state ->
+                        (state as? MembersUiState.Content)?.copy(
+                            members = state.members + result.data,
+                            isLoadingMore = false,
+                        ) ?: state
+                    }
+                }
+
+                is ApiResult.Failure -> {
+                    pages.fail()
+                    _uiState.update { state ->
+                        (state as? MembersUiState.Content)
+                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
+                    }
+                }
+            }
+        }
+    }
+
     private fun load(showSpinner: Boolean = true, refreshing: Boolean = false) {
         // A new search supersedes the previous one; without this, a slow earlier
         // response could land after a faster later one and show stale results.
         inFlight?.cancel()
+        moreInFlight?.cancel()
+        pages.reset()
 
         if (showSpinner) _uiState.value = MembersUiState.Loading
         if (refreshing) {
@@ -81,11 +134,15 @@ class MembersViewModel @Inject constructor(
         }
 
         inFlight = viewModelScope.launch {
-            when (val result = repository.list(search = query)) {
-                is ApiResult.Success -> _uiState.value = MembersUiState.Content(
-                    members = result.data,
-                    query = query,
-                )
+            when (val result = repository.list(page = 1, search = query)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    _uiState.value = MembersUiState.Content(
+                        members = result.data,
+                        total = result.meta?.total ?: result.data.size,
+                        query = query,
+                    )
+                }
 
                 // A refresh that fails keeps the list it already has and says so
                 // in a snackbar. Replacing loaded content with a full-screen

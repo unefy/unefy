@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
@@ -41,6 +42,7 @@ fun CompetitionsRoute(
         onCompetitionClick = onCompetitionClick,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -52,6 +54,7 @@ fun CompetitionsScreen(
     onCompetitionClick: (String, String) -> Unit = { _, _ -> },
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? CompetitionsUiState.Content
@@ -61,6 +64,7 @@ fun CompetitionsScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
+        onLoadMore = onLoadMore,
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
@@ -97,6 +101,7 @@ fun CompetitionsScreen(
                     )
                     UnefyRowDivider(startInset = UnefySpacing.screen)
                 }
+                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }

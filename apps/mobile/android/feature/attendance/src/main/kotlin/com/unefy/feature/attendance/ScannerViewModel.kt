@@ -14,14 +14,18 @@ import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import java.util.concurrent.Executors
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** What the supervisor sees after each scan. One line, gone on the next code. */
 sealed interface ScanFeedback {
@@ -64,6 +68,8 @@ data class ManualPickState(
     val error: ApiError? = null,
     /** The member whose check-in is in flight, so their row can lock. */
     val pending: String? = null,
+    /** Free text for somebody who is not a member. */
+    val guestName: String = "",
 )
 
 data class ScannerUiState(
@@ -79,6 +85,8 @@ data class ScannerUiState(
     val manual: ManualPickState = ManualPickState(),
     /** Check-ins taken while offline and not yet sent. */
     val pending: Int = 0,
+    /** True while a session is being opened from here. */
+    val creatingSession: Boolean = false,
     /** Who is in this session, newest first. Recorded and buffered together. */
     val attendance: List<CheckedInEntry> = emptyList(),
 )
@@ -95,6 +103,7 @@ class ScannerViewModel @Inject constructor(
     private val repository: AttendanceRepository,
     private val queue: CheckInQueue,
     private val deviceIdentity: DeviceIdentity,
+    private val clock: AttendanceClock,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScannerUiState())
@@ -157,6 +166,40 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Opens a session for right now.
+     *
+     * Without this a supervisor standing at the range with nothing open has no
+     * way forward: the scanner shows an empty screen and the evening goes
+     * unrecorded unless somebody finds a laptop. Deliberately without a form —
+     * the one thing being asked is "start now", and a title and an end time can
+     * be corrected afterwards in the web app, where there is a keyboard.
+     */
+    fun createSessionForToday(title: String) {
+        if (_uiState.value.creatingSession) return
+        _uiState.update { it.copy(creatingSession = true) }
+
+        viewModelScope.launch {
+            val now = clock.epochSeconds()
+            val result = repository.createSession(
+                title = title,
+                opensAt = Instant.ofEpochSecond(now).toString(),
+                // Long enough for any training evening. Closing is what freezes
+                // a session, and that stays a deliberate act — this is only the
+                // window in which check-ins are accepted.
+                closesAt = Instant.ofEpochSecond(now + SESSION_LENGTH_SECONDS).toString(),
+            )
+            _uiState.update { it.copy(creatingSession = false) }
+
+            if (result is ApiResult.Success) {
+                loadSessions()
+                selectSession(result.data.id)
+            } else if (result is ApiResult.Failure) {
+                _uiState.update { it.copy(feedback = feedbackFor(result.error)) }
+            }
+        }
+    }
+
     fun selectSession(sessionId: String) {
         // A new session means the same person may legitimately be scanned
         // again, so the seen-code memory starts over.
@@ -174,18 +217,27 @@ class ScannerViewModel @Inject constructor(
 
     suspend fun bindToCamera(context: Context, lifecycleOwner: LifecycleOwner) {
         val provider = ProcessCameraProvider.awaitInstance(context)
-        provider.bindToLifecycle(
-            lifecycleOwner,
-            CameraSelector.DEFAULT_BACK_CAMERA,
-            previewUseCase,
-            analysisUseCase,
-        )
-        try {
-            // Holds the binding for as long as the composable is on screen;
-            // cancellation is what releases the camera.
-            awaitCancellation()
-        } finally {
-            provider.unbindAll()
+
+        // CameraX insists on the main thread for bind and unbind, and
+        // awaitInstance resumes on whichever executor completed its future —
+        // usually a background one. Calling straight through happened to work
+        // by hand and threw "Not in application's main thread" under test.
+        withContext(Dispatchers.Main.immediate) {
+            provider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                previewUseCase,
+                analysisUseCase,
+            )
+            try {
+                // Holds the binding for as long as the composable is on screen;
+                // cancellation is what releases the camera.
+                awaitCancellation()
+            } finally {
+                // NonCancellable, or this would be skipped by the very
+                // cancellation that is asking for the camera back.
+                withContext(NonCancellable) { provider.unbindAll() }
+            }
         }
     }
 
@@ -373,6 +425,37 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * A guest, entered by name.
+     *
+     * No duplicate check and no row to mark: the backend accepts two guests of
+     * the same name on purpose, because nothing about a guest tells them apart.
+     */
+    fun checkInGuest(name: String) {
+        val sessionId = _uiState.value.selectedSessionId ?: return
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+
+        viewModelScope.launch {
+            val result = queue.checkInGuest(sessionId, trimmed, deviceIdentity.installId())
+            _uiState.update { state ->
+                state.copy(
+                    feedback = when (result) {
+                        is CheckInResult.Recorded -> ScanFeedback.CheckedIn(trimmed, null)
+                        CheckInResult.Queued -> ScanFeedback.QueuedOffline(trimmed)
+                        is CheckInResult.Rejected -> feedbackFor(result.error)
+                    },
+                    manual = state.manual.copy(guestName = ""),
+                )
+            }
+            refreshAttendance()
+        }
+    }
+
+    fun onGuestNameChange(name: String) {
+        _uiState.update { it.copy(manual = it.manual.copy(guestName = name)) }
+    }
+
     private fun isAlreadyPresent(error: ApiError) =
         error is ApiError.Http && error.code == ALREADY_CHECKED_IN
 
@@ -384,6 +467,9 @@ class ScannerViewModel @Inject constructor(
 
     private companion object {
         const val UNPROCESSABLE = 422
+
+        /** Eight hours — longer than any evening, and closing is explicit. */
+        const val SESSION_LENGTH_SECONDS = 8 * 60 * 60L
 
         // Both are 409. The backend gives them distinct codes precisely so the
         // scanner can say "already here" instead of accusing someone of

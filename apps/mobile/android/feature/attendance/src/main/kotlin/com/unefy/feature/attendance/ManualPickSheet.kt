@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,6 +47,8 @@ internal fun ManualPickSheet(
     state: ManualPickState,
     onQueryChange: (String) -> Unit,
     onPick: (MemberPick) -> Unit,
+    onGuestNameChange: (String) -> Unit,
+    onCheckInGuest: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -67,6 +70,27 @@ internal fun ManualPickSheet(
                 placeholder = stringResource(R.string.scanner_manual_search),
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            // Below the search, above the list: a guest is the exception, and
+            // putting the exception first would push the common case down.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                UnefySearchField(
+                    value = state.guestName,
+                    onValueChange = onGuestNameChange,
+                    placeholder = stringResource(R.string.scanner_guest_placeholder),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = onCheckInGuest,
+                    enabled = state.guestName.isNotBlank(),
+                ) {
+                    Text(stringResource(R.string.scanner_guest_action))
+                }
+            }
 
             when {
                 state.error != null -> Notice(stringResource(R.string.scanner_manual_error))

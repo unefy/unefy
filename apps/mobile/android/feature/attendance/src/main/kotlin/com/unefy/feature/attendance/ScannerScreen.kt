@@ -58,6 +58,8 @@ fun ScannerRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // Resolved here rather than in the view model, which has no resources.
+    val defaultTitle = stringResource(R.string.scanner_default_session_title)
 
     var granted by rememberSaveable {
         mutableStateOf(
@@ -82,6 +84,9 @@ fun ScannerRoute(
         onCloseManual = viewModel::closeManualPick,
         onManualQueryChange = viewModel::onManualQueryChange,
         onCheckInManually = viewModel::checkInManually,
+        onGuestNameChange = viewModel::onGuestNameChange,
+        onCheckInGuest = { viewModel.checkInGuest(state.manual.guestName) },
+        onCreateSession = { viewModel.createSessionForToday(defaultTitle) },
     )
 }
 
@@ -100,12 +105,17 @@ fun ScannerScreen(
     onCloseManual: () -> Unit = {},
     onManualQueryChange: (String) -> Unit = {},
     onCheckInManually: (MemberPick) -> Unit = {},
+    onGuestNameChange: (String) -> Unit = {},
+    onCheckInGuest: () -> Unit = {},
+    onCreateSession: () -> Unit = {},
 ) {
     if (state.manual.open) {
         ManualPickSheet(
             state = state.manual,
             onQueryChange = onManualQueryChange,
             onPick = onCheckInManually,
+            onGuestNameChange = onGuestNameChange,
+            onCheckInGuest = onCheckInGuest,
             onDismiss = onCloseManual,
         )
     }
@@ -147,7 +157,11 @@ fun ScannerScreen(
             state.sessions.isEmpty() -> item("empty") {
                 Message(
                     title = stringResource(R.string.scanner_no_sessions_title),
+                    // With no session there is nothing to check into, and the
+                    // supervisor is standing at the range. Sending them to a
+                    // laptop is how an evening goes unrecorded.
                     body = stringResource(R.string.scanner_no_sessions_body),
+                    action = stringResource(R.string.scanner_create_session) to onCreateSession,
                 )
             }
 

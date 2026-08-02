@@ -29,6 +29,7 @@ import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.Event
@@ -45,6 +46,7 @@ fun EventsRoute(
         onRetry = viewModel::retry,
         onToggleRegistration = viewModel::toggleRegistration,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -56,6 +58,7 @@ fun EventsScreen(
     onRetry: () -> Unit = {},
     onToggleRegistration: (Event) -> Unit = {},
     onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? EventsUiState.Content
@@ -65,6 +68,7 @@ fun EventsScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
+        onLoadMore = onLoadMore,
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
@@ -116,6 +120,7 @@ fun EventsScreen(
                     // meaningless there.
                     items(state.past, key = { it.id }) { EventRow(event = it, dimmed = true) }
                 }
+                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }

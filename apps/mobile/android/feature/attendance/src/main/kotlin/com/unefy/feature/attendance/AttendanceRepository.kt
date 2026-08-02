@@ -72,9 +72,18 @@ internal data class ScanResultDto(
 
 @Serializable
 internal data class ManualCheckInRequest(
-    @SerialName("member_id") val memberId: String,
+    // Exactly one of the two, mirroring the backend's CHECK.
+    @SerialName("member_id") val memberId: String? = null,
+    @SerialName("guest_name") val guestName: String? = null,
     val note: String? = null,
     @SerialName("checked_in_at") val checkedInAt: String? = null,
+)
+
+@Serializable
+internal data class CreateSessionRequest(
+    val title: String,
+    @SerialName("opens_at") val opensAt: String,
+    @SerialName("closes_at") val closesAt: String,
 )
 
 /**
@@ -162,9 +171,23 @@ interface AttendanceRepository {
      */
     suspend fun checkInManually(
         sessionId: String,
-        memberId: String,
+        memberId: String? = null,
+        guestName: String? = null,
         checkedInAt: String? = null,
     ): ApiResult<ScanOutcome>
+
+    /**
+     * Opens a session from the app.
+     *
+     * Needed because a supervisor standing at the range with no open session
+     * has no way forward at all — the scanner shows an empty screen and the
+     * evening goes unrecorded unless somebody reaches a laptop.
+     */
+    suspend fun createSession(
+        title: String,
+        opensAt: String,
+        closesAt: String,
+    ): ApiResult<AttendanceSessionSummary>
 
     suspend fun members(search: String?): ApiResult<List<MemberPick>>
 
@@ -247,14 +270,30 @@ class DefaultAttendanceRepository @Inject constructor(
 
     override suspend fun checkInManually(
         sessionId: String,
-        memberId: String,
+        memberId: String?,
+        guestName: String?,
         checkedInAt: String?,
     ): ApiResult<ScanOutcome> = apiClient
         .post<ScanResultDto>(
             ApiEndpoints.attendanceCheckIn(sessionId),
-            body = ManualCheckInRequest(memberId = memberId, checkedInAt = checkedInAt),
+            body = ManualCheckInRequest(
+                memberId = memberId,
+                guestName = guestName,
+                checkedInAt = checkedInAt,
+            ),
         )
         .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
+
+    override suspend fun createSession(
+        title: String,
+        opensAt: String,
+        closesAt: String,
+    ): ApiResult<AttendanceSessionSummary> = apiClient
+        .post<AttendanceSessionDto>(
+            ApiEndpoints.ATTENDANCE_SESSIONS,
+            body = CreateSessionRequest(title, opensAt, closesAt),
+        )
+        .map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
 
     /**
      * The member list, from the network when possible and from the cache when

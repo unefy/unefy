@@ -41,14 +41,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.DirectoryEntry
 import com.unefy.core.network.ApiError
+import com.unefy.core.network.PageTracker
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -152,6 +155,8 @@ sealed interface DirectoryUiState {
         val isRefreshing: Boolean = false,
         /** A refresh that failed, so the screen can say so and then forget it. */
         val refreshFailed: Boolean = false,
+        /** A further page is on its way, so the list can show a footer. */
+        val isLoadingMore: Boolean = false,
     ) : DirectoryUiState
 
     data class Failure(val error: ApiError) : DirectoryUiState
@@ -165,6 +170,11 @@ class DirectoryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<DirectoryUiState>(DirectoryUiState.Loading)
     val uiState: StateFlow<DirectoryUiState> = _uiState.asStateFlow()
 
+    private val pages = PageTracker()
+
+    /** Cancelled by [load], so a late page cannot append to a reloaded list. */
+    private var moreInFlight: Job? = null
+
     init {
         load()
     }
@@ -177,17 +187,51 @@ class DirectoryViewModel @Inject constructor(
         (state as? DirectoryUiState.Content)?.copy(refreshFailed = false) ?: state
     }
 
+    fun loadMore() {
+        if (!pages.start()) return
+        _uiState.update { state ->
+            (state as? DirectoryUiState.Content)?.copy(isLoadingMore = true) ?: state
+        }
+
+        moreInFlight = viewModelScope.launch {
+            when (val result = repository.directory(page = pages.next)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    _uiState.update { state ->
+                        (state as? DirectoryUiState.Content)?.copy(
+                            entries = state.entries + result.data,
+                            isLoadingMore = false,
+                        ) ?: state
+                    }
+                }
+
+                is ApiResult.Failure -> {
+                    pages.fail()
+                    _uiState.update { state ->
+                        (state as? DirectoryUiState.Content)
+                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
+                    }
+                }
+            }
+        }
+    }
+
     private fun load(refreshing: Boolean = false) {
+        moreInFlight?.cancel()
         val current = _uiState.value
         if (refreshing && current is DirectoryUiState.Content) {
             _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
         } else {
             _uiState.value = DirectoryUiState.Loading
         }
+        pages.reset()
 
         viewModelScope.launch {
-            _uiState.value = when (val result = repository.directory()) {
-                is ApiResult.Success -> DirectoryUiState.Content(result.data)
+            _uiState.value = when (val result = repository.directory(page = 1)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    DirectoryUiState.Content(result.data)
+                }
 
                 // A refresh that fails keeps the list it already has and says so
                 // in a snackbar, rather than trading it for a full-screen error.
@@ -210,6 +254,7 @@ fun DirectoryRoute(
         actions = actions,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -224,6 +269,7 @@ fun DirectoryScreen(
     actions: @Composable RowScope.() -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? DirectoryUiState.Content
@@ -233,6 +279,7 @@ fun DirectoryScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
+        onLoadMore = onLoadMore,
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
@@ -262,9 +309,12 @@ fun DirectoryScreen(
                 }
             }
 
-            is DirectoryUiState.Content -> items(state.entries, key = { it.id }) { entry ->
-                DirectoryRow(entry)
-                UnefyRowDivider()
+            is DirectoryUiState.Content -> {
+                items(state.entries, key = { it.id }) { entry ->
+                    DirectoryRow(entry)
+                    UnefyRowDivider()
+                }
+                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }

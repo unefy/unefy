@@ -102,6 +102,33 @@ class CheckInQueueTest {
     }
 
     @Test
+    fun `a guest who cannot be sent is held under their name`() = runTest {
+        repository.nextResult = offline()
+
+        queue.checkInGuest(SESSION, "Jonas Gast", installId = null)
+
+        val row = dao.rows.single()
+        assertEquals("Jonas Gast", row.guestName)
+        assertNull(row.memberId)
+        assertNull(row.code)
+        // Shown to the supervisor while it waits, without a lookup they may
+        // have no connection to make.
+        assertEquals("Jonas Gast", row.memberLabel)
+    }
+
+    @Test
+    fun `a queued guest is sent as a guest, not as a member`() = runTest {
+        repository.nextResult = offline()
+        queue.checkInGuest(SESSION, "Jonas Gast", installId = null)
+        repository.nextResult = null
+
+        assertEquals(1, queue.sync())
+
+        assertEquals("Jonas Gast", repository.lastGuestName)
+        assertTrue(dao.rows.isEmpty())
+    }
+
+    @Test
     fun `syncing sends the device time, not now`() = runTest {
         repository.nextResult = offline()
         queue.scan(SESSION, CODE, installId = null)
@@ -234,6 +261,7 @@ private class FakeRepository : AttendanceRepository {
     /** Null means succeed. */
     var nextResult: ApiResult<ScanOutcome>? = null
     var lastCheckedInAt: String? = null
+    var lastGuestName: String? = null
     var calls = 0
     val sentCodes = mutableListOf<String>()
 
@@ -254,13 +282,21 @@ private class FakeRepository : AttendanceRepository {
 
     override suspend fun checkInManually(
         sessionId: String,
-        memberId: String,
+        memberId: String?,
+        guestName: String?,
         checkedInAt: String?,
     ): ApiResult<ScanOutcome> {
         calls++
         lastCheckedInAt = checkedInAt
+        lastGuestName = guestName
         return nextResult ?: success
     }
+
+    override suspend fun createSession(
+        title: String,
+        opensAt: String,
+        closesAt: String,
+    ): ApiResult<AttendanceSessionSummary> = error("not used")
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = error("not used")
 

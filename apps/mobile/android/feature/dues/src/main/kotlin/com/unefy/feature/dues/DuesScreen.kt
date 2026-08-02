@@ -30,6 +30,7 @@ import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefyMoneyTextStyle
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
@@ -49,6 +50,7 @@ fun DuesRoute(
         onFilterChange = viewModel::onFilterChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -63,6 +65,7 @@ fun DuesScreen(
     onFilterChange: (DuesFilter) -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? DuesUiState.Content
@@ -72,6 +75,7 @@ fun DuesScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
+        onLoadMore = onLoadMore,
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
@@ -128,6 +132,7 @@ fun DuesScreen(
                     // the screen margin rather than the row's text inset.
                     UnefyRowDivider(startInset = UnefySpacing.screen)
                 }
+                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }

@@ -78,12 +78,39 @@ class CheckInQueue @Inject constructor(
     ): CheckInResult {
         val at = clock.epochSeconds()
         return submit(
-            attempt = { repository.checkInManually(sessionId, member.id) },
+            attempt = { repository.checkInManually(sessionId, memberId = member.id) },
             enqueue = {
                 PendingCheckIn(
                     sessionId = sessionId,
                     memberId = member.id,
                     memberLabel = member.name,
+                    checkedInAtEpochSeconds = at,
+                    installId = installId,
+                )
+            },
+        )
+    }
+
+    /**
+     * A guest, named rather than identified.
+     *
+     * Queues like any other check-in — somebody who is not a member is exactly
+     * as present, and losing them to a dropped connection would be the same
+     * loss.
+     */
+    suspend fun checkInGuest(
+        sessionId: String,
+        guestName: String,
+        installId: String?,
+    ): CheckInResult {
+        val at = clock.epochSeconds()
+        return submit(
+            attempt = { repository.checkInManually(sessionId, guestName = guestName) },
+            enqueue = {
+                PendingCheckIn(
+                    sessionId = sessionId,
+                    guestName = guestName,
+                    memberLabel = guestName,
                     checkedInAtEpochSeconds = at,
                     installId = installId,
                 )
@@ -151,6 +178,7 @@ class CheckInQueue @Inject constructor(
         // will not smart-cast its properties across the null check.
         val code = entry.code
         val memberId = entry.memberId
+        val guestName = entry.guestName
 
         return when {
             code != null -> repository.scan(
@@ -164,6 +192,12 @@ class CheckInQueue @Inject constructor(
             memberId != null -> repository.checkInManually(
                 sessionId = entry.sessionId,
                 memberId = memberId,
+                checkedInAt = at,
+            )
+
+            guestName != null -> repository.checkInManually(
+                sessionId = entry.sessionId,
+                guestName = guestName,
                 checkedInAt = at,
             )
 

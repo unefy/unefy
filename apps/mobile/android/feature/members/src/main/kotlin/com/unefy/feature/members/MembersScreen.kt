@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.ScreenSearch
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyMotion
@@ -74,6 +75,7 @@ fun MembersRoute(
         onQueryChange = viewModel::onQueryChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -86,6 +88,7 @@ fun MembersScreen(
     onQueryChange: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onMessageShown: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier,
@@ -105,6 +108,7 @@ fun MembersScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
+        onLoadMore = onLoadMore,
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
@@ -135,7 +139,7 @@ fun MembersScreen(
             } else {
                 item(key = "count") {
                     Text(
-                        text = stringResource(R.string.members_count, state.members.size),
+                        text = stringResource(R.string.members_count, state.total),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(
@@ -150,6 +154,7 @@ fun MembersScreen(
                     MemberRow(member, onClick = { onMemberClick(member.id) })
                     UnefyRowDivider()
                 }
+                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }

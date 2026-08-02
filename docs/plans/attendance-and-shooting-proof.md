@@ -283,6 +283,30 @@ dem Verband den Nachweis über die Trainingsteilnahme. Das erzeugte PDF ist also
 Vereinsnachweis gegenüber dem Verband, kein behördliches Dokument. DSB und BDS haben
 eigene Formulare — der Export muss sich daran anpassen lassen.
 
+### Gäste und Einheiten aus der App (2026-08-02)
+
+**Gäste.** `attendance_records.member_id` ist nullable, daneben steht
+`guest_name`, und ein CHECK erzwingt genau eines von beiden: keines ist keine
+Anwesenheit, beides ist ein Widerspruch darüber, wer da war. Eine Liste statt
+einer zweiten Tabelle, weil die Aufsicht wissen will, wer im Raum ist, und eine
+geteilte Antwort der Weg ist, jemanden doppelt zu zählen. Der §14-Nachweis
+bleibt unberührt: er joint auf Mitglieder, Gäste fallen also konstruktiv heraus.
+
+Beim Brechen der Annahme „jede Zeile ist ein Mitglied" gab es ein Opfer:
+`get_for_session` war ein Inner Join und hätte Gäste lautlos aus der
+Anwesenheitsliste fallen lassen. Jetzt Outer Join, Gäste sortieren ins selbe
+Alphabet. Zwei weitere Stellen formatierten die Nulls des Joins direkt in einen
+String und ergaben „None None".
+
+Gäste sind von der Dublettenregel ausgenommen — nichts an einem Gast
+identifiziert ihn gut genug, um einen zweiten Besucher gleichen Namens von
+derselben Person zweimal zu unterscheiden.
+
+**Einheit aus der App.** Anlegen konnte bisher nur das Web. Eine Aufsicht, die
+am Stand steht und keine offene Einheit hat, kam damit nicht weiter. Der
+Scanner bietet jetzt „Einheit starten" — ohne Formular, weil die einzige Frage
+„jetzt loslegen" lautet; Titel und Ende sind im Web korrigierbar.
+
 ## Endpunkte
 
 ```

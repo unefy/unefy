@@ -37,7 +37,11 @@
     <string name="scanner_permission_body">Zum Scannen der Mitglieds-Codes braucht die App Zugriff auf die Kamera.</string>
     <string name="scanner_permission_action">Kamera freigeben</string>
     <string name="scanner_no_sessions_title">Keine offene Einheit</string>
-    <string name="scanner_no_sessions_body">Leg zuerst eine Anwesenheitseinheit an. Nur in eine offene Einheit kann eingecheckt werden.</string>
+    <string name="scanner_no_sessions_body">Es läuft gerade keine Einheit. Du kannst hier eine starten — Titel und Ende lassen sich später im Web korrigieren.</string>
+    <string name="scanner_create_session">Einheit starten</string>
+    <string name="scanner_default_session_title">Übungsabend</string>
+    <string name="scanner_guest_placeholder">Gast: Name</string>
+    <string name="scanner_guest_action">Erfassen</string>
     <string name="scanner_sessions_error_title">Einheiten nicht ladbar</string>
     <string name="scanner_sessions_error_body">Die offenen Einheiten konnten nicht geladen werden.</string>
     <string name="scanner_manual_action">Manuell</string>

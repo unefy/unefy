@@ -32,7 +32,7 @@ import javax.inject.Singleton
         CachedSession::class,
         CachedSessionRecord::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -53,7 +53,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): UnefyDatabase =
         Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     /**
@@ -122,6 +122,13 @@ object DatabaseModule {
                 )
                 """,
             )
+        }
+    }
+
+    /** Guests, who have no member id for a queued check-in to point at. */
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("ALTER TABLE pending_check_ins ADD COLUMN guestName TEXT")
         }
     }
 

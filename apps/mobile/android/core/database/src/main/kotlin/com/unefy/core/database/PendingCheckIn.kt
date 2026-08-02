@@ -17,9 +17,9 @@ import kotlinx.coroutines.flow.Flow
  * server's clock says something else entirely. The backend keeps the two apart
  * as `checked_in_at` and `synced_at`.
  *
- * Both methods share one row. `code` is set for a scan and null for a manual
- * tick, `memberId` the other way round, and which of the two it is decides the
- * endpoint the sync uses.
+ * All three ways in share one row: `code` for a scan, `memberId` for a manual
+ * tick, `guestName` for somebody who is not a member. Which one is set decides
+ * what the sync sends.
  */
 @Entity(tableName = "pending_check_ins")
 data class PendingCheckIn(
@@ -29,6 +29,8 @@ data class PendingCheckIn(
     val code: String? = null,
     /** Set for a manual tick; null for a scan, where the code names the member. */
     val memberId: String? = null,
+    /** Set for a guest, who has no member record to point at. */
+    val guestName: String? = null,
     /** For showing the supervisor what is still queued, without a lookup. */
     val memberLabel: String? = null,
     /** Device clock, unix seconds. The only record of when this happened. */

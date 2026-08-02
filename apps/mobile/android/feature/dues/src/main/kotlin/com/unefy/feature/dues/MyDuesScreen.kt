@@ -8,8 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiResult
+import com.unefy.core.network.PageTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +35,11 @@ class MyDuesViewModel @Inject constructor(
 
     private var filter = DuesFilter.ALL
 
+    private val pages = PageTracker()
+
+    /** Cancelled by [load], so a late page cannot append to a reloaded list. */
+    private var moreInFlight: Job? = null
+
     init {
         load()
     }
@@ -45,6 +52,35 @@ class MyDuesViewModel @Inject constructor(
         (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
     }
 
+    fun loadMore() {
+        if (!pages.start()) return
+        _uiState.update { state ->
+            (state as? DuesUiState.Content)?.copy(isLoadingMore = true) ?: state
+        }
+
+        moreInFlight = viewModelScope.launch {
+            when (val result = repository.mine(page = pages.next)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    _uiState.update { state ->
+                        (state as? DuesUiState.Content)?.copy(
+                            entries = state.entries + result.data,
+                            isLoadingMore = false,
+                        ) ?: state
+                    }
+                }
+
+                is ApiResult.Failure -> {
+                    pages.fail()
+                    _uiState.update { state ->
+                        (state as? DuesUiState.Content)
+                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
+                    }
+                }
+            }
+        }
+    }
+
     fun onFilterChange(value: DuesFilter) {
         filter = value
         _uiState.value = (_uiState.value as? DuesUiState.Content)?.copy(filter = value)
@@ -52,21 +88,26 @@ class MyDuesViewModel @Inject constructor(
     }
 
     private fun load(refreshing: Boolean = false) {
+        moreInFlight?.cancel()
         val current = _uiState.value
         if (refreshing && current is DuesUiState.Content) {
             _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
         } else {
             _uiState.value = DuesUiState.Loading
         }
+        pages.reset()
 
         viewModelScope.launch {
-            _uiState.value = when (val result = repository.mine()) {
-                is ApiResult.Success -> DuesUiState.Content(
-                    // No summary: /dues/summary is club-wide and board-only.
-                    summary = null,
-                    entries = result.data,
-                    filter = filter,
-                )
+            _uiState.value = when (val result = repository.mine(page = 1)) {
+                is ApiResult.Success -> {
+                    pages.advance(result.meta)
+                    DuesUiState.Content(
+                        // No summary: /dues/summary is club-wide and board-only.
+                        summary = null,
+                        entries = result.data,
+                        filter = filter,
+                    )
+                }
 
                 is ApiResult.Failure -> (_uiState.value as? DuesUiState.Content)
                     ?.copy(isRefreshing = false, refreshFailed = true)
@@ -90,6 +131,7 @@ fun MyDuesRoute(
         onFilterChange = viewModel::onFilterChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
+        onLoadMore = viewModel::loadMore,
         onMessageShown = viewModel::onMessageShown,
     )
 }

@@ -51,7 +51,22 @@ internal fun EventDto.toDomain() = Event(
 )
 
 interface EventsRepository {
-    suspend fun list(page: Int = 1, perPage: Int = 50): ApiResult<List<Event>>
+    /**
+     * One slice of the calendar.
+     *
+     * The time window and the order are the backend's job, not a filter applied
+     * to whatever the first page happened to contain. Sorted ascending and
+     * unfiltered — the old behaviour — page one of a club with a few years of
+     * history is its oldest events, and "kommende Termine" stays empty until
+     * every past one has been paged through.
+     */
+    suspend fun list(
+        page: Int = 1,
+        perPage: Int = 50,
+        startsAfter: String? = null,
+        startsBefore: String? = null,
+        newestFirst: Boolean = false,
+    ): ApiResult<List<Event>>
 
     /** Self-service: registers the caller, never someone else. */
     suspend fun register(eventId: String): ApiResult<Unit>
@@ -63,10 +78,19 @@ interface EventsRepository {
 class DefaultEventsRepository @Inject constructor(
     private val apiClient: ApiClient,
 ) : EventsRepository {
-    override suspend fun list(page: Int, perPage: Int): ApiResult<List<Event>> = apiClient
+    override suspend fun list(
+        page: Int,
+        perPage: Int,
+        startsAfter: String?,
+        startsBefore: String?,
+        newestFirst: Boolean,
+    ): ApiResult<List<Event>> = apiClient
         .get<List<EventDto>>(ApiEndpoints.EVENTS) {
             parameter("page", page)
             parameter("per_page", perPage)
+            startsAfter?.let { parameter("starts_after", it) }
+            startsBefore?.let { parameter("starts_before", it) }
+            parameter("sort_order", if (newestFirst) "desc" else "asc")
         }
         .map { dtos -> dtos.map(EventDto::toDomain) }
 

@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.unefy.core.model.Event
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.core.network.PageTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +33,8 @@ sealed interface EventsUiState {
         val isRefreshing: Boolean = false,
         /** A refresh that failed, so the screen can say so and then forget it. */
         val refreshFailed: Boolean = false,
+        /** A further page is on its way, so the list can show a footer. */
+        val isLoadingMore: Boolean = false,
     ) : EventsUiState
 
     data class Failure(val error: ApiError) : EventsUiState
@@ -44,6 +49,18 @@ class EventsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<EventsUiState>(EventsUiState.Loading)
     val uiState: StateFlow<EventsUiState> = _uiState.asStateFlow()
 
+    // Two streams, because they run away from each other in time: upcoming
+    // ascending from now, past descending from now. One paged stream cannot be
+    // both, and the screen shows both at once.
+    private val upcomingPages = PageTracker()
+    private val pastPages = PageTracker()
+
+    /** The instant both streams are anchored to, held so pages stay consistent. */
+    private var anchor: String = ""
+
+    /** Cancelled by [load], so a late page cannot append to a reloaded list. */
+    private var moreInFlight: Job? = null
+
     init {
         load()
     }
@@ -54,6 +71,55 @@ class EventsViewModel @Inject constructor(
 
     fun onMessageShown() = _uiState.update { state ->
         (state as? EventsUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
+
+    /**
+     * Extends whichever stream is still running: upcoming until it is exhausted,
+     * then past. That is the order the screen renders them in, so it is the
+     * order the user reaches the end of.
+     */
+    fun loadMore() {
+        val upcoming = upcomingPages.start()
+        if (!upcoming && !pastPages.start()) return
+        val tracker = if (upcoming) upcomingPages else pastPages
+
+        _uiState.update { state ->
+            (state as? EventsUiState.Content)?.copy(isLoadingMore = true) ?: state
+        }
+
+        moreInFlight = viewModelScope.launch {
+            val result = repository.list(
+                page = tracker.next,
+                startsAfter = if (upcoming) anchor else null,
+                startsBefore = if (upcoming) null else anchor,
+                newestFirst = !upcoming,
+            )
+
+            when (result) {
+                is ApiResult.Success -> {
+                    tracker.advance(result.meta)
+                    _uiState.update { state ->
+                        val content = state as? EventsUiState.Content ?: return@update state
+                        if (upcoming) {
+                            content.copy(
+                                upcoming = content.upcoming + result.data,
+                                isLoadingMore = false,
+                            )
+                        } else {
+                            content.copy(past = content.past + result.data, isLoadingMore = false)
+                        }
+                    }
+                }
+
+                is ApiResult.Failure -> {
+                    tracker.fail()
+                    _uiState.update { state ->
+                        (state as? EventsUiState.Content)
+                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -87,6 +153,7 @@ class EventsViewModel @Inject constructor(
     }
 
     private fun load(quiet: Boolean = false, refreshing: Boolean = false) {
+        moreInFlight?.cancel()
         val current = _uiState.value
         when {
             refreshing && current is EventsUiState.Content ->
@@ -95,18 +162,30 @@ class EventsViewModel @Inject constructor(
             !quiet -> _uiState.value = EventsUiState.Loading
         }
 
-        viewModelScope.launch {
-            _uiState.value = when (val result = repository.list()) {
-                is ApiResult.Success -> {
-                    val now = clock.nowIso()
-                    val (past, upcoming) = result.data.partition { it.startsAt < now }
-                    EventsUiState.Content(
-                        upcoming = upcoming.sortedBy { it.startsAt },
-                        past = past.sortedByDescending { it.startsAt },
-                        now = now,
-                    )
-                }
+        val now = clock.nowIso()
+        anchor = now
+        upcomingPages.reset()
+        pastPages.reset()
 
+        viewModelScope.launch {
+            // Both windows at once: neither is derived from the other, so
+            // fetching them in sequence would only add a round trip.
+            val upcomingCall = async {
+                repository.list(page = 1, startsAfter = now, newestFirst = false)
+            }
+            val pastCall = async {
+                repository.list(page = 1, startsBefore = now, newestFirst = true)
+            }
+            val upcoming = upcomingCall.await()
+            val past = pastCall.await()
+
+            _uiState.value = if (upcoming is ApiResult.Success && past is ApiResult.Success) {
+                upcomingPages.advance(upcoming.meta)
+                pastPages.advance(past.meta)
+                // Already ordered by the backend: ascending from now, descending
+                // from now. Sorting again here would only hide a mismatch.
+                EventsUiState.Content(upcoming = upcoming.data, past = past.data, now = now)
+            } else {
                 // A refresh that fails keeps the list it already has and says so
                 // in a snackbar. Replacing loaded content with a full-screen
                 // error because the connection dropped for a second is worse
@@ -114,9 +193,11 @@ class EventsViewModel @Inject constructor(
                 // pending is cleared too: this path also runs after a successful
                 // registration, and a row left locked by a failed reload can
                 // never be tapped again.
-                is ApiResult.Failure -> (_uiState.value as? EventsUiState.Content)
+                val error = (upcoming as? ApiResult.Failure)?.error
+                    ?: (past as ApiResult.Failure).error
+                (_uiState.value as? EventsUiState.Content)
                     ?.copy(isRefreshing = false, refreshFailed = true, pending = emptySet())
-                    ?: EventsUiState.Failure(result.error)
+                    ?: EventsUiState.Failure(error)
             }
         }
     }

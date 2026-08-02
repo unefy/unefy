@@ -6,6 +6,7 @@ import com.unefy.core.model.ScoreboardRow
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiResult
 import com.unefy.core.network.map
+import io.ktor.client.request.parameter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -81,7 +82,7 @@ internal fun ScoreboardEnvelopeDto.toDomain() = Scoreboard(
 )
 
 interface CompetitionsRepository {
-    suspend fun list(): ApiResult<List<Competition>>
+    suspend fun list(page: Int = 1, perPage: Int = 50): ApiResult<List<Competition>>
     suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard>
 }
 
@@ -89,8 +90,14 @@ interface CompetitionsRepository {
 class DefaultCompetitionsRepository @Inject constructor(
     private val apiClient: ApiClient,
 ) : CompetitionsRepository {
-    override suspend fun list(): ApiResult<List<Competition>> = apiClient
-        .get<List<CompetitionDto>>(COMPETITIONS)
+    // Sending page and per_page explicitly, like every other list: without them
+    // the backend applied its own default of 20 and the 21st competition was
+    // simply absent, with nothing on screen to suggest it existed.
+    override suspend fun list(page: Int, perPage: Int): ApiResult<List<Competition>> = apiClient
+        .get<List<CompetitionDto>>(COMPETITIONS) {
+            parameter("page", page)
+            parameter("per_page", perPage)
+        }
         .map { dtos -> dtos.map(CompetitionDto::toDomain) }
 
     override suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard> = apiClient

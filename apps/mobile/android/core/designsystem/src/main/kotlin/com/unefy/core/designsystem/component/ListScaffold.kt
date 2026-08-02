@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,6 +32,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -136,6 +139,23 @@ fun UnefyListScaffold(
         }
     }
 
+    if (onLoadMore != null) {
+        val loadMore by rememberUpdatedState(onLoadMore)
+        // derivedStateOf, not a bare read: layoutInfo changes on every scrolled
+        // pixel, and without it this would recompose the whole screen the whole
+        // way down the list.
+        val atEnd by remember(listState) {
+            derivedStateOf {
+                val info = listState.layoutInfo
+                val last = info.visibleItemsInfo.lastOrNull()?.index
+                // An empty list is not "at the end" — it has not loaded yet, and
+                // asking for page two before page one lands would skip a page.
+                last != null && last >= info.totalItemsCount - LOAD_MORE_LOOKAHEAD
+            }
+        }
+        LaunchedEffect(atEnd) { if (atEnd) loadMore() }
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = floatingActionButton,
@@ -230,6 +250,30 @@ fun UnefyListScaffold(
         }
     }
 }
+
+/**
+ * The last row while the next page is on its way.
+ *
+ * A spinner, and deliberately so — the skeleton rule is about a screen that has
+ * nothing yet, where a placeholder shaped like the content tells you what is
+ * coming. Here the content is already above it and the only question is whether
+ * more is on the way. A skeleton row here would read as a member that failed to
+ * render.
+ */
+@Composable
+fun UnefyLoadMoreFooter(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = UnefySpacing.md),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** How many rows from the end the next page is asked for. */
+private const val LOAD_MORE_LOOKAHEAD = 5
 
 @Composable
 private fun HeaderTitle(title: String, subtitle: String?, modifier: Modifier = Modifier) {
