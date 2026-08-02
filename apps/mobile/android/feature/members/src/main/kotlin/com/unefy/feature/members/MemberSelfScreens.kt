@@ -52,6 +52,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // --- Own profile ------------------------------------------------------------
@@ -145,7 +146,14 @@ private fun NoMemberRecordBody() {
 
 sealed interface DirectoryUiState {
     data object Loading : DirectoryUiState
-    data class Content(val entries: List<DirectoryEntry>) : DirectoryUiState
+
+    data class Content(
+        val entries: List<DirectoryEntry>,
+        val isRefreshing: Boolean = false,
+        /** A refresh that failed, so the screen can say so and then forget it. */
+        val refreshFailed: Boolean = false,
+    ) : DirectoryUiState
+
     data class Failure(val error: ApiError) : DirectoryUiState
 }
 
@@ -163,12 +171,29 @@ class DirectoryViewModel @Inject constructor(
 
     fun retry() = load()
 
-    private fun load() {
-        _uiState.value = DirectoryUiState.Loading
+    fun refresh() = load(refreshing = true)
+
+    fun onMessageShown() = _uiState.update { state ->
+        (state as? DirectoryUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
+
+    private fun load(refreshing: Boolean = false) {
+        val current = _uiState.value
+        if (refreshing && current is DirectoryUiState.Content) {
+            _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
+        } else {
+            _uiState.value = DirectoryUiState.Loading
+        }
+
         viewModelScope.launch {
             _uiState.value = when (val result = repository.directory()) {
                 is ApiResult.Success -> DirectoryUiState.Content(result.data)
-                is ApiResult.Failure -> DirectoryUiState.Failure(result.error)
+
+                // A refresh that fails keeps the list it already has and says so
+                // in a snackbar, rather than trading it for a full-screen error.
+                is ApiResult.Failure -> (_uiState.value as? DirectoryUiState.Content)
+                    ?.copy(isRefreshing = false, refreshFailed = true)
+                    ?: DirectoryUiState.Failure(result.error)
             }
         }
     }
@@ -180,7 +205,13 @@ fun DirectoryRoute(
     viewModel: DirectoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    DirectoryScreen(state = state, actions = actions, onRetry = viewModel::retry)
+    DirectoryScreen(
+        state = state,
+        actions = actions,
+        onRetry = viewModel::retry,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
+    )
 }
 
 /**
@@ -192,8 +223,20 @@ fun DirectoryScreen(
     state: DirectoryUiState,
     actions: @Composable RowScope.() -> Unit = {},
     onRetry: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onMessageShown: () -> Unit = {},
 ) {
-    UnefyListScaffold(title = stringResource(R.string.directory_title), actions = actions) {
+    val content = state as? DirectoryUiState.Content
+
+    UnefyListScaffold(
+        title = stringResource(R.string.directory_title),
+        actions = actions,
+        isRefreshing = content?.isRefreshing == true,
+        onRefresh = onRefresh,
+        message = stringResource(DesignR.string.refresh_failed)
+            .takeIf { content?.refreshFailed == true },
+        onMessageShown = onMessageShown,
+    ) {
         when (state) {
             DirectoryUiState.Loading -> Unit
 

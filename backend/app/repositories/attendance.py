@@ -143,13 +143,23 @@ class AttendanceRecordRepository(
     async def get_for_session(
         self, session_id: uuid.UUID
     ) -> list[tuple[AttendanceRecord, str, str, str]]:
-        """Records of one session with member first/last name and number."""
+        """Records of one session with a display name and number.
+
+        An outer join, because a guest has no member row. An inner one would
+        drop guests from the attendance list without a word — and the list is
+        the thing a supervisor uses to know who is on the range.
+        """
         query = (
             self._base_query()
             .where(AttendanceRecord.session_id == session_id)
             .add_columns(Member.first_name, Member.last_name, Member.member_number)
-            .join(Member, AttendanceRecord.member_id == Member.id)
-            .order_by(Member.last_name.asc(), Member.first_name.asc())
+            .outerjoin(Member, AttendanceRecord.member_id == Member.id)
+            # Guests sort under their own name, so the list reads alphabetically
+            # as one list rather than members first and guests appended.
+            .order_by(
+                func.coalesce(Member.last_name, AttendanceRecord.guest_name).asc(),
+                func.coalesce(Member.first_name, "").asc(),
+            )
         )
         result = await self.session.execute(query)
         return [(row[0], row[1], row[2], row[3]) for row in result.all()]

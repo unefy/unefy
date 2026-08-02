@@ -30,6 +30,18 @@ data class ApiMeta(
 )
 
 /**
+ * Whether a page follows the one this meta describes.
+ *
+ * Every list endpoint caps `per_page` at 100, so "just ask for everything" is
+ * not an option — a list that does not page stops at its first page and says
+ * nothing about the rest.
+ *
+ * A missing meta counts as no. Guessing "maybe" would have the list ask for a
+ * page that never comes, forever, against a backend that stopped sending it.
+ */
+fun ApiMeta?.hasNextPage(): Boolean = this != null && page < totalPages
+
+/**
  * Typed failures. The UI maps these to messages — no raw exception strings or
  * HTTP codes ever reach a screen.
  */

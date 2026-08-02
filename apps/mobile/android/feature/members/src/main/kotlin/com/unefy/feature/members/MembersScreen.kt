@@ -73,6 +73,8 @@ fun MembersRoute(
         onMemberClick = onMemberClick,
         onQueryChange = viewModel::onQueryChange,
         onRetry = viewModel::retry,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -83,20 +85,29 @@ fun MembersScreen(
     onMemberClick: (String) -> Unit = {},
     onQueryChange: (String) -> Unit = {},
     onRetry: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onMessageShown: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val content = state as? MembersUiState.Content
+
     UnefyListScaffold(
         title = stringResource(R.string.members_title),
         subtitle = clubName,
         modifier = modifier,
         search = ScreenSearch(
-            value = (state as? MembersUiState.Content)?.query.orEmpty(),
+            value = content?.query.orEmpty(),
             onValueChange = onQueryChange,
             placeholder = stringResource(R.string.members_search),
             enabled = state !is MembersUiState.Failure,
         ),
         actions = actions,
+        isRefreshing = content?.isRefreshing == true,
+        onRefresh = onRefresh,
+        message = stringResource(DesignR.string.refresh_failed)
+            .takeIf { content?.refreshFailed == true },
+        onMessageShown = onMessageShown,
         floatingActionButton = {
             // The single filled emphasis on this screen.
             FloatingActionButton(onClick = {}) {

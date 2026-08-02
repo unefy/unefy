@@ -51,6 +51,66 @@ class CompetitionsViewModelTest {
         assertTrue(viewModel.uiState.value is CompetitionsUiState.Failure)
     }
 
+    /**
+     * The whole point of the gesture: the list on screen is a snapshot, and a
+     * refresh has to replace it with what the backend has now.
+     */
+    @Test
+    fun `a refresh picks up what was added elsewhere`() = runTest(dispatcher) {
+        val repository = FakeCompetitionsRepository(listOf(competition("old", "2023-03-01")))
+        val viewModel = CompetitionsViewModel(repository)
+        advanceUntilIdle()
+
+        repository.competitions = listOf(
+            competition("old", "2023-03-01"),
+            competition("fresh", "2026-03-01"),
+        )
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CompetitionsUiState.Content
+        assertEquals(listOf("fresh", "old"), state.competitions.map { it.id })
+        assertTrue(!state.isRefreshing)
+    }
+
+    /**
+     * A dropped connection must not cost the user the list they already have —
+     * the failure is reported beside the content, not instead of it.
+     */
+    @Test
+    fun `a failing refresh keeps the list and reports the failure`() = runTest(dispatcher) {
+        val repository = FakeCompetitionsRepository(listOf(competition("a", "2026-03-01")))
+        val viewModel = CompetitionsViewModel(repository)
+        advanceUntilIdle()
+
+        repository.failure = ApiError.Network(java.io.IOException("offline"))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CompetitionsUiState.Content
+        assertEquals(listOf("a"), state.competitions.map { it.id })
+        assertTrue(state.refreshFailed)
+        assertTrue(!state.isRefreshing)
+
+        // The snackbar fires once: acknowledging it clears the flag, so a
+        // recomposition does not show the message again.
+        viewModel.onMessageShown()
+        assertTrue(!(viewModel.uiState.value as CompetitionsUiState.Content).refreshFailed)
+    }
+
+    /** A first load has no list to keep, so there the error takes the screen. */
+    @Test
+    fun `a failing first load still shows the error screen`() = runTest(dispatcher) {
+        val viewModel = CompetitionsViewModel(
+            FakeCompetitionsRepository(failure = ApiError.Forbidden),
+        )
+        advanceUntilIdle()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value is CompetitionsUiState.Failure)
+    }
+
     /** The unit travels with the ranking: "1040" means nothing on its own. */
     @Test
     fun `the scoreboard keeps its scoring unit`() = runTest(dispatcher) {
@@ -83,8 +143,8 @@ class CompetitionsViewModelTest {
 }
 
 private class FakeCompetitionsRepository(
-    private val competitions: List<Competition> = emptyList(),
-    private val failure: ApiError? = null,
+    var competitions: List<Competition> = emptyList(),
+    var failure: ApiError? = null,
 ) : CompetitionsRepository {
     override suspend fun list(): ApiResult<List<Competition>> =
         failure?.let { ApiResult.Failure(it) } ?: ApiResult.Success(competitions)

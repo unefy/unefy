@@ -242,12 +242,13 @@ class AttendanceService:
         row = await self.get_session(session_id)
         await self._require_open(row)
 
-        if await self.members.get_by_id(data.member_id) is None:
+        if data.member_id is not None and await self.members.get_by_id(data.member_id) is None:
             raise NotFoundError("Member not found")
 
         return await self._record_check_in(
             row,
             member_id=data.member_id,
+            guest_name=data.guest_name,
             method=data.method,
             note=data.note,
             claimed_at=data.checked_in_at,
@@ -283,7 +284,8 @@ class AttendanceService:
         self,
         row: AttendanceSession,
         *,
-        member_id: uuid.UUID,
+        member_id: uuid.UUID | None = None,
+        guest_name: str | None = None,
         method: str,
         note: str | None,
         claimed_at: datetime | None = None,
@@ -291,7 +293,11 @@ class AttendanceService:
         """The shared half of every check-in, whatever proved the person."""
         occurred_at, synced_at = self._resolve_occurred_at(row, claimed_at)
 
-        if await self.records.get_active(row.id, member_id) is not None:
+        # Guests are not deduplicated: nothing about a guest identifies them
+        # well enough to tell a second visitor of the same name from the same
+        # person twice, and refusing the second one would lose a real
+        # attendance to guard against a bookkeeping annoyance.
+        if member_id is not None and await self.records.get_active(row.id, member_id) is not None:
             # Its own code: for a supervisor scanning a queue this is a
             # non-event, while a used code means someone passed a screenshot
             # around. The two must not read the same on screen.
@@ -303,6 +309,7 @@ class AttendanceService:
             tenant_id=self.tenant_id,
             session_id=row.id,
             member_id=member_id,
+            guest_name=guest_name,
             # The calendar day comes from the session, not from the moment the
             # box was ticked: every record of one evening has to count as the
             # same appointment, even one entered an hour later. Resolved in the

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.component.UnefyListScaffold
@@ -43,6 +44,8 @@ fun EventsRoute(
         actions = actions,
         onRetry = viewModel::retry,
         onToggleRegistration = viewModel::toggleRegistration,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -52,8 +55,20 @@ fun EventsScreen(
     actions: @Composable RowScope.() -> Unit = {},
     onRetry: () -> Unit = {},
     onToggleRegistration: (Event) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onMessageShown: () -> Unit = {},
 ) {
-    UnefyListScaffold(title = stringResource(R.string.events_title), actions = actions) {
+    val content = state as? EventsUiState.Content
+
+    UnefyListScaffold(
+        title = stringResource(R.string.events_title),
+        actions = actions,
+        isRefreshing = content?.isRefreshing == true,
+        onRefresh = onRefresh,
+        message = stringResource(DesignR.string.refresh_failed)
+            .takeIf { content?.refreshFailed == true },
+        onMessageShown = onMessageShown,
+    ) {
         when (state) {
             EventsUiState.Loading -> Unit
 

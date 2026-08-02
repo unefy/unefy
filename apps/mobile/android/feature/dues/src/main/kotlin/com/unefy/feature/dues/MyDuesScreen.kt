@@ -13,6 +13,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -38,14 +39,26 @@ class MyDuesViewModel @Inject constructor(
 
     fun retry() = load()
 
+    fun refresh() = load(refreshing = true)
+
+    fun onMessageShown() = _uiState.update { state ->
+        (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
+
     fun onFilterChange(value: DuesFilter) {
         filter = value
         _uiState.value = (_uiState.value as? DuesUiState.Content)?.copy(filter = value)
             ?: _uiState.value
     }
 
-    private fun load() {
-        _uiState.value = DuesUiState.Loading
+    private fun load(refreshing: Boolean = false) {
+        val current = _uiState.value
+        if (refreshing && current is DuesUiState.Content) {
+            _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
+        } else {
+            _uiState.value = DuesUiState.Loading
+        }
+
         viewModelScope.launch {
             _uiState.value = when (val result = repository.mine()) {
                 is ApiResult.Success -> DuesUiState.Content(
@@ -55,7 +68,9 @@ class MyDuesViewModel @Inject constructor(
                     filter = filter,
                 )
 
-                is ApiResult.Failure -> DuesUiState.Failure(result.error)
+                is ApiResult.Failure -> (_uiState.value as? DuesUiState.Content)
+                    ?.copy(isRefreshing = false, refreshFailed = true)
+                    ?: DuesUiState.Failure(result.error)
             }
         }
     }
@@ -74,5 +89,7 @@ fun MyDuesRoute(
         actions = actions,
         onFilterChange = viewModel::onFilterChange,
         onRetry = viewModel::retry,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
     )
 }

@@ -111,6 +111,60 @@ class EventsViewModelTest {
     }
 
     @Test
+    fun `a refresh picks up what was added elsewhere`() = runTest(dispatcher) {
+        val repository = FakeEventsRepository(listOf(event("known", "2026-09-10T19:00:00Z")))
+        val viewModel = EventsViewModel(repository, EventsClock { now })
+        advanceUntilIdle()
+
+        repository.events = repository.events + event("added", "2026-10-10T19:00:00Z")
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventsUiState.Content
+        assertEquals(listOf("known", "added"), state.upcoming.map { it.id })
+        assertTrue(!state.isRefreshing)
+    }
+
+    @Test
+    fun `a failing refresh keeps the list and reports the failure`() = runTest(dispatcher) {
+        val repository = FakeEventsRepository(listOf(event("e", "2026-09-10T19:00:00Z")))
+        val viewModel = EventsViewModel(repository, EventsClock { now })
+        advanceUntilIdle()
+
+        repository.failure = ApiError.Network(java.io.IOException("offline"))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventsUiState.Content
+        assertEquals(listOf("e"), state.upcoming.map { it.id })
+        assertTrue(state.refreshFailed)
+        assertTrue(!state.isRefreshing)
+
+        viewModel.onMessageShown()
+        assertTrue(!(viewModel.uiState.value as EventsUiState.Content).refreshFailed)
+    }
+
+    /**
+     * The reload after a registration goes through the same failure path. If it
+     * left `pending` set, that row would stay locked with no way back.
+     */
+    @Test
+    fun `a reload that fails after registering still releases the row`() = runTest(dispatcher) {
+        val repository = FakeEventsRepository(listOf(event("e", "2026-09-10T19:00:00Z")))
+        val viewModel = EventsViewModel(repository, EventsClock { now })
+        advanceUntilIdle()
+
+        val target = (viewModel.uiState.value as EventsUiState.Content).upcoming.single()
+        repository.failOnNextList = ApiError.Network(java.io.IOException("offline"))
+        viewModel.toggleRegistration(target)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventsUiState.Content
+        assertTrue(state.pending.isEmpty())
+        assertTrue(state.refreshFailed)
+    }
+
+    @Test
     fun `registration closes at the deadline, when full, and once started`() {
         val open = event("a", "2026-09-10T19:00:00Z", max = 10, registered = 1)
         assertTrue(open.registrationOpen(now))
@@ -154,13 +208,21 @@ class EventsViewModelTest {
 
 private class FakeEventsRepository(
     var events: List<Event> = emptyList(),
-    private val failure: ApiError? = null,
+    var failure: ApiError? = null,
     private val actionFailure: ApiError? = null,
 ) : EventsRepository {
     val registered = mutableSetOf<String>()
 
-    override suspend fun list(page: Int, perPage: Int): ApiResult<List<Event>> =
-        failure?.let { ApiResult.Failure(it) } ?: ApiResult.Success(events)
+    /** Fails one list call and then clears itself — for the reload after a write. */
+    var failOnNextList: ApiError? = null
+
+    override suspend fun list(page: Int, perPage: Int): ApiResult<List<Event>> {
+        failOnNextList?.let {
+            failOnNextList = null
+            return ApiResult.Failure(it)
+        }
+        return failure?.let { ApiResult.Failure(it) } ?: ApiResult.Success(events)
+    }
 
     override suspend fun register(eventId: String): ApiResult<Unit> {
         actionFailure?.let { return ApiResult.Failure(it) }

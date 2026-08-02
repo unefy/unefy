@@ -13,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface DuesUiState {
@@ -22,6 +23,9 @@ sealed interface DuesUiState {
         val summary: DuesSummary?,
         val entries: List<DuesEntry>,
         val filter: DuesFilter,
+        val isRefreshing: Boolean = false,
+        /** A refresh that failed, so the screen can say so and then forget it. */
+        val refreshFailed: Boolean = false,
     ) : DuesUiState {
         val visible: List<DuesEntry>
             get() = when (filter) {
@@ -52,6 +56,12 @@ class DuesViewModel @Inject constructor(
 
     fun retry() = load()
 
+    fun refresh() = load(refreshing = true)
+
+    fun onMessageShown() = _uiState.update { state ->
+        (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
+
     fun onFilterChange(value: DuesFilter) {
         filter = value
         // Filtering is local: the list is already in memory, so a round trip
@@ -60,8 +70,14 @@ class DuesViewModel @Inject constructor(
             ?: _uiState.value
     }
 
-    private fun load() {
-        _uiState.value = DuesUiState.Loading
+    private fun load(refreshing: Boolean = false) {
+        val current = _uiState.value
+        if (refreshing && current is DuesUiState.Content) {
+            _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
+        } else {
+            _uiState.value = DuesUiState.Loading
+        }
+
         viewModelScope.launch {
             // Both calls in flight at once — the summary is not derived from the
             // page of entries, so waiting for one before the other is wasted time.
@@ -75,7 +91,13 @@ class DuesViewModel @Inject constructor(
                     filter = filter,
                 )
 
-                is ApiResult.Failure -> DuesUiState.Failure(entries.error)
+                // A refresh that fails keeps the list it already has and says so
+                // in a snackbar. Replacing loaded content with a full-screen
+                // error because the connection dropped for a second is worse
+                // than showing something a minute out of date.
+                is ApiResult.Failure -> (_uiState.value as? DuesUiState.Content)
+                    ?.copy(isRefreshing = false, refreshFailed = true)
+                    ?: DuesUiState.Failure(entries.error)
             }
         }
     }

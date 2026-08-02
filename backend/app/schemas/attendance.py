@@ -82,9 +82,23 @@ class BufferedCheckIn(BaseSchema):
 
 
 class AttendanceCheckIn(BufferedCheckIn):
-    member_id: uuid.UUID
+    """A member or a guest, never both.
+
+    Mirrors the database's CHECK rather than trusting it: a caller that sends
+    neither gets a readable error here instead of an integrity violation, and
+    one that sends both is told which rule it broke.
+    """
+
+    member_id: uuid.UUID | None = None
+    guest_name: str | None = Field(default=None, min_length=1, max_length=255)
     method: str = Field(default="manual", pattern=METHOD_PATTERN)
     note: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_subject(self) -> "AttendanceCheckIn":
+        if (self.member_id is None) == (self.guest_name is None):
+            raise ValueError("Provide exactly one of member_id or guest_name")
+        return self
 
 
 class AttendanceScanCheckIn(BufferedCheckIn):
@@ -135,7 +149,9 @@ class AttendanceRecordUpdate(BaseSchema):
 class AttendanceRecordResponse(BaseSchema):
     id: uuid.UUID
     session_id: uuid.UUID
-    member_id: uuid.UUID
+    # Null for a guest, who is named by `guest_name` instead.
+    member_id: uuid.UUID | None = None
+    guest_name: str | None = None
     member_name: str | None = None
     member_number: str | None = None
     occurred_on: date

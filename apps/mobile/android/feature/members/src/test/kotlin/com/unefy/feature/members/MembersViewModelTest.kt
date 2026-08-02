@@ -109,6 +109,58 @@ class MembersViewModelTest {
         assertEquals("ab", repository.lastSearch)
     }
 
+    @Test
+    fun `a refresh picks up what was added elsewhere`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = listOf(member("1")))
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+
+        repository.members = listOf(member("1"), member("2"))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(2, state.members.size)
+        assertTrue(!state.isRefreshing)
+    }
+
+    @Test
+    fun `a failing refresh keeps the list and reports the failure`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = listOf(member("1")))
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+
+        repository.failure = ApiError.Network(IOException("offline"))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(1, state.members.size)
+        assertTrue(state.refreshFailed)
+        assertTrue(!state.isRefreshing)
+
+        viewModel.onMessageShown()
+        assertTrue(!(viewModel.uiState.value as MembersUiState.Content).refreshFailed)
+    }
+
+    /**
+     * Keeping the list is right for a refresh and wrong for a search: those rows
+     * do not answer what was typed, and "Aktualisieren fehlgeschlagen" would not
+     * explain why they are still there.
+     */
+    @Test
+    fun `a failing search shows the error instead of the old results`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = listOf(member("1")))
+        val viewModel = MembersViewModel(repository)
+        advanceUntilIdle()
+
+        repository.failure = ApiError.Network(IOException("offline"))
+        viewModel.onQueryChange("bauer")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value is MembersUiState.Failure)
+    }
+
     private fun member(id: String) = Member(
         id = id,
         memberNumber = "TV-0$id",

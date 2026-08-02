@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefyFormat
@@ -39,6 +40,8 @@ fun CompetitionsRoute(
         actions = actions,
         onCompetitionClick = onCompetitionClick,
         onRetry = viewModel::retry,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -48,10 +51,19 @@ fun CompetitionsScreen(
     actions: @Composable RowScope.() -> Unit = {},
     onCompetitionClick: (String, String) -> Unit = { _, _ -> },
     onRetry: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onMessageShown: () -> Unit = {},
 ) {
+    val content = state as? CompetitionsUiState.Content
+
     UnefyListScaffold(
         title = stringResource(R.string.competitions_title),
         actions = actions,
+        isRefreshing = content?.isRefreshing == true,
+        onRefresh = onRefresh,
+        message = stringResource(DesignR.string.refresh_failed)
+            .takeIf { content?.refreshFailed == true },
+        onMessageShown = onMessageShown,
     ) {
         when (state) {
             CompetitionsUiState.Loading -> Unit

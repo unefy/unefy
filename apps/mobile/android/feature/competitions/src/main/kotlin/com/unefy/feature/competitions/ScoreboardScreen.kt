@@ -44,7 +44,13 @@ fun ScoreboardRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(competitionId) { viewModel.load(competitionId) }
-    ScoreboardScreen(state = state, competitionName = competitionName, onBack = onBack)
+    ScoreboardScreen(
+        state = state,
+        competitionName = competitionName,
+        onBack = onBack,
+        onRefresh = viewModel::refresh,
+        onMessageShown = viewModel::onMessageShown,
+    )
 }
 
 @Composable
@@ -52,8 +58,11 @@ fun ScoreboardScreen(
     state: ScoreboardUiState,
     competitionName: String,
     onBack: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onMessageShown: () -> Unit = {},
 ) {
-    val subtitle = (state as? ScoreboardUiState.Content)?.scoreboard?.let { board ->
+    val content = state as? ScoreboardUiState.Content
+    val subtitle = content?.scoreboard?.let { board ->
         stringResource(R.string.scoreboard_subtitle, board.rows.size, board.unit)
     }
 
@@ -68,6 +77,11 @@ fun ScoreboardScreen(
                 )
             }
         },
+        isRefreshing = content?.isRefreshing == true,
+        onRefresh = onRefresh,
+        message = stringResource(DesignR.string.refresh_failed)
+            .takeIf { content?.refreshFailed == true },
+        onMessageShown = onMessageShown,
     ) {
         when (state) {
             ScoreboardUiState.Loading -> Unit

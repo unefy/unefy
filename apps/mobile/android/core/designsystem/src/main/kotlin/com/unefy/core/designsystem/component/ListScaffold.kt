@@ -18,14 +18,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,7 +76,23 @@ data class ScreenSearch(
  *
  * The scaffold owns the `LazyColumn` so a screen cannot quietly opt out of any
  * of this.
+ *
+ * **Why pull-to-refresh lives here.** Every list in this app is a snapshot taken
+ * when its ViewModel was created; nothing pushes updates. Without a refresh
+ * gesture the only way to see what someone else just entered in the web app is
+ * to leave the section and come back. Screens with three rows made that obvious
+ * — a list too short to scroll had no way to be moved at all.
+ *
+ * @param onRefresh null on screens with nothing to fetch — the "more" screen
+ *   reads local preferences, and the scanner is not a list. Passing null
+ *   disables the gesture rather than accepting a no-op.
+ * @param onLoadMore called once the list is scrolled within
+ *   [LOAD_MORE_LOOKAHEAD] rows of its end. Null on screens that fetch
+ *   everything in one call. Callers must tolerate being asked again while a
+ *   page is already in flight — this fires on scroll position, and knows
+ *   nothing about what the ViewModel is doing.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UnefyListScaffold(
     title: String,
@@ -80,6 +104,12 @@ fun UnefyListScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
+    onLoadMore: (() -> Unit)? = null,
+    /** Shown once as a snackbar, then handed back via [onMessageShown]. */
+    message: String? = null,
+    onMessageShown: () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     // The shell's state when there is one, so the navigation bar blurs the same
@@ -92,12 +122,44 @@ fun UnefyListScaffold(
     // below it.
     var headerHeight by remember { mutableStateOf(0.dp) }
 
+    val pullState = rememberPullToRefreshState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // rememberUpdatedState: showSnackbar suspends for the whole duration the
+    // snackbar is visible, and the callback that runs afterwards must be the
+    // current one, not the one captured when the message arrived.
+    val messageShown by rememberUpdatedState(onMessageShown)
+    LaunchedEffect(message) {
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            messageShown()
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = floatingActionButton,
         contentWindowInsets = WindowInsets.safeDrawing,
+        snackbarHost = {
+            // The floating bar overlays the content, so it is not in the
+            // Scaffold insets — without this the snackbar hides behind it.
+            SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = glassBarClearance))
+        },
     ) { insets ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // On the Box rather than the list: this is a nested-scroll
+                // connection, and it must see the drag the list leaves
+                // unconsumed — which, on a list shorter than the window, is all
+                // of it. That is what makes a three-row list pullable at all.
+                .pullToRefresh(
+                    isRefreshing = isRefreshing,
+                    state = pullState,
+                    enabled = onRefresh != null,
+                    onRefresh = { onRefresh?.invoke() },
+                ),
+        ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -111,6 +173,19 @@ fun UnefyListScaffold(
                 ),
                 content = content,
             )
+
+            // Before the header and inset by its height, so it emerges from
+            // underneath it. Parked above the fold it would sit behind the
+            // status bar instead, where the glass cannot hide it.
+            if (onRefresh != null) {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = headerHeight),
+                )
+            }
 
             Row(
                 modifier = Modifier

@@ -26,6 +26,8 @@ sealed interface MembersUiState {
         val members: List<Member>,
         val query: String = "",
         val isRefreshing: Boolean = false,
+        /** A refresh that failed, so the screen can say so and then forget it. */
+        val refreshFailed: Boolean = false,
     ) : MembersUiState
 
     data class Failure(val error: ApiError) : MembersUiState
@@ -58,6 +60,10 @@ class MembersViewModel @Inject constructor(
 
     fun retry() = load()
 
+    fun onMessageShown() = _uiState.update { state ->
+        (state as? MembersUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
+
     private fun load(showSpinner: Boolean = true, refreshing: Boolean = false) {
         // A new search supersedes the previous one; without this, a slow earlier
         // response could land after a faster later one and show stale results.
@@ -66,7 +72,11 @@ class MembersViewModel @Inject constructor(
         if (showSpinner) _uiState.value = MembersUiState.Loading
         if (refreshing) {
             _uiState.update { c ->
-                if (c is MembersUiState.Content) c.copy(isRefreshing = true) else c
+                if (c is MembersUiState.Content) {
+                    c.copy(isRefreshing = true, refreshFailed = false)
+                } else {
+                    c
+                }
             }
         }
 
@@ -77,7 +87,20 @@ class MembersViewModel @Inject constructor(
                     query = query,
                 )
 
-                is ApiResult.Failure -> _uiState.value = MembersUiState.Failure(result.error)
+                // A refresh that fails keeps the list it already has and says so
+                // in a snackbar. Replacing loaded content with a full-screen
+                // error because the connection dropped for a second is worse
+                // than showing something a minute out of date.
+                //
+                // Only a refresh, though. A failed *search* must not leave the
+                // previous results on screen — they do not answer what was
+                // typed, and a snackbar about refreshing would not explain why.
+                is ApiResult.Failure -> {
+                    val keep =
+                        if (refreshing) _uiState.value as? MembersUiState.Content else null
+                    _uiState.value = keep?.copy(isRefreshing = false, refreshFailed = true)
+                        ?: MembersUiState.Failure(result.error)
+                }
             }
         }
     }

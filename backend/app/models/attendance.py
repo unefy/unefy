@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -103,6 +104,11 @@ class AttendanceRecord(TenantModel, AuditMixin, SoftDeleteMixin):
         # Partial rather than a plain unique constraint: a soft-deleted record
         # is history, and a member wrongly removed must be able to check in
         # again without resurrecting the corrected row.
+        #
+        # Guests are unconstrained by it, because Postgres treats NULLs as
+        # distinct. That is the behaviour wanted here: two guests may well share
+        # a name, and nothing about a guest identifies them well enough to
+        # refuse the second one.
         Index(
             "uq_attendance_records_tenant_session_member",
             "tenant_id",
@@ -110,6 +116,14 @@ class AttendanceRecord(TenantModel, AuditMixin, SoftDeleteMixin):
             "member_id",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
+        ),
+        # Exactly one of the two, enforced by the database rather than by
+        # whichever service happens to write the row. A record that is neither
+        # is not attendance, and one that is both is a contradiction about who
+        # was there.
+        CheckConstraint(
+            "(member_id IS NOT NULL) <> (guest_name IS NOT NULL)",
+            name="ck_attendance_records_member_xor_guest",
         ),
         # Carries the 12-month evaluation for the §14 proof.
         Index("ix_attendance_tenant_member_date", "tenant_id", "member_id", "occurred_on"),
@@ -119,7 +133,17 @@ class AttendanceRecord(TenantModel, AuditMixin, SoftDeleteMixin):
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("attendance_sessions.id", ondelete="CASCADE"), nullable=False
     )
-    member_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("members.id"), nullable=False)
+
+    # Null for a guest. The club still has to know who was on the range —
+    # supervision duty and insurance do not care about membership — but a guest
+    # has no member record and must never count towards anyone's §14 proof.
+    # The proof query joins members, so guests fall out of it by construction.
+    member_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("members.id"), nullable=True
+    )
+
+    # Set instead of `member_id`, never alongside it — see the CHECK below.
+    guest_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Denormalised calendar day, taken from the session's opening date. All
     # records of one session share it, which is exactly what "18 appointments

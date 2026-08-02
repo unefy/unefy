@@ -134,7 +134,7 @@ async def get_session(
         | {
             "records": [
                 AttendanceRecordResponse.model_validate(record).model_dump(mode="json")
-                | {"member_name": f"{first} {last}", "member_number": number}
+                | _display_name(record, first, last, number)
                 for record, first, last, number in records
             ]
         }
@@ -209,7 +209,7 @@ async def list_session_records(
     return {
         "data": [
             AttendanceRecordResponse.model_validate(record).model_dump(mode="json")
-            | {"member_name": f"{first} {last}", "member_number": number}
+            | _display_name(record, first, last, number)
             for record, first, last, number in records
         ]
     }
@@ -281,6 +281,19 @@ async def check_in_by_code(
     return {"data": await _record_with_member(service, record)}
 
 
+def _display_name(
+    record: AttendanceRecord, first: str | None, last: str | None, number: str | None
+) -> dict[str, Any]:
+    """Name and number for one row, member or guest.
+
+    A guest has no member row, so the outer join hands back nulls — formatting
+    those straight into a string produced "None None" on screen.
+    """
+    if record.member_id is None:
+        return {"member_name": record.guest_name, "member_number": None}
+    return {"member_name": f"{first} {last}", "member_number": number}
+
+
 async def _record_with_member(
     service: AttendanceService, record: AttendanceRecord
 ) -> dict[str, Any]:
@@ -291,6 +304,10 @@ async def _record_with_member(
     tell whether the person in front of them is the one that just registered.
     """
     payload = AttendanceRecordResponse.model_validate(record).model_dump(mode="json")
+    if record.member_id is None:
+        # A guest is named by the record itself; there is nothing to look up.
+        return payload | {"member_name": record.guest_name, "member_number": None}
+
     member = await service.members.get_by_id(record.member_id)
     if member is not None:
         payload |= {

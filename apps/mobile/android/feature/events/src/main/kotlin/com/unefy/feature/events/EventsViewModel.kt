@@ -27,6 +27,9 @@ sealed interface EventsUiState {
         val now: String,
         /** Event ids with a registration call in flight, so the row can lock. */
         val pending: Set<String> = emptySet(),
+        val isRefreshing: Boolean = false,
+        /** A refresh that failed, so the screen can say so and then forget it. */
+        val refreshFailed: Boolean = false,
     ) : EventsUiState
 
     data class Failure(val error: ApiError) : EventsUiState
@@ -46,6 +49,12 @@ class EventsViewModel @Inject constructor(
     }
 
     fun retry() = load()
+
+    fun refresh() = load(refreshing = true)
+
+    fun onMessageShown() = _uiState.update { state ->
+        (state as? EventsUiState.Content)?.copy(refreshFailed = false) ?: state
+    }
 
     /**
      * Toggles the caller's own registration.
@@ -77,8 +86,15 @@ class EventsViewModel @Inject constructor(
         }
     }
 
-    private fun load(quiet: Boolean = false) {
-        if (!quiet) _uiState.value = EventsUiState.Loading
+    private fun load(quiet: Boolean = false, refreshing: Boolean = false) {
+        val current = _uiState.value
+        when {
+            refreshing && current is EventsUiState.Content ->
+                _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
+
+            !quiet -> _uiState.value = EventsUiState.Loading
+        }
+
         viewModelScope.launch {
             _uiState.value = when (val result = repository.list()) {
                 is ApiResult.Success -> {
@@ -91,7 +107,16 @@ class EventsViewModel @Inject constructor(
                     )
                 }
 
-                is ApiResult.Failure -> EventsUiState.Failure(result.error)
+                // A refresh that fails keeps the list it already has and says so
+                // in a snackbar. Replacing loaded content with a full-screen
+                // error because the connection dropped for a second is worse
+                // than showing something a minute out of date.
+                // pending is cleared too: this path also runs after a successful
+                // registration, and a row left locked by a failed reload can
+                // never be tapped again.
+                is ApiResult.Failure -> (_uiState.value as? EventsUiState.Content)
+                    ?.copy(isRefreshing = false, refreshFailed = true, pending = emptySet())
+                    ?: EventsUiState.Failure(result.error)
             }
         }
     }
