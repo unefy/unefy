@@ -41,6 +41,14 @@ android {
     }
 }
 
+// connectedAndroidTest uninstalls both APKs when it finishes, which is correct
+// for CI and a nuisance on a real device — the app simply vanishes after every
+// run. finalizedBy puts it back, and runs even when the tests fail, which is
+// exactly when someone wants to open the app and look.
+tasks.matching { it.name == "connectedDebugAndroidTest" }.configureEach {
+    finalizedBy("installDebug")
+}
+
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
