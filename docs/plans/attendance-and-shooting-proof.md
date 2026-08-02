@@ -461,7 +461,12 @@ von einer geleerten Queue.
   Mitglieds, die Session begrenzt den Zeitraum, und `synced_at` macht sichtbar,
   welche Datensätze davon betroffen sind.
 - **Kein `fallbackToDestructiveMigration`.** In der Queue liegen Check-ins, die
-  es sonst nirgends gibt.
+  es sonst nirgends gibt. Der Preis wurde sofort fällig: Version 1 existierte
+  während der Entwicklung in drei Formen, und ein Gerät mit einer älteren
+  Datei ist beim Öffnen abgestürzt. Behoben durch Version 2 mit einer
+  Migration, die die Cache-Tabellen `IF NOT EXISTS` anlegt. Der instrumentierte
+  Test hat es gefunden — die Unit-Tests konnten es nicht, weil sie nie eine
+  echte Datei öffnen.
 
 **Synchronisiert wird von WorkManager**, mit Constraint
 `NetworkType.CONNECTED` und als Unique Work. Das läuft, wenn die Verbindung

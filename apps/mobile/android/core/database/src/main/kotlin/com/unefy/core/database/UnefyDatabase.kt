@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,7 +27,7 @@ import javax.inject.Singleton
  */
 @Database(
     entities = [PendingCheckIn::class, CachedMember::class, CachedSession::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -42,7 +45,44 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): UnefyDatabase =
-        Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME).build()
+        Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME)
+            .addMigrations(MIGRATION_1_2)
+            .build()
+
+    /**
+     * Adds the two caches.
+     *
+     * `IF NOT EXISTS` because version 1 shipped in more than one shape during
+     * development — first the queue alone, then the queue plus members — and a
+     * device may hold either. Room only noticed because the identity hash
+     * differed; without this a phone with the older file crashes on open.
+     *
+     * A destructive fallback would have been one line, and would have thrown
+     * away queued check-ins that exist nowhere else.
+     */
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cached_members (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    memberNumber TEXT NOT NULL,
+                    name TEXT NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cached_sessions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    location TEXT,
+                    recordCount INTEGER NOT NULL
+                )
+                """,
+            )
+        }
+    }
 
     @Provides
     fun providePendingCheckInDao(database: UnefyDatabase): PendingCheckInDao =
