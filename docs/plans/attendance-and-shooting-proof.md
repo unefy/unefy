@@ -496,12 +496,14 @@ möglich — das Backend kennt keinen Client.
 |---|---|
 | Mitglieds-QR | **Funktioniert.** Seed liegt verschlüsselt auf dem Gerät, der Code wird lokal gerechnet. Abgelaufener Seed wird weiterbenutzt (zwei Perioden Karenz), der Screen sagt es. |
 | Scannen | **Funktioniert.** Der Check-in landet in der Queue und geht raus, sobald wieder Verbindung da ist. |
-| Manuell | **Funktioniert.** Die Mitgliederliste wird gecacht — ohne sie wäre die Queue sinnlos, weil man niemanden abhaken kann, den man nicht sieht. |
+| Manuell | **Funktioniert.** Die Mitgliederliste kommt seit 2026-08-04 aus dem Sync-Spiegel (`synced_members`) — vollständig und offline, ohne sie wäre die Queue sinnlos, weil man niemanden abhaken kann, den man nicht sieht. |
 | Einheitenliste | **Funktioniert**, sofern der Scanner einmal mit Verbindung offen war. |
 | Anwesenheitsliste | **Funktioniert** aus demselben Cache, ergänzt um die noch wartenden Check-ins dieses Geräts. |
 
-**Wie es gebaut ist.** `core:database` (Room, neu) hält zwei Tabellen:
-`pending_check_ins` und `cached_members`. Bei Netzfehler puffert
+**Wie es gebaut ist.** `core:database` (Room, neu) hält die Queue-Tabelle
+`pending_check_ins` (die Pickliste kam anfangs aus einem eigenen
+`cached_members`-Cache; seit 2026-08-04 liest sie den Mitglieder-Spiegel,
+der Cache ist entfernt). Bei Netzfehler puffert
 `CheckInQueue` den Check-in samt **Gerätezeit**; beim Leeren wird sie als
 `checked_in_at` mitgeschickt, während der Server sein eigenes Jetzt als
 `synced_at` daneben schreibt. Damit unterscheidet ein Audit einen Live-Check-in

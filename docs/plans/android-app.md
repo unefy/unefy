@@ -137,8 +137,11 @@ Regeln.
     (bei Dues beantwortet: Beträge ja — Board-only, keine Bankfelder im
     Payload; `payment_method`/`note` nicht gespiegelt).
 
-  Die Anwesenheits-Caches bleiben Caches (list-refresh + `retainOnly`), nicht
-  Spiegel. Details in `attendance-and-shooting-proof.md`.
+  Die Anwesenheits-Caches für Sessions/Records bleiben Caches (list-refresh +
+  `retainOnly`), nicht Spiegel. Die manuelle Check-in-Pickliste liest seit
+  2026-08-04 den Mitglieder-Spiegel (`cached_members` entfernt, DB v9); Netz
+  nur noch, solange der Bootstrap nicht durch ist. Details in
+  `attendance-and-shooting-proof.md`.
 
   **Hintergrund-Push (FCM) ist verdrahtet:** Modul `core:push` — stiller
   Daten-Weckruf (nur tenant/entity, keine Inhalte, keine Berechtigung nötig),
