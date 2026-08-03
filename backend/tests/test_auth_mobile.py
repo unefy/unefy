@@ -121,6 +121,9 @@ async def test_dev_login_disabled_when_not_debug(
     monkeypatch.setenv("INTERNAL_API_SECRET", long_secret)
     monkeypatch.setenv("SESSION_SECRET", long_secret)
     monkeypatch.setenv("JWT_SECRET", long_secret)
+    # All four, not three: on a machine without a .env (CI), a forgotten one
+    # fails Settings validation instead of this test's actual assertion.
+    monkeypatch.setenv("ATTENDANCE_SECRET", long_secret)
     get_settings.cache_clear()
 
     response = await mobile_client.post(
