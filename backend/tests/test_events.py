@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.member import Member
 from app.models.tenant import Tenant
+from app.models.user import User
 
 
 async def _add_member(
@@ -15,11 +16,13 @@ async def _add_member(
     tenant_id: uuid.UUID,
     *,
     member_number: str,
+    user_id: uuid.UUID | None = None,
 ) -> Member:
     member = Member(
         id=uuid.uuid4(),
         tenant_id=tenant_id,
         member_number=member_number,
+        user_id=user_id,
         first_name="Alice",
         last_name="Example",
         joined_at=date(2024, 1, 1),
@@ -122,6 +125,37 @@ async def test_register_member(
     data = resp.json()["data"]
     assert data["registered_count"] == 1
     assert data["registrations"][0]["member_name"] == "Alice Example"
+
+
+async def test_get_event_reports_own_registration(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The detail answers "am I on this event" like the list does — any status."""
+    event = await _create_event(auth_client)
+    own = await _add_member(db_session, test_tenant.id, member_number="M-001", user_id=test_user.id)
+    other = await _add_member(db_session, test_tenant.id, member_number="M-002")
+
+    resp = await auth_client.get(f"/api/v1/events/{event['id']}")
+    assert resp.json()["data"]["is_registered"] is False
+
+    resp = await auth_client.post(
+        f"/api/v1/events/{event['id']}/registrations",
+        json={"member_id": str(other.id)},
+    )
+    assert resp.status_code == 201
+    resp = await auth_client.get(f"/api/v1/events/{event['id']}")
+    assert resp.json()["data"]["is_registered"] is False
+
+    resp = await auth_client.post(
+        f"/api/v1/events/{event['id']}/registrations",
+        json={"member_id": str(own.id)},
+    )
+    assert resp.status_code == 201
+    resp = await auth_client.get(f"/api/v1/events/{event['id']}")
+    assert resp.json()["data"]["is_registered"] is True
 
 
 async def test_register_member_twice_conflict(

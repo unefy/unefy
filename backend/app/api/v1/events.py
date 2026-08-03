@@ -109,11 +109,16 @@ async def get_event(
 
     rows = await service.registrations.get_for_event(event_id)
     registered_count = sum(1 for r, _f, _l in rows if r.status == "registered")
+    # Same semantics as the list endpoint: any registration counts, waitlisted
+    # included — the caller's question is "am I on this event", not "am I in".
+    own_member = await service.members.get_by_user_id(auth.user_id)
     return {
         "data": EventResponse.model_validate(event).model_dump(mode="json")
         | {
             "registered_count": registered_count,
             "competition_name": await service.competition_name(event),
+            "is_registered": own_member is not None
+            and any(r.member_id == own_member.id for r, _f, _l in rows),
             "registrations": [
                 EventRegistrationResponse.model_validate(r).model_dump(mode="json")
                 | {"member_name": f"{first} {last}"}

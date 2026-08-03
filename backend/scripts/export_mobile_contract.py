@@ -53,6 +53,9 @@ ENRICHMENT: dict[str, dict[str, bool]] = {
         "is_registered": True,
         "registered_count": True,
         "competition_name": True,
+        # Detail-endpoint only: the merge always writes a list, never null;
+        # the list and sync payloads simply omit it.
+        "registrations": False,
     },
     "DueResponse": {"member_name": True},
     "EventRegistrationResponse": {"member_name": True},

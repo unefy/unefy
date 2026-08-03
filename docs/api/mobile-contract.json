@@ -170,6 +170,9 @@
       "registration_required": {
         "nullable": false
       },
+      "registrations": {
+        "nullable": false
+      },
       "session_id": {
         "nullable": true
       },
