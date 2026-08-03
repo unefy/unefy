@@ -40,7 +40,22 @@ interface CachedSessionRecordDao {
     )
     suspend fun forSession(sessionId: String): List<CachedSessionRecord>
 
-    /** After a successful load, so records corrected away upstream disappear. */
+    /**
+     * After a successful load, so records corrected away upstream disappear.
+     *
+     * The empty case is split out because `NOT IN ()` is not valid SQL — Room
+     * expands the list literally, and an empty one made this throw instead of
+     * clearing. The visible effect was a session emptied on the server still
+     * showing its old attendance on the phone, which is the one direction a
+     * cache must never fail in.
+     */
+    suspend fun retainOnly(sessionId: String, keep: List<String>) {
+        if (keep.isEmpty()) deleteForSession(sessionId) else retainOnlyOf(sessionId, keep)
+    }
+
     @Query("DELETE FROM cached_session_records WHERE sessionId = :sessionId AND id NOT IN (:keep)")
-    suspend fun retainOnly(sessionId: String, keep: List<String>)
+    suspend fun retainOnlyOf(sessionId: String, keep: List<String>)
+
+    @Query("DELETE FROM cached_session_records WHERE sessionId = :sessionId")
+    suspend fun deleteForSession(sessionId: String)
 }

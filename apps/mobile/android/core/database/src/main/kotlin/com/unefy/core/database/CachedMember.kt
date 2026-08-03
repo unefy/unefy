@@ -40,7 +40,20 @@ interface CachedMemberDao {
     )
     suspend fun search(query: String, limit: Int): List<CachedMember>
 
-    /** After a full, unfiltered load, so members removed upstream do not linger. */
+    /**
+     * After a full, unfiltered load, so members removed upstream do not linger.
+     *
+     * Empty split out: `NOT IN ()` is not valid SQL, and Room expands the list
+     * literally — a club emptied upstream would have thrown rather than
+     * cleared.
+     */
+    suspend fun retainOnly(keep: List<String>) {
+        if (keep.isEmpty()) deleteAll() else retainOnlyOf(keep)
+    }
+
     @Query("DELETE FROM cached_members WHERE id NOT IN (:keep)")
-    suspend fun retainOnly(keep: List<String>)
+    suspend fun retainOnlyOf(keep: List<String>)
+
+    @Query("DELETE FROM cached_members")
+    suspend fun deleteAll()
 }

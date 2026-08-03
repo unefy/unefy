@@ -26,10 +26,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +40,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -98,6 +102,7 @@ fun ScannerRoute(
         onTapNotReady = viewModel::onTapNotReady,
         onTagDetected = viewModel::onTagDetected,
         onNfcState = viewModel::onNfcState,
+        onRefresh = viewModel::refresh,
     )
 }
 
@@ -123,10 +128,17 @@ fun ScannerScreen(
     onTapNotReady: () -> Unit = {},
     onTagDetected: () -> Unit = {},
     onNfcState: (NfcState) -> Unit = {},
+    onRefresh: () -> Unit = {},
 ) {
     // The scanner is only a reader while it is on screen, so letting the phone
     // lock during an evening silently ends check-in.
     KeepScreenAwake()
+
+    // Reloaded every time this screen comes forward. Until now the list only
+    // moved when this device checked somebody in, so a correction made in the
+    // web app — or by another supervisor's phone — was invisible here for as
+    // long as the screen stayed open.
+    RefreshOnResume(onRefresh)
 
     // Outside the list, not in an item of it. Reader mode has to live as long
     // as this screen does, and a lazy list disposes what scrolls away — mounting
@@ -341,6 +353,21 @@ private fun LazyListScope.scannerContent(
  *
  * Hue is reserved for status in this design system, which is exactly this.
  */
+/** Runs [onRefresh] whenever this screen comes to the foreground. */
+@Composable
+private fun RefreshOnResume(onRefresh: () -> Unit) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val current by rememberUpdatedState(onRefresh)
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) current()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+}
+
 @Composable
 private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
     val colors = LocalUnefyColors.current

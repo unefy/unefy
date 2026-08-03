@@ -302,6 +302,18 @@ class ScannerViewModel @Inject constructor(
      * antennas find each other, which is the only cue that turns hunting for
      * the spot into holding a found one.
      */
+    /**
+     * Pulls everything this screen shows from the server again.
+     *
+     * Sessions first, because a session closed elsewhere has to disappear
+     * before its attendance is fetched — otherwise the list reloads under a
+     * chip that should no longer be there.
+     */
+    fun refresh() {
+        loadSessions()
+        drainQueue()
+    }
+
     fun onNfcState(state: NfcState) {
         _uiState.update { it.copy(nfc = state) }
     }

@@ -35,7 +35,20 @@ interface CachedSessionDao {
     @Query("SELECT * FROM cached_sessions ORDER BY title")
     suspend fun all(): List<CachedSession>
 
-    /** After a successful load, so sessions closed upstream stop being offered. */
+    /**
+     * After a successful load, so sessions closed upstream stop being offered.
+     *
+     * Empty split out for the same reason as the others: closing the last
+     * session is exactly when this has to work, and `NOT IN ()` would have
+     * thrown instead.
+     */
+    suspend fun retainOnly(keep: List<String>) {
+        if (keep.isEmpty()) deleteAll() else retainOnlyOf(keep)
+    }
+
     @Query("DELETE FROM cached_sessions WHERE id NOT IN (:keep)")
-    suspend fun retainOnly(keep: List<String>)
+    suspend fun retainOnlyOf(keep: List<String>)
+
+    @Query("DELETE FROM cached_sessions")
+    suspend fun deleteAll()
 }
