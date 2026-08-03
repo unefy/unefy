@@ -20,6 +20,7 @@ from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
 from app.models.invitation import Invitation
 from app.models.member import Member
+from app.models.push_device import PushDevice
 from app.models.sport import CatalogUnit, Sport
 from app.models.tenant import Tenant
 from app.models.tenant_sport import TenantSport
@@ -47,6 +48,7 @@ __all__ = [
     "MeasurementUnit",
     "Member",
     "MemberFee",
+    "PushDevice",
     "Session",
     "SoftDeleteMixin",
     "Sport",

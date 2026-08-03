@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     # credential sitting in an inbox.
     MAGIC_LINK_TTL_SECONDS: int = 900  # 15 min
 
+    # Push (FCM). Off by default: `docker compose up` must work without a
+    # Google account. With PUSH_ENABLED and no credentials file the register
+    # endpoints answer 503 with a clear code, and the fan-out task never starts.
+    PUSH_ENABLED: bool = False
+    # Path to the Firebase service-account JSON. This one *is* a secret — it
+    # can send push to every device in every club.
+    FCM_CREDENTIALS_FILE: str = ""
+
     @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET", "ATTENDANCE_SECRET")
     @classmethod
     def _validate_secret_length(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]

@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -75,7 +77,33 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     # deliberately removed. Initial population happens once, in the migration
     # that introduced the catalog; `scripts/seed_catalog.py` can top it up.
 
+    # Push fan-out, only when configured: `docker compose up` must work without
+    # a Google account, and a bad credentials file must not stop the server —
+    # it just does not push, loudly.
+    push_task = None
+    settings = get_settings()
+    if settings.PUSH_ENABLED and settings.FCM_CREDENTIALS_FILE:
+        import os
+
+        from app.events.push_fanout import run_push_fanout
+        from app.integrations.push import FcmSender
+        from app.redis import get_redis
+
+        try:
+            sender = FcmSender(settings)
+        except Exception as e:
+            logger.error("push_fanout_not_started", error=str(e))
+        else:
+            consumer = f"{os.uname().nodename}-{os.getpid()}"
+            push_task = asyncio.create_task(run_push_fanout(get_redis(), sender, consumer))
+            logger.info("push_fanout_started", consumer=consumer)
+
     yield
+
+    if push_task is not None:
+        push_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await push_task
 
     await close_redis()
     logger.info("redis_disconnected")
