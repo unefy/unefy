@@ -51,6 +51,10 @@ interface SyncedEventDao {
     @Query("SELECT * FROM synced_events ORDER BY startsAt, title")
     fun all(): Flow<List<SyncedEvent>>
 
+    /** One event, live: the detail updates when a sync touches the row. */
+    @Query("SELECT * FROM synced_events WHERE id = :id")
+    fun byIdStream(id: String): Flow<SyncedEvent?>
+
     @Upsert
     suspend fun upsert(events: List<SyncedEvent>)
 

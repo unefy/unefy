@@ -26,6 +26,15 @@ object UnefyFormat {
         }.getOrElse { _ -> date(iso) }
     }.orEmpty()
 
+    /** Time of day only — for the end of a range whose date the start names. */
+    fun time(iso: String?): String = iso?.let {
+        runCatching {
+            Instant.parse(it)
+                .atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+        }.getOrElse { _ -> it }
+    }.orEmpty()
+
     fun date(iso: String?): String = iso?.let {
         runCatching {
             LocalDate.parse(it.take(DATE_LENGTH))

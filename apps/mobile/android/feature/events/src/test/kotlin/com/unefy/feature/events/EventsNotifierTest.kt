@@ -7,6 +7,7 @@ import com.unefy.core.database.SyncedEventDao
 import com.unefy.core.model.Event
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -111,6 +112,9 @@ private class FakeSyncedEventDao(initial: List<SyncedEvent>) : SyncedEventDao {
     val rows = MutableStateFlow(initial)
 
     override fun all(): Flow<List<SyncedEvent>> = rows
+
+    override fun byIdStream(id: String): Flow<SyncedEvent?> =
+        rows.map { list -> list.find { it.id == id } }
 
     override suspend fun upsert(events: List<SyncedEvent>) = Unit
 

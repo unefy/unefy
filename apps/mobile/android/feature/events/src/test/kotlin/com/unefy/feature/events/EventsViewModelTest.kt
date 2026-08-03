@@ -1,6 +1,7 @@
 package com.unefy.feature.events
 
 import com.unefy.core.model.Event
+import com.unefy.core.model.EventDetail
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import com.unefy.core.sync.ConnectivityMonitor
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -331,6 +333,12 @@ private class FakeEventsRepository(
     override fun stream(): Flow<List<Event>> = rows
 
     override fun hasSynced(): Flow<Boolean> = MutableStateFlow(hasSynced)
+
+    override fun byIdStream(id: String): Flow<Event?> =
+        rows.map { list -> list.find { it.id == id } }
+
+    override suspend fun detail(id: String): ApiResult<EventDetail> =
+        ApiResult.Failure(ApiError.NotFound(null))
 
     override suspend fun overlay(): ApiResult<Map<String, EventOverlay>> {
         overlayCalls++

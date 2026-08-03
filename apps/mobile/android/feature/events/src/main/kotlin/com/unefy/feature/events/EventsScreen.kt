@@ -1,5 +1,6 @@
 package com.unefy.feature.events
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import com.unefy.core.network.ApiError
 
 @Composable
 fun EventsRoute(
+    onEventClick: (String) -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
     viewModel: EventsViewModel = hiltViewModel(),
 ) {
@@ -44,6 +46,7 @@ fun EventsRoute(
     EventsScreen(
         state = state,
         actions = actions,
+        onEventClick = onEventClick,
         onRetry = viewModel::retry,
         onToggleRegistration = viewModel::toggleRegistration,
         onRefresh = viewModel::refresh,
@@ -54,6 +57,7 @@ fun EventsRoute(
 fun EventsScreen(
     state: EventsUiState,
     actions: @Composable RowScope.() -> Unit = {},
+    onEventClick: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onToggleRegistration: (Event) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -125,6 +129,7 @@ fun EventsScreen(
                                 event.id in state.overlaid &&
                                 event.registrationOpen(state.now),
                             onToggleRegistration = { onToggleRegistration(event) },
+                            onClick = { onEventClick(event.id) },
                         )
                     }
                 }
@@ -132,7 +137,9 @@ fun EventsScreen(
                     item(key = "past") { SectionHeader(stringResource(R.string.events_past)) }
                     // No registration control on past events — the action is
                     // meaningless there.
-                    items(state.past, key = { it.id }) { EventRow(event = it, dimmed = true) }
+                    items(state.past, key = { it.id }) {
+                        EventRow(event = it, dimmed = true, onClick = { onEventClick(it.id) })
+                    }
                 }
             }
         }
@@ -163,6 +170,7 @@ private fun EventRow(
     showRegistration: Boolean = false,
     canRegister: Boolean = false,
     onToggleRegistration: (() -> Unit)? = null,
+    onClick: () -> Unit = {},
 ) {
     val titleColor = if (dimmed) {
         MaterialTheme.colorScheme.onSurfaceVariant
@@ -173,6 +181,7 @@ private fun EventRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.md),
         verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
     ) {

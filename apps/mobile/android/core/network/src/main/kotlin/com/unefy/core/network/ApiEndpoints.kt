@@ -67,6 +67,9 @@ object ApiEndpoints {
 
     fun member(id: String): String = "$MEMBERS/$id"
 
+    /** The single event, with its registrations — what the detail screen shows. */
+    fun event(id: String): String = "$EVENTS/$id"
+
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"
 
     /** The live ranking — a server aggregate, not a synced collection. */

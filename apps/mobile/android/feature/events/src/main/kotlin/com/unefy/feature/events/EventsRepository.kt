@@ -4,6 +4,8 @@ import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncedEvent
 import com.unefy.core.database.SyncedEventDao
 import com.unefy.core.model.Event
+import com.unefy.core.model.EventDetail
+import com.unefy.core.model.EventRegistration
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiEndpoints
 import com.unefy.core.network.ApiResult
@@ -84,6 +86,70 @@ internal fun SyncedEvent.toDomain() = Event(
     competitionName = null,
 )
 
+/**
+ * The single-event response: the same row as [EventDto] plus the merged-in
+ * `registrations`. A separate DTO rather than a nullable field on [EventDto]
+ * because the list endpoint never sends the array, and "absent" and "empty"
+ * must not collapse into the same value on the detail screen.
+ */
+@Serializable
+internal data class EventDetailDto(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    @SerialName("event_type") val eventType: String? = null,
+    val location: String? = null,
+    @SerialName("starts_at") val startsAt: String = "",
+    @SerialName("ends_at") val endsAt: String? = null,
+    @SerialName("all_day") val allDay: Boolean = false,
+    @SerialName("registration_required") val registrationRequired: Boolean = false,
+    @SerialName("registration_deadline") val registrationDeadline: String? = null,
+    @SerialName("registered_count") val registeredCount: Int = 0,
+    @SerialName("max_participants") val maxParticipants: Int? = null,
+    val status: String? = null,
+    @SerialName("is_registered") val isRegistered: Boolean = false,
+    @SerialName("competition_name") val competitionName: String? = null,
+    val registrations: List<EventRegistrationDto> = emptyList(),
+)
+
+@Serializable
+internal data class EventRegistrationDto(
+    val id: String,
+    @SerialName("member_id") val memberId: String = "",
+    @SerialName("member_name") val memberName: String? = null,
+    val status: String = "registered",
+    val note: String? = null,
+)
+
+internal fun EventDetailDto.toDomain() = EventDetail(
+    event = Event(
+        id = id,
+        title = title,
+        description = description,
+        type = eventType,
+        location = location,
+        startsAt = startsAt,
+        endsAt = endsAt,
+        allDay = allDay,
+        registrationRequired = registrationRequired,
+        registrationDeadline = registrationDeadline,
+        registeredCount = registeredCount,
+        maxParticipants = maxParticipants,
+        status = status,
+        isRegistered = isRegistered,
+        competitionName = competitionName,
+    ),
+    registrations = registrations.map {
+        EventRegistration(
+            id = it.id,
+            memberId = it.memberId,
+            memberName = it.memberName,
+            status = it.status,
+            note = it.note,
+        )
+    },
+)
+
 /** The caller-specific and derived fields of one event, fetched online. */
 data class EventOverlay(
     val isRegistered: Boolean,
@@ -97,6 +163,16 @@ interface EventsRepository {
 
     /** Whether the mirror holds the whole collection — see MembersRepository. */
     fun hasSynced(): Flow<Boolean>
+
+    /** One event from the mirror, live — the offline backbone of the detail. */
+    fun byIdStream(id: String): Flow<Event?>
+
+    /**
+     * The single event with its registrations, online. The detail screen lays
+     * this over the mirrored row: enrichment and the list of names are the two
+     * things the sync payload never carries.
+     */
+    suspend fun detail(id: String): ApiResult<EventDetail>
 
     /**
      * The enrichment the mirror deliberately lacks, keyed by event id.
@@ -127,6 +203,13 @@ class DefaultEventsRepository @Inject constructor(
 
     override fun hasSynced(): Flow<Boolean> =
         cursors.bootstrapCompleteStream(EventSyncCollection.COLLECTION)
+
+    override fun byIdStream(id: String): Flow<Event?> =
+        events.byIdStream(id).map { it?.toDomain() }
+
+    override suspend fun detail(id: String): ApiResult<EventDetail> = apiClient
+        .get<EventDetailDto>(ApiEndpoints.event(id))
+        .map(EventDetailDto::toDomain)
 
     override suspend fun overlay(): ApiResult<Map<String, EventOverlay>> = apiClient
         .get<List<EventDto>>(ApiEndpoints.EVENTS) {

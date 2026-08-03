@@ -20,6 +20,25 @@ class EventDtoDriftTest {
     }
 
     @Test
+    fun `EventDetailDto mirrors EventResponse`() {
+        MobileContract.assertMirrors(
+            EventDetailDto.serializer().descriptor,
+            "EventResponse",
+            // Same merge as the list plus `registrations`, which the detail
+            // route always writes as a list, never as an explicit null.
+            tolerateNonNullable = setOf("is_registered", "registered_count", "registrations"),
+        )
+    }
+
+    @Test
+    fun `EventRegistrationDto mirrors EventRegistrationResponse`() {
+        MobileContract.assertMirrors(
+            EventRegistrationDto.serializer().descriptor,
+            "EventRegistrationResponse",
+        )
+    }
+
+    @Test
     fun `RegistrationDto mirrors EventRegistrationResponse`() {
         MobileContract.assertMirrors(
             RegistrationDto.serializer().descriptor,
