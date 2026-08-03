@@ -18,6 +18,9 @@
     <string name="scanner_back">Zurück</string>
     <string name="scanner_waiting">Bereit — Code scannen oder Telefone aneinanderhalten</string>
     <string name="scanner_detected">Erkannt — kurz halten</string>
+    <string name="scanner_nfc_off">NFC ist ausgeschaltet. Ohne NFC geht nur der QR-Code.</string>
+    <string name="scanner_nfc_unavailable">Dieses Gerät hat kein NFC. Es geht nur der QR-Code.</string>
+    <string name="scanner_nfc_idle">Erst eine Einheit wählen, dann ist NFC bereit.</string>
     <string name="scanner_nfc_hint">Für NFC die Rückseiten im oberen Drittel aneinanderhalten, dort sitzt bei den meisten Telefonen die Antenne. Es vibriert, sobald sich die beiden finden.</string>
     <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>

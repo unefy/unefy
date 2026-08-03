@@ -13,6 +13,28 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import java.io.IOException
 
+/**
+ * Whether this screen can read a phone at all.
+ *
+ * Shown to the supervisor rather than kept in a log. "Nothing happens when I
+ * tap" has several causes that look identical from the outside — NFC switched
+ * off, no session chosen, no chip in the phone — and guessing between them
+ * from the outside is what made this frustrating.
+ */
+enum class NfcState {
+    /** Reader is live; hold a phone against it. */
+    Listening,
+
+    /** The phone has NFC, but it is switched off in system settings. */
+    SwitchedOff,
+
+    /** Nothing to check into yet. */
+    Idle,
+
+    /** No NFC hardware. The QR path is the only one here. */
+    Unavailable,
+}
+
 /** What a tap produced, before the check-in is attempted. */
 sealed interface TapResult {
     /** The member's code, ready to go through the same path as a scanned one. */
@@ -42,20 +64,31 @@ sealed interface TapResult {
 internal fun NfcReader(
     enabled: Boolean,
     onDetected: () -> Unit,
+    onState: (NfcState) -> Unit = {},
     onTap: (TapResult) -> Unit,
 ) {
     val context = LocalContext.current
     // Unwrapped rather than cast: LocalContext is not always the Activity
     // itself, and a plain cast silently returned null — which disabled reader
     // mode entirely while looking exactly like NFC not working.
-    val activity = context.findActivity() ?: return
+    val activity = context.findActivity()
+    if (activity == null) {
+        onState(NfcState.Unavailable)
+        return
+    }
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnDetected by rememberUpdatedState(onDetected)
 
     DisposableEffect(activity, enabled) {
         val adapter = NfcAdapter.getDefaultAdapter(activity)
-        if (adapter == null || !enabled) {
-            Log.i(TAG, "reader mode off (adapter=${adapter != null}, enabled=$enabled)")
+        when {
+            adapter == null -> onState(NfcState.Unavailable)
+            !adapter.isEnabled -> onState(NfcState.SwitchedOff)
+            !enabled -> onState(NfcState.Idle)
+            else -> onState(NfcState.Listening)
+        }
+        if (adapter == null || !adapter.isEnabled || !enabled) {
+            Log.i(TAG, "reader off (adapter=${adapter != null}, on=${adapter?.isEnabled}, enabled=$enabled)")
             return@DisposableEffect onDispose { }
         }
 

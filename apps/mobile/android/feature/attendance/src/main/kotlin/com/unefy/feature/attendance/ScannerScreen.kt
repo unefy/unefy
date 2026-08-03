@@ -54,6 +54,7 @@ import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.feature.attendance.nfc.NfcReader
+import com.unefy.feature.attendance.nfc.NfcState
 import com.unefy.feature.attendance.nfc.TapResult
 
 @Composable
@@ -96,6 +97,7 @@ fun ScannerRoute(
         onCodeTapped = viewModel::onCodeTapped,
         onTapNotReady = viewModel::onTapNotReady,
         onTagDetected = viewModel::onTagDetected,
+        onNfcState = viewModel::onNfcState,
     )
 }
 
@@ -120,10 +122,29 @@ fun ScannerScreen(
     onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit = { _, _ -> },
     onTapNotReady: () -> Unit = {},
     onTagDetected: () -> Unit = {},
+    onNfcState: (NfcState) -> Unit = {},
 ) {
     // The scanner is only a reader while it is on screen, so letting the phone
     // lock during an evening silently ends check-in.
     KeepScreenAwake()
+
+    // Outside the list, not in an item of it. Reader mode has to live as long
+    // as this screen does, and a lazy list disposes what scrolls away — mounting
+    // it in a zero-height row made "is NFC even on?" depend on scroll position.
+    // Alongside the camera, not instead of it: a member holds out either a
+    // screen or a phone back, and the supervisor should not have to know which
+    // before pointing at it.
+    NfcReader(
+        enabled = state.selectedSessionId != null,
+        onDetected = onTagDetected,
+        onState = onNfcState,
+    ) { tap ->
+        when (tap) {
+            is TapResult.Code -> onCodeTapped(tap.value, tap.respond)
+            TapResult.NotReady -> onTapNotReady()
+            TapResult.Foreign -> Unit
+        }
+    }
 
     if (state.manual.open) {
         ManualPickSheet(
@@ -187,9 +208,6 @@ fun ScannerScreen(
                 onGrantCamera = onGrantCamera,
                 onSelectSession = onSelectSession,
                 bindCamera = bindCamera,
-                onCodeTapped = onCodeTapped,
-                onTapNotReady = onTapNotReady,
-                onTagDetected = onTagDetected,
             )
         }
     }
@@ -201,9 +219,6 @@ private fun LazyListScope.scannerContent(
     onGrantCamera: () -> Unit,
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
-    onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit,
-    onTapNotReady: () -> Unit,
-    onTagDetected: () -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -222,22 +237,6 @@ private fun LazyListScope.scannerContent(
                         label = { Text(session.title) },
                     )
                 }
-            }
-        }
-    }
-
-    item("nfc") {
-        // Alongside the camera, not instead of it: a member holds out either a
-        // screen or a phone back, and the supervisor should not have to know
-        // which before pointing at it.
-        NfcReader(
-            enabled = state.selectedSessionId != null,
-            onDetected = onTagDetected,
-        ) { tap ->
-            when (tap) {
-                is TapResult.Code -> onCodeTapped(tap.value, tap.respond)
-                TapResult.NotReady -> onTapNotReady()
-                TapResult.Foreign -> Unit
             }
         }
     }
@@ -267,7 +266,12 @@ private fun LazyListScope.scannerContent(
     // expected to know, and hunting for it blind was the worst part of the tap.
     item("nfc-hint") {
         Text(
-            text = stringResource(R.string.scanner_nfc_hint),
+            text = when (state.nfc) {
+                NfcState.Listening -> stringResource(R.string.scanner_nfc_hint)
+                NfcState.SwitchedOff -> stringResource(R.string.scanner_nfc_off)
+                NfcState.Unavailable -> stringResource(R.string.scanner_nfc_unavailable)
+                NfcState.Idle -> stringResource(R.string.scanner_nfc_idle)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = UnefySpacing.screen),

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
 import android.util.Log
 import com.unefy.feature.attendance.nfc.CheckInApdu
+import com.unefy.feature.attendance.nfc.NfcState
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -103,6 +104,8 @@ data class ScannerUiState(
     val manual: ManualPickState = ManualPickState(),
     /** Check-ins taken while offline and not yet sent. */
     val pending: Int = 0,
+    /** Whether this device can currently read a phone. */
+    val nfc: NfcState = NfcState.Idle,
     /** True while a session is being opened from here. */
     val creatingSession: Boolean = false,
     /** Who is in this session, newest first. Recorded and buffered together. */
@@ -299,6 +302,10 @@ class ScannerViewModel @Inject constructor(
      * antennas find each other, which is the only cue that turns hunting for
      * the spot into holding a found one.
      */
+    fun onNfcState(state: NfcState) {
+        _uiState.update { it.copy(nfc = state) }
+    }
+
     fun onTagDetected() {
         _uiState.update { it.copy(feedback = ScanFeedback.Detected) }
     }
