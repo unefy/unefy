@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.feature.attendance.nfc.CardEvent
 import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.feature.attendance.nfc.NfcCheckInSignals
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,6 +37,9 @@ sealed interface MemberCodeUiState {
      * The whole point of showing it: until now the member held out a QR and
      * learned nothing, because the check-in happens on the supervisor's device.
      */
+    /** Read by a scanner; the outcome has not come back yet. */
+    data object Read : MemberCodeUiState
+
     data class Confirmed(val sessionTitle: String?) : MemberCodeUiState
 
     data class Failure(val error: ApiError) : MemberCodeUiState
@@ -70,15 +74,22 @@ class MemberCodeViewModel @Inject constructor(
         // second and without a server — which is the only way the confirmation
         // works in a basement, where the poll below cannot reach anything.
         viewModelScope.launch {
-            nfcSignals.outcomes.collect { outcome ->
-                _uiState.value = when (outcome) {
-                    CheckInApdu.Outcome.RECORDED, CheckInApdu.Outcome.QUEUED,
-                    CheckInApdu.Outcome.ALREADY_PRESENT,
-                    -> MemberCodeUiState.Confirmed(sessionTitle = null)
+            nfcSignals.events.collect { event ->
+                _uiState.value = when (event) {
+                    // Not a confirmation, but not nothing either: the code left
+                    // this phone and the answer is a moment away.
+                    CardEvent.Read -> MemberCodeUiState.Read
 
-                    // Still showing a code is the right answer to a refusal:
-                    // the supervisor will ask for another go.
-                    CheckInApdu.Outcome.REJECTED -> _uiState.value
+                    is CardEvent.Result -> when (event.outcome) {
+                        CheckInApdu.Outcome.RECORDED, CheckInApdu.Outcome.QUEUED,
+                        CheckInApdu.Outcome.ALREADY_PRESENT,
+                        -> MemberCodeUiState.Confirmed(sessionTitle = null)
+
+                        // Back to the code: a refusal means the supervisor will
+                        // ask for another go, and there is nothing to hold out
+                        // if the screen has moved on.
+                        CheckInApdu.Outcome.REJECTED -> MemberCodeUiState.Loading
+                    }
                 }
             }
         }
@@ -165,8 +176,15 @@ class MemberCodeViewModel @Inject constructor(
     private companion object {
         const val TICK_MILLIS = 1_000L
 
-        /** Every five seconds. Fast enough to feel immediate at the door. */
-        const val POLL_EVERY_TICKS = 5
+        /**
+         * Every two seconds while the code is on screen.
+         *
+         * This is the fallback for a QR scan, or for a tap whose reply never
+         * landed because the phone was pulled away. Five seconds was long
+         * enough to read as "nothing happened"; the screen is only up for a
+         * moment, so the extra requests cost little.
+         */
+        const val POLL_EVERY_TICKS = 2
     }
 }
 

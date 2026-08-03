@@ -66,17 +66,19 @@ class MemberCardService : HostApduService() {
         Log.i(TAG, "apdu in: ${command.size} bytes")
 
         CheckInApdu.outcomeOrNull(command)?.let { outcome ->
-            signals.publish(outcome)
+            signals.publish(CardEvent.Result(outcome))
             vibrate(outcome)
             return CheckInApdu.SW_OK
         }
 
         if (!CheckInApdu.isSelect(command)) return CheckInApdu.SW_UNKNOWN
 
-        // Felt the moment contact is made, before anything is decided. The
-        // member is holding two phones together hunting for the spot, and the
-        // result buzz may be a second away or never come if the tap slips.
+        // Felt and shown the moment contact is made, before anything is
+        // decided. The member is holding two phones together hunting for the
+        // spot, and the result may be a second away or never arrive at all if
+        // they pull back as soon as they feel this.
         tick()
+        signals.publish(CardEvent.Read)
 
         // Warm cache normally. Cold only when the tap itself started this
         // process, and then a short blocking read beats failing the tap — the

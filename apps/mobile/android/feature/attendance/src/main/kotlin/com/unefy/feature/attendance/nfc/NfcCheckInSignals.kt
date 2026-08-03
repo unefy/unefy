@@ -21,10 +21,25 @@ import kotlinx.coroutines.flow.asSharedFlow
 @Singleton
 class NfcCheckInSignals @Inject constructor() {
 
-    private val _outcomes = MutableSharedFlow<CheckInApdu.Outcome>(extraBufferCapacity = 4)
-    val outcomes: SharedFlow<CheckInApdu.Outcome> = _outcomes.asSharedFlow()
+    private val _events = MutableSharedFlow<CardEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<CardEvent> = _events.asSharedFlow()
 
-    fun publish(outcome: CheckInApdu.Outcome) {
-        _outcomes.tryEmit(outcome)
+    fun publish(event: CardEvent) {
+        _events.tryEmit(event)
     }
+}
+
+/** What happened to this phone's card, in the order it happens. */
+sealed interface CardEvent {
+    /**
+     * The code was read. Nothing decided yet.
+     *
+     * Worth its own event: the reader can only report the outcome while the
+     * phones are still touching, and people pull away as soon as they feel the
+     * first buzz. Saying "read — hold on a second" is what makes the wait
+     * legible instead of looking like nothing happened.
+     */
+    data object Read : CardEvent
+
+    data class Result(val outcome: CheckInApdu.Outcome) : CardEvent
 }

@@ -94,6 +94,16 @@ fun MemberCodeScreen(
 
             is MemberCodeUiState.Content -> item("code") { CodeCard(state) }
 
+            // Deliberately not the confirmation: nothing is confirmed yet, and
+            // showing a tick that might turn into a refusal is worse than a
+            // second of honest waiting.
+            MemberCodeUiState.Read -> item("read") {
+                Message(
+                    title = stringResource(R.string.attendance_code_read_title),
+                    body = stringResource(R.string.attendance_code_read_body),
+                )
+            }
+
             is MemberCodeUiState.Confirmed -> item("confirmed") { Confirmation(state.sessionTitle) }
 
             MemberCodeUiState.NoMembership -> item("no-membership") {
