@@ -11,6 +11,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.io.IOException
 
 /**
@@ -79,7 +82,9 @@ internal fun NfcReader(
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnDetected by rememberUpdatedState(onDetected)
 
-    DisposableEffect(activity, enabled) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(activity, lifecycleOwner, enabled) {
         val adapter = NfcAdapter.getDefaultAdapter(activity)
         when {
             adapter == null -> onState(NfcState.Unavailable)
@@ -92,25 +97,49 @@ internal fun NfcReader(
             return@DisposableEffect onDispose { }
         }
 
-        Log.i(TAG, "reader mode on")
-        adapter.enableReaderMode(
-            activity,
-            { tag ->
-                Log.i(TAG, "tag discovered: ${tag.techList.joinToString()}")
-                // Announced before the exchange, not after. Finding the spot
-                // where two phones' antennas meet is guesswork, and until this
-                // the first sign of contact was the finished check-in — a
-                // second or more later, by which time the hand has moved on.
-                currentOnDetected()
-                currentOnTap(exchange(IsoDep.get(tag)))
-            },
-            NfcAdapter.FLAG_READER_NFC_A or
-                NfcAdapter.FLAG_READER_NFC_B or
-                NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
-            null,
-        )
+        // Tied to the lifecycle, not to composition. Android disables reader
+        // mode whenever the activity pauses — a notification shade, an app
+        // switch, the screen blanking — and a composition-scoped setup never
+        // learns of it, because a pause does not dispose anything. The result
+        // was NFC that worked for about a minute and then silently never
+        // again until the screen was left and re-entered, which is impossible
+        // to tell apart from "NFC is broken".
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    Log.i(TAG, "reader mode on")
+                    adapter.enableReaderMode(
+                        activity,
+                        { tag ->
+                            Log.i(TAG, "tag discovered: ${tag.techList.joinToString()}")
+                            // Announced before the exchange, not after. Finding
+                            // the spot where two phones' antennas meet is
+                            // guesswork, and until this the first sign of
+                            // contact was the finished check-in — a second or
+                            // more later, by which time the hand has moved on.
+                            currentOnDetected()
+                            currentOnTap(exchange(IsoDep.get(tag)))
+                        },
+                        NfcAdapter.FLAG_READER_NFC_A or
+                            NfcAdapter.FLAG_READER_NFC_B or
+                            NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+                        null,
+                    )
+                }
+
+                Lifecycle.Event.ON_PAUSE -> {
+                    Log.i(TAG, "reader mode off (paused)")
+                    adapter.disableReaderMode(activity)
+                }
+
+                else -> Unit
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            Log.i(TAG, "reader mode off")
+            Log.i(TAG, "reader mode off (left screen)")
+            lifecycleOwner.lifecycle.removeObserver(observer)
             adapter.disableReaderMode(activity)
         }
     }
