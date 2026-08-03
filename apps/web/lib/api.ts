@@ -2,7 +2,15 @@ import { cookies } from "next/headers"
 
 import { SESSION_COOKIE } from "@/lib/constants"
 
-const API_BASE = process.env.API_URL || "http://localhost:8013"
+/** The backend origin, server-side only. One definition — the stream proxy
+ * (`app/api/stream/route.ts`) must talk to the same backend as every other read. */
+export const API_BASE = process.env.API_URL || "http://localhost:8013"
+
+/** The session-forwarding header, one way to build it — reads and the live
+ * stream must not drift apart in how they authenticate. */
+export function sessionCookieHeader(session: string): Record<string, string> {
+  return { Cookie: `${SESSION_COOKIE}=${session}` }
+}
 
 /** Consistent response envelope used by the backend. */
 export type ApiEnvelope<T> = {
@@ -74,9 +82,7 @@ async function apiRequest<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(sessionCookie
-        ? { Cookie: `${SESSION_COOKIE}=${sessionCookie}` }
-        : {}),
+      ...(sessionCookie ? sessionCookieHeader(sessionCookie) : {}),
       ...init.headers,
     },
     cache: "no-store",

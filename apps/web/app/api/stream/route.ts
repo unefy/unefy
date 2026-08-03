@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 
+import { API_BASE, sessionCookieHeader } from "@/lib/api"
 import { SESSION_COOKIE } from "@/lib/constants"
 
 /**
@@ -24,8 +25,6 @@ export const dynamic = "force-dynamic"
 // Edge would add a second runtime to reason about for no benefit here.
 export const runtime = "nodejs"
 
-const API_URL = process.env.API_URL || "http://localhost:8013"
-
 export async function GET(request: Request): Promise<Response> {
   const cookieStore = await cookies()
   const session = cookieStore.get(SESSION_COOKIE)?.value
@@ -36,7 +35,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const headers: HeadersInit = {
     Accept: "text/event-stream",
-    Cookie: `${SESSION_COOKIE}=${session}`,
+    ...sessionCookieHeader(session),
   }
 
   // Forwarded so a reconnect resumes exactly where it dropped instead of
@@ -48,7 +47,7 @@ export async function GET(request: Request): Promise<Response> {
 
   let upstream: Response
   try {
-    upstream = await fetch(`${API_URL}/api/v1/stream`, {
+    upstream = await fetch(`${API_BASE}/api/v1/stream`, {
       headers,
       // Without this the browser navigating away leaves the upstream connection
       // open until it times out, and the per-user stream cap fills up after

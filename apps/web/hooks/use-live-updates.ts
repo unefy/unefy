@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
 /**
@@ -24,16 +24,23 @@ const COALESCE_MS = 250
 export function useLiveUpdates(options?: { collections?: readonly string[] }): void {
   const router = useRouter()
 
-  // Keyed on the contents, not the array. Callers pass a literal — `{ collections:
-  // ["members"] }` — which is a new object every render, and depending on its
-  // identity would tear down and re-open the connection on each one. That is not a
-  // subtle inefficiency: reconnect storms are what the backend's per-user stream
-  // cap exists to stop, so this page would lock itself out after three renders.
+  // The filter lives in a ref, not in the effect: the connection must survive a
+  // filter change. A shell-wide caller derives its collections from the current
+  // route, so tying the EventSource's lifetime to the filter would tear down and
+  // re-open the connection on every navigation. That is not a subtle
+  // inefficiency: reconnect storms are what the backend's per-user stream cap
+  // exists to stop, so a user clicking through three pages would lock
+  // themselves out of live updates.
+  const collectionsRef = useRef<readonly string[] | null>(null)
+
+  // Keyed on the contents, not the array: callers pass a literal, which is a
+  // new object every render, and keying on identity would re-run this on each.
   const key = options?.collections?.join(",") ?? ""
+  useEffect(() => {
+    collectionsRef.current = key === "" ? null : key.split(",")
+  }, [key])
 
   useEffect(() => {
-    const collections = key === "" ? null : key.split(",")
-
     // A save that touches a member, their dues and an audit row arrives as three
     // hints in as many milliseconds. Refreshing per hint would re-render the tree
     // three times and re-run every server component with it.
@@ -49,6 +56,7 @@ export function useLiveUpdates(options?: { collections?: readonly string[] }): v
     const source = new EventSource("/api/stream")
 
     source.addEventListener("change", (event) => {
+      const collections = collectionsRef.current
       if (!collections) {
         schedule()
         return
@@ -74,5 +82,5 @@ export function useLiveUpdates(options?: { collections?: readonly string[] }): v
       if (timer !== null) clearTimeout(timer)
       source.close()
     }
-  }, [router, key])
+  }, [router])
 }
