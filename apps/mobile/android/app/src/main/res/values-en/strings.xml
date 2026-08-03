@@ -23,6 +23,7 @@
     <string name="nav_my_dues">My dues</string>
     <string name="account_sign_out">Sign out</string>
     <string name="nav_competitions">Competitions</string>
+    <string name="nav_check_in">Check-in</string>
     <string name="nav_more">More</string>
     <string name="nav_more_grid_hint">Tap to open a section. Press and hold, then drag down to put it in the bar — drag a tile out of the bar to take it back out.</string>
     <string name="nav_more_grid_empty">Every section is in the bar. Drag one out of the bar to put it back here.</string>
