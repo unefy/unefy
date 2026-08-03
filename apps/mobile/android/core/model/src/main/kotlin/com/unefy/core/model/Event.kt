@@ -19,6 +19,12 @@ data class Event(
     val status: String?,
     /** Whether the signed-in member is on this event. Comes from the backend. */
     val isRegistered: Boolean,
+    /**
+     * Name of the linked competition, if any. List-endpoint enrichment like
+     * [isRegistered] and [registeredCount] — absent from the sync mirror, filled
+     * by the online overlay.
+     */
+    val competitionName: String? = null,
 ) {
     /** Null when the event has no cap — an unbounded event has no "full" state. */
     val capacityRatio: Float?

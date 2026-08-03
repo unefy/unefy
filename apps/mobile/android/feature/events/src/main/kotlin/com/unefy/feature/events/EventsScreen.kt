@@ -29,10 +29,11 @@ import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.component.UnefyListScaffold
-import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
+import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.Event
+import com.unefy.core.network.ApiError
 
 @Composable
 fun EventsRoute(
@@ -46,8 +47,6 @@ fun EventsRoute(
         onRetry = viewModel::retry,
         onToggleRegistration = viewModel::toggleRegistration,
         onRefresh = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
-        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -58,8 +57,6 @@ fun EventsScreen(
     onRetry: () -> Unit = {},
     onToggleRegistration: (Event) -> Unit = {},
     onRefresh: () -> Unit = {},
-    onLoadMore: () -> Unit = {},
-    onMessageShown: () -> Unit = {},
 ) {
     val content = state as? EventsUiState.Content
 
@@ -68,10 +65,21 @@ fun EventsScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
-        onLoadMore = onLoadMore,
-        message = stringResource(DesignR.string.refresh_failed)
-            .takeIf { content?.refreshFailed == true },
-        onMessageShown = onMessageShown,
+        // No onLoadMore. The mirror holds the whole calendar, so scrolling has
+        // nothing to fetch.
+        banner = {
+            val stale = content?.staleBecause
+            UnefyStaleBanner(
+                visible = stale != null,
+                text = stringResource(
+                    if (stale is ApiError.Network) {
+                        DesignR.string.stale_offline
+                    } else {
+                        DesignR.string.stale_generic
+                    },
+                ),
+            )
+        },
     ) {
         when (state) {
             EventsUiState.Loading -> Unit
@@ -109,7 +117,13 @@ fun EventsScreen(
                             event = event,
                             dimmed = false,
                             busy = event.id in state.pending,
-                            canRegister = event.registrationOpen(state.now),
+                            // Capacity and registration state exist only where the
+                            // online overlay answered — never claim "0 of 40" for
+                            // a row the mirror alone knows.
+                            showRegistration = event.id in state.overlaid,
+                            canRegister = state.online &&
+                                event.id in state.overlaid &&
+                                event.registrationOpen(state.now),
                             onToggleRegistration = { onToggleRegistration(event) },
                         )
                     }
@@ -120,7 +134,6 @@ fun EventsScreen(
                     // meaningless there.
                     items(state.past, key = { it.id }) { EventRow(event = it, dimmed = true) }
                 }
-                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }
@@ -146,6 +159,8 @@ private fun EventRow(
     event: Event,
     dimmed: Boolean,
     busy: Boolean = false,
+    /** Whether the overlay knows this event — pill and buttons only then. */
+    showRegistration: Boolean = false,
     canRegister: Boolean = false,
     onToggleRegistration: (() -> Unit)? = null,
 ) {
@@ -188,7 +203,7 @@ private fun EventRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (event.registrationRequired) {
+        if (event.registrationRequired && showRegistration) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
@@ -297,6 +312,42 @@ private fun EventsPreview() {
                 ),
                 past = emptyList(),
                 now = "2026-02-01T00:00:00Z",
+                overlaid = setOf("1"),
+                online = true,
+            ),
+        )
+    }
+}
+
+/** Offline: rows from the mirror, no capacity pill, and the stale banner up top. */
+@Preview
+@Composable
+private fun EventsOfflinePreview() {
+    UnefyTheme {
+        EventsScreen(
+            state = EventsUiState.Content(
+                upcoming = listOf(
+                    Event(
+                        id = "1",
+                        title = "Jahreshauptversammlung 2026",
+                        description = null,
+                        type = "meeting",
+                        location = "Vereinsheim, großer Saal",
+                        startsAt = "2026-02-20T19:00:00Z",
+                        endsAt = null,
+                        allDay = false,
+                        registrationRequired = true,
+                        registrationDeadline = null,
+                        registeredCount = 0,
+                        maxParticipants = 40,
+                        status = "planned",
+                        isRegistered = false,
+                    ),
+                ),
+                past = emptyList(),
+                now = "2026-02-01T00:00:00Z",
+                online = false,
+                staleBecause = ApiError.Network(java.io.IOException()),
             ),
         )
     }

@@ -13,6 +13,9 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:designsystem"))
+    // Room mirrors the event list, and core:sync fills it.
+    implementation(project(":core:database"))
+    implementation(project(":core:sync"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -25,5 +28,6 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 }
