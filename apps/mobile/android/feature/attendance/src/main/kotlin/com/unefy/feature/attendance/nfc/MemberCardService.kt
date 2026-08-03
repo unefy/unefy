@@ -120,12 +120,10 @@ class MemberCardService : HostApduService() {
 
     /** A single light tick: "we touched", not "you are checked in". */
     private fun tick() {
-        getSystemService<Vibrator>()
-            ?.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE))
+        buzz(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     private fun vibrate(outcome: CheckInApdu.Outcome) {
-        val vibrator = getSystemService<Vibrator>() ?: return
         // Two short taps for success, one long buzz otherwise — distinguishable
         // in a pocket, which is where this phone often is.
         val effect = if (outcome == CheckInApdu.Outcome.RECORDED ||
@@ -135,6 +133,18 @@ class MemberCardService : HostApduService() {
         } else {
             VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE)
         }
-        vibrator.vibrate(effect)
+        buzz(effect)
+    }
+
+    /**
+     * Vibrates, and never takes the check-in down with it.
+     *
+     * A missing VIBRATE permission killed the app mid-tap once. The buzz is a
+     * courtesy; the check-in is the point, and no courtesy should be able to
+     * abort it — least of all on a device the member is holding out.
+     */
+    private fun buzz(effect: VibrationEffect) {
+        runCatching { getSystemService<Vibrator>()?.vibrate(effect) }
+            .onFailure { Log.i(TAG, "no vibration: ${it.message}") }
     }
 }

@@ -14,6 +14,10 @@
          one, for iPhones and for phones without an NFC chip. -->
     <uses-permission android:name="android.permission.NFC" />
 
+    <!-- The card service buzzes on a tap, and it has no screen to do it any
+         other way. Install-time, so nothing to ask the user for. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <uses-feature
         android:name="android.hardware.nfc"
         android:required="false" />
