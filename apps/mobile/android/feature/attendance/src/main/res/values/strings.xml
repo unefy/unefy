@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="attendance_code_title">Mein Check-in</string>
-    <string name="attendance_code_hint">Zeig diesen Code der Aufsicht. Er wechselt alle 30 Sekunden.</string>
+    <string name="attendance_code_hint">Zeig diesen Code der Aufsicht — oder leg dein Telefon mit der Rückseite an ihres. Der Code wechselt alle 30 Sekunden.</string>
+    <string name="attendance_antenna_caption">Hier sitzt deine Antenne — diese Stelle an das Gerät der Aufsicht halten</string>
     <string name="attendance_code_refresh_in">Neuer Code in %1$d s</string>
     <string name="attendance_code_read_title">Gelesen</string>
     <string name="attendance_code_read_body">Einen Moment, die Aufsicht bestätigt gerade.</string>
@@ -23,8 +24,11 @@
     <string name="scanner_nfc_off">NFC ist ausgeschaltet. Ohne NFC geht nur der QR-Code.</string>
     <string name="scanner_nfc_unavailable">Dieses Gerät hat kein NFC. Es geht nur der QR-Code.</string>
     <string name="scanner_nfc_idle">Erst eine Einheit wählen, dann ist NFC bereit.</string>
-    <string name="nfc_antenna_here">Antenne dieses Geräts</string>
-    <string name="scanner_nfc_hint">Für NFC die Rückseiten im oberen Drittel aneinanderhalten, dort sitzt bei den meisten Telefonen die Antenne. Es vibriert, sobald sich die beiden finden.</string>
+    <!-- Who holds what. The scanner is the terminal: it stays put and the
+         member brings their phone to it, the way everybody already knows from
+         paying. Saying nothing left both people waving phones at each other. -->
+    <string name="scanner_nfc_hint">Halte dein Telefon ruhig — das Mitglied legt seines mit der Rückseite dagegen. Es vibriert auf beiden Geräten, sobald sich die Antennen finden.</string>
+    <string name="scanner_antenna_caption">Hier sitzt deine Antenne</string>
     <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>

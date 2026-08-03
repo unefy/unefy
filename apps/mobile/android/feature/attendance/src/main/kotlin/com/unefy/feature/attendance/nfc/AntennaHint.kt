@@ -16,9 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.unefy.feature.attendance.R
 import com.unefy.core.designsystem.theme.UnefySpacing
 
 /** Where this phone's NFC antenna sits, in millimetres from the bottom-left. */
@@ -53,7 +51,7 @@ internal fun antennaSpot(adapter: NfcAdapter?): AntennaSpot? {
  * phone, which is why both screens show their own.
  */
 @Composable
-internal fun AntennaHint(modifier: Modifier = Modifier) {
+internal fun AntennaHint(caption: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val spot = remember { antennaSpot(NfcAdapter.getDefaultAdapter(context)) }
 
@@ -89,7 +87,7 @@ internal fun AntennaHint(modifier: Modifier = Modifier) {
         }
 
         Text(
-            text = stringResource(R.string.nfc_antenna_here),
+            text = caption,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

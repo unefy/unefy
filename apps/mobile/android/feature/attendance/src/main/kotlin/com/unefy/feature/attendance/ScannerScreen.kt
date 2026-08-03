@@ -279,6 +279,7 @@ private fun LazyListScope.scannerContent(
     // expected to know, and hunting for it blind was the worst part of the tap.
     item("nfc-hint") {
         AntennaHint(
+            caption = stringResource(R.string.scanner_antenna_caption),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = UnefySpacing.sm),

@@ -176,7 +176,10 @@ private fun CodeCard(state: MemberCodeUiState.Content) {
 
         // The other phone cannot be told where this one's antenna is, so each
         // shows its own and the two people meet in the middle.
-        AntennaHint(modifier = Modifier.fillMaxWidth())
+        AntennaHint(
+            caption = stringResource(R.string.attendance_antenna_caption),
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         if (state.seedStale) {
             Text(
