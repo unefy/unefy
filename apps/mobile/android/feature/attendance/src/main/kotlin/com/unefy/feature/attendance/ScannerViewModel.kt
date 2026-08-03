@@ -323,8 +323,12 @@ class ScannerViewModel @Inject constructor(
      * Both kinds, because from where the supervisor stands they are the same
      * mistake: a queued one is dropped outright, since it reached no server and
      * has no trail to keep consistent; a recorded one is soft-deleted and
-     * audited. The server refuses the second once the session is closed, which
-     * is the line this must not cross.
+     * audited.
+     *
+     * No reason is sent, which is why this path only works inside an open
+     * session — after closing, the server requires one. The scanner only ever
+     * lists open sessions, so it cannot get there; a correction to a closed
+     * evening is made in the web app, where there is a field to explain it.
      */
     fun undo(entry: CheckedInEntry) {
         viewModelScope.launch {

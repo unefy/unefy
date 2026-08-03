@@ -51,10 +51,10 @@ __all__ = [
     "SoftDeleteMixin",
     "Sport",
     "Tenant",
-    "TenantSport",
     "TenantAuditLog",
     "TenantMembership",
     "TenantMixin",
+    "TenantSport",
     "TimestampMixin",
     "User",
 ]

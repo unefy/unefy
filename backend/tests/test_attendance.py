@@ -354,13 +354,14 @@ async def test_a_supplied_reason_still_has_to_say_something(
     assert resp.status_code == 422
 
 
-async def test_a_closed_session_still_refuses_removal(
+async def test_a_closed_session_can_only_be_changed_with_a_reason(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
 ) -> None:
-    """The freeze is what assurance level 0 rests on.
+    """After closing, an explanation is the price of a change.
 
-    Making the reason optional loosened the check-in period, not the freeze —
-    after closing, a record cannot be removed with or without an explanation.
+    Inside the session a removal needs no words, because it is a mistap. Once
+    the evening is on record, a removal is a claim about what happened, and the
+    trail has to carry why somebody made it.
     """
     member = await _add_member(db_session, test_tenant.id)
     session_row = await _create_session(auth_client)
@@ -368,13 +369,60 @@ async def test_a_closed_session_still_refuses_removal(
     await auth_client.post(f"/api/v1/attendance/sessions/{session_row['id']}/close")
 
     without = await auth_client.delete(f"/api/v1/attendance/records/{record['id']}")
+    assert without.status_code == 422, without.text
+
     with_reason = await auth_client.delete(
         f"/api/v1/attendance/records/{record['id']}",
         params={"reason": "Doch nicht da gewesen"},
     )
+    assert with_reason.status_code == 204, with_reason.text
 
-    assert without.status_code == 409
-    assert with_reason.status_code == 409
+
+async def test_a_change_after_closing_is_filed_under_its_own_action(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """Reading the trail must not require comparing timestamps.
+
+    An amendment carries its own action name and the moment the session was
+    closed, so "changed during the evening" and "changed afterwards" are
+    distinguishable at a glance — which is the whole compensation for having
+    given up the freeze.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    session_row = await _create_session(auth_client)
+    record = await _check_in(auth_client, session_row["id"], member.id)
+    await auth_client.post(f"/api/v1/attendance/sessions/{session_row['id']}/close")
+
+    await auth_client.delete(
+        f"/api/v1/attendance/records/{record['id']}",
+        params={"reason": "Verwechslung, war nicht da"},
+    )
+
+    resp = await auth_client.get(f"/api/v1/attendance/records/{record['id']}/audit")
+    assert resp.status_code == 200
+    entry = next(e for e in resp.json()["data"] if e["action"].endswith("_after_close"))
+    assert entry["action"] == "attendance_record.deleted_after_close"
+    assert entry["reason"] == "Verwechslung, war nicht da"
+    # When the evening was closed, so the amendment can be placed against it.
+    assert entry["changes"]["session_closed_at"] is not None
+    assert entry["actor_user_id"] is not None
+
+
+async def test_a_change_during_the_session_is_not_marked_as_an_amendment(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    # Otherwise every ordinary correction would read as a post-hoc one and the
+    # distinction would be worthless.
+    member = await _add_member(db_session, test_tenant.id)
+    session_row = await _create_session(auth_client)
+    record = await _check_in(auth_client, session_row["id"], member.id)
+
+    await auth_client.delete(f"/api/v1/attendance/records/{record['id']}")
+
+    resp = await auth_client.get(f"/api/v1/attendance/records/{record['id']}/audit")
+    actions = [e["action"] for e in resp.json()["data"]]
+    assert "attendance_record.deleted" in actions
+    assert not any(a.endswith("_after_close") for a in actions)
 
 
 async def test_delete_record_is_soft_and_audited(
@@ -463,9 +511,16 @@ async def test_session_update_is_audited(auth_client: AsyncClient) -> None:
 # --- Freezing ---
 
 
-async def test_close_session_freezes_everything(
+async def test_close_session_stops_new_entries_but_not_corrections(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
 ) -> None:
+    """What closing still guarantees, now that corrections are allowed.
+
+    The freeze used to cover everything. The board needs to fix mistakes found
+    after the evening, so it now covers the two things a correction is not:
+    adding an attendance that was never claimed, and rewriting the session it
+    was claimed in.
+    """
     member = await _add_member(db_session, test_tenant.id)
     other = await _add_member(db_session, test_tenant.id, member_number="002", first_name="Bob")
     session_row = await _create_session(auth_client)
@@ -483,20 +538,24 @@ async def test_close_session_freezes_everything(
     )
     assert late.status_code == 409
 
-    # …no corrections…
+    # …but corrections are possible, with a reason. The board asked for that
+    # deliberately: a mistake found the next day has to be fixable. What closing
+    # still guarantees is that nobody can be *added* afterwards.
     correction = await auth_client.patch(
         f"/api/v1/attendance/records/{record['id']}",
-        json={"note": "doch nicht", "reason": "Nachtrag"},
+        json={"note": "doch nicht", "reason": "Nachtrag am Folgetag"},
     )
-    assert correction.status_code == 409
+    assert correction.status_code == 200, correction.text
 
-    # …no removals…
+    # …and removals likewise, with a reason.
     removal = await auth_client.delete(
         f"/api/v1/attendance/records/{record['id']}", params={"reason": "Nachtrag"}
     )
-    assert removal.status_code == 409
+    assert removal.status_code == 204, removal.text
 
-    # …and no editing the session itself.
+    # …but no editing the session itself. A record is a claim about one person
+    # and can be corrected; the session is the frame those claims were made in,
+    # and moving it would change the meaning of every record at once.
     edit = await auth_client.patch(
         f"/api/v1/attendance/sessions/{session_row['id']}", json={"location": "Anderswo"}
     )

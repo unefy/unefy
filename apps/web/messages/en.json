@@ -557,7 +557,8 @@
       "closed": "Closed"
     },
     "methods": {
-      "manual": "Ticked off"
+      "manual": "Ticked off",
+      "staff_scan": "Scanned"
     },
     "detail": {
       "back": "Back to overview",
@@ -566,7 +567,7 @@
     },
     "frozen": {
       "title": "Session is closed",
-      "description": "{count, plural, =0 {Nobody was recorded} one {# person was recorded} other {# people were recorded}}. No late entries and no corrections from here on — that is the point of closing."
+      "description": "{count, plural, =0 {Nobody was recorded} one {# person was recorded} other {# people were recorded}}. Nobody can be added any more. Individual entries can still be corrected — only with a reason, and logged separately."
     },
     "search": {
       "placeholder": "Find member – name or number …",
@@ -583,7 +584,8 @@
     },
     "removeDialog": {
       "title": "Remove {name}",
-      "description": "The entry leaves the list but stays traceable in the audit trail, with your reason."
+      "description": "The entry leaves the list but stays traceable in the audit trail, with your reason.",
+      "descriptionClosed": "This session is already closed. The change is logged separately as an amendment — with your name, the time, and this reason."
     },
     "deleteDialog": {
       "title": "Delete this session?",
@@ -611,7 +613,9 @@
         },
         "attendance_record": {
           "updated": "Entry corrected",
-          "deleted": "Entry removed"
+          "updated_after_close": "Entry corrected after closing",
+          "deleted": "Entry removed",
+          "deleted_after_close": "Entry removed after closing"
         }
       }
     },

@@ -557,7 +557,8 @@
       "closed": "Abgeschlossen"
     },
     "methods": {
-      "manual": "Abgehakt"
+      "manual": "Abgehakt",
+      "staff_scan": "Gescannt"
     },
     "detail": {
       "back": "Zurück zur Übersicht",
@@ -566,7 +567,7 @@
     },
     "frozen": {
       "title": "Termin ist abgeschlossen",
-      "description": "{count, plural, =0 {Es wurde niemand erfasst} one {# Person wurde erfasst} other {# Personen wurden erfasst}}. Nachträge und Korrekturen sind ab jetzt nicht mehr möglich — genau darum geht es beim Abschließen."
+      "description": "{count, plural, =0 {Es wurde niemand erfasst} one {# Person wurde erfasst} other {# Personen wurden erfasst}}. Nachträglich kann niemand mehr hinzugefügt werden. Korrekturen an einzelnen Einträgen sind noch möglich — nur mit Begründung und getrennt protokolliert."
     },
     "search": {
       "placeholder": "Mitglied suchen – Name oder Nummer …",
@@ -583,7 +584,8 @@
     },
     "removeDialog": {
       "title": "{name} entfernen",
-      "description": "Der Eintrag verschwindet aus der Liste, bleibt aber mit deiner Begründung im Protokoll nachvollziehbar."
+      "description": "Der Eintrag verschwindet aus der Liste, bleibt aber mit deiner Begründung im Protokoll nachvollziehbar.",
+      "descriptionClosed": "Der Termin ist bereits abgeschlossen. Die Änderung wird als Nachtrag gesondert protokolliert — mit deinem Namen, dem Zeitpunkt und dieser Begründung."
     },
     "deleteDialog": {
       "title": "Termin löschen?",
@@ -611,7 +613,9 @@
         },
         "attendance_record": {
           "updated": "Eintrag korrigiert",
-          "deleted": "Eintrag entfernt"
+          "updated_after_close": "Eintrag nachträglich korrigiert",
+          "deleted": "Eintrag entfernt",
+          "deleted_after_close": "Eintrag nachträglich entfernt"
         }
       }
     },

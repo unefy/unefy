@@ -104,11 +104,9 @@ export function AttendanceList({
                 </TableHead>
                 <TableHead className="w-28">{t("columns.assurance")}</TableHead>
                 <TableHead>{t("columns.note")}</TableHead>
-                {!closed && (
-                  <TableHead className="w-px text-end">
-                    {t("columns.actions")}
-                  </TableHead>
-                )}
+                <TableHead className="w-px text-end">
+                  {t("columns.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -137,49 +135,55 @@ export function AttendanceList({
                   <TableCell className="text-sm text-muted-foreground">
                     {record.note ?? "—"}
                   </TableCell>
-                  {!closed && (
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {record.checked_out_at === null && (
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Checking out is a fresh claim about when somebody
+                          left, not a correction, so it ends with the session.
+                          Afterwards the same field can only be set through the
+                          correction dialog, which insists on a reason. */}
+                      {!closed && record.checked_out_at === null && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={pending}
+                          onClick={() => checkOut(record)}
+                          aria-label={t("checkOut")}
+                          title={t("checkOut")}
+                        >
+                          <LogOutIcon />
+                        </Button>
+                      )}
+                      <CorrectionDialog
+                        sessionId={session.id}
+                        record={record}
+                      />
+                      <ReasonDialog
+                        trigger={
                           <Button
                             variant="ghost"
                             size="sm"
-                            disabled={pending}
-                            onClick={() => checkOut(record)}
-                            aria-label={t("checkOut")}
-                            title={t("checkOut")}
+                            aria-label={t("remove")}
+                            title={t("remove")}
                           >
-                            <LogOutIcon />
+                            <Trash2Icon className="text-destructive" />
                           </Button>
+                        }
+                        title={t("removeDialog.title", {
+                          name: record.member_name ?? "",
+                        })}
+                        description={t(
+                          closed
+                            ? "removeDialog.descriptionClosed"
+                            : "removeDialog.description"
                         )}
-                        <CorrectionDialog
-                          sessionId={session.id}
-                          record={record}
-                        />
-                        <ReasonDialog
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label={t("remove")}
-                              title={t("remove")}
-                            >
-                              <Trash2Icon className="text-destructive" />
-                            </Button>
-                          }
-                          title={t("removeDialog.title", {
-                            name: record.member_name ?? "",
-                          })}
-                          description={t("removeDialog.description")}
-                          confirmLabel={t("remove")}
-                          successMessage={t("toasts.removed")}
-                          action={(reason) =>
-                            removeRecordAction(session.id, record.id, reason)
-                          }
-                        />
-                      </div>
-                    </TableCell>
-                  )}
+                        confirmLabel={t("remove")}
+                        successMessage={t("toasts.removed")}
+                        action={(reason) =>
+                          removeRecordAction(session.id, record.id, reason)
+                        }
+                      />
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

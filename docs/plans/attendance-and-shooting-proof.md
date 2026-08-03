@@ -257,7 +257,9 @@ Kostet nichts, ist später kaum nachrüstbar, adressiert den realistischen Angri
 - Jede Korrektur und jede Löschung eines Anwesenheitsdatensatzes erzeugt einen
   Eintrag über das vorhandene [`models/audit.py`](../../backend/app/models/audit.py)
   mit Benutzer, Zeitpunkt, Vorher/Nachher und Begründung. Ein nachträglich
-  eingefügter Termin muss als nachträglich eingefügt erkennbar sein.
+  eingefügter Termin muss als nachträglich eingefügt erkennbar sein. Änderungen
+  nach dem Abschluss einer Einheit sind erlaubt, aber nur mit Begründung und
+  unter eigener Audit-Aktion — siehe „Korrigieren nach dem Schließen".
 - Beim Ausstellen einer Bescheinigung werden `record_ids` und `content_hash`
   festgeschrieben. Damit ist später beweisbar, dass genau dieses PDF zu genau diesen
   Datensätzen gehört, auch wenn einer davon danach korrigiert wurde.
@@ -284,8 +286,11 @@ class ProofChainAnchor(Base, TimestampMixin, TenantMixin):
 ```
 
 - Beim **Abschluss einer Session** wird über deren Datensätze gehasht und ein
-  Kettenglied angehängt (`close_hash` auf der Session). Danach sind Nachträge in diese
-  Session ausgeschlossen — Backdating wird erkennbar.
+  Kettenglied angehängt (`close_hash` auf der Session). Backdating wird damit
+  erkennbar. Seit der Entscheidung vom 2026-08-03 sind Nachträge nicht mehr
+  ausgeschlossen, sondern nur noch nachweisbar: eine Korrektur nach dem
+  Abschluss hängt ein eigenes Kettenglied an, statt das bestehende zu ersetzen
+  (siehe „Korrigieren nach dem Schließen").
 - Beim **Ausstellen einer Bescheinigung** ebenso.
 - Ein Job stempelt den Kettenkopf regelmäßig (täglich oder monatlich) bei einem
   externen RFC-3161-Dienst.
@@ -591,13 +596,44 @@ Gepufferte Check-ins werden beim Zurücknehmen wirklich gelöscht statt weich �
 sie haben nie einen Server erreicht, es gibt also keinen Datensatz zu
 korrigieren und keine Spur, zu der Konsistenz zu halten wäre.
 
-**Nach dem Schließen bleibt es gesperrt**, mit und ohne Begründung. Der
-Vorschlag, dort mit passenden Rechten weiter korrigieren zu lassen, würde
-genau das Einfrieren aufweichen, auf dem Stufe 0 beruht — dass ein Nachtrag
-unmöglich ist und nicht bloß sichtbar. Nicht umgesetzt; wenn es kommen soll,
-dann als eigener Pfad für `owner`/`admin` mit Pflichtbegründung und einer
-eigenen Audit-Aktion, damit im Trail unterscheidbar bleibt, was während der
-Einheit und was danach geändert wurde.
+**Korrigieren nach dem Schließen** (2026-08-03, umgesetzt). Ursprünglich blieb
+eine geschlossene Einheit gesperrt, mit und ohne Begründung. Auf Entscheidung
+des Projektinhabers dürfen `owner`, `admin` und `board` einzelne Datensätze
+jetzt auch danach ändern und entfernen — ausschließlich mit Begründung
+(mindestens drei Zeichen, serverseitig erzwungen, auch beim Entfernen, wo sie
+in offener Einheit optional ist).
+
+Das ist bewusst eine **Aufweichung des Einfrierens**, auf dem Stufe 0 beruht:
+Ein Nachtrag ist nicht mehr unmöglich, sondern nur noch sichtbar. Getauscht
+wurde diese Eigenschaft gegen die Fähigkeit, einen am Folgetag entdeckten
+Fehler überhaupt zu beheben — ohne die entstünde der Druck, Einheiten
+gar nicht zu schließen, was schlechter wäre als ein protokollierter Nachtrag.
+
+Was die Änderung trägt, ist die Protokollierung:
+
+- Eigene Audit-Aktion `attendance_record.updated_after_close` bzw.
+  `…deleted_after_close`, damit im Trail ohne Zeitstempelvergleich
+  unterscheidbar ist, was während der Einheit und was danach geschah.
+- Der Eintrag führt zusätzlich `session_closed_at` und `session_closed_by`
+  mit, sodass der Nachtrag gegen den Abschluss gestellt werden kann.
+- Was gesperrt bleibt: **neue Check-ins** und das **Bearbeiten der Einheit
+  selbst**. Ein Datensatz ist eine Aussage über eine Person und korrigierbar;
+  die Einheit ist der Rahmen, in dem alle diese Aussagen gemacht wurden, und
+  ihn zu verschieben würde die Bedeutung jedes Datensatzes auf einmal ändern.
+  Auch ein Auschecken bleibt gesperrt — es ist eine neue Aussage über einen
+  Zeitpunkt, keine Korrektur; über den Korrekturdialog mit Begründung ist das
+  Feld weiterhin erreichbar.
+
+**Wo das passiert:** im Web. Der Android-Scanner listet ausschließlich offene
+Einheiten und sendet beim Zurücknehmen keine Begründung — er kommt an eine
+geschlossene Einheit also gar nicht heran und braucht keine Änderung.
+
+**Folge für Stufe 1:** Der `close_hash` kann damit nicht mehr „danach ist
+nichts passiert" bedeuten, sondern nur „das war der Stand beim Abschluss". Ein
+Nachtrag darf die Kette nicht neu schreiben, sondern muss ein **eigenes
+Kettenglied** anhängen (`entry_type: "record_amendment"`), das auf den
+`close_hash` verweist. Sonst wäre die Kette bei jeder Korrektur entweder falsch
+oder nachträglich verändert — und damit wertlos.
 
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch

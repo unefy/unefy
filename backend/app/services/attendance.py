@@ -27,6 +27,7 @@ from app.repositories.attendance import (
 )
 from app.repositories.member import MemberRepository
 from app.schemas.attendance import (
+    REASON_MIN_LENGTH,
     AttendanceCheckIn,
     AttendanceRecordUpdate,
     AttendanceScanCheckIn,
@@ -62,6 +63,16 @@ CLOCK_SKEW_ALLOWANCE = timedelta(minutes=5)
 # One message for every way a code can fail. Which half of a guess was right is
 # not something the endpoint should confirm.
 INVALID_CODE_MESSAGE = "Code is not valid. Ask the member for a fresh one."
+
+
+def action_for(action: str, amendment: dict[str, Any] | None) -> str:
+    """Names a change made after the session was closed differently.
+
+    So that reading the trail does not require comparing every entry's
+    timestamp against the session's closing time to find out which changes were
+    amendments.
+    """
+    return f"{action}_after_close" if amendment is not None else action
 
 
 def _context_digest(context: AttendanceCheckinContext) -> str:
@@ -131,6 +142,35 @@ class AttendanceService:
     async def _require_open(self, row: AttendanceSession) -> None:
         if row.status == "closed":
             raise ConflictError("Attendance session is closed. Closed sessions cannot be changed.")
+
+    def _amendment(self, row: AttendanceSession, reason: str | None) -> dict[str, Any] | None:
+        """Guards and describes a change made after a session was closed.
+
+        Closing used to make a record untouchable, and that freeze is what
+        assurance level 0 rested on: a late entry was impossible rather than
+        merely visible. Corrections after the fact are now allowed for the
+        board, which is a deliberate trade of that property for the ability to
+        fix a real mistake found the next day.
+
+        What keeps it defensible is that such a change cannot be quiet. A reason
+        is mandatory, the audit action is a different one, and the entry carries
+        when the session was closed — so anyone reading the trail can separate
+        what happened during the evening from what happened afterwards without
+        having to compare timestamps by hand.
+
+        Returns null while the session is open, meaning "nothing to declare".
+        """
+        if row.status != "closed":
+            return None
+        if reason is None or len(reason.strip()) < REASON_MIN_LENGTH:
+            raise ValidationError(
+                "A closed session can only be changed with a reason of at least "
+                f"{REASON_MIN_LENGTH} characters."
+            )
+        return {
+            "session_closed_at": jsonable(row.closed_at),
+            "session_closed_by": jsonable(row.closed_by),
+        }
 
     async def _validate_supervisor(self, member_id: uuid.UUID | None) -> None:
         if member_id is None:
@@ -500,7 +540,8 @@ class AttendanceService:
         request: Request | None = None,
     ) -> AttendanceRecord:
         record = await self.get_record(record_id)
-        await self._require_open(await self.get_session(record.session_id))
+        session_row = await self.get_session(record.session_id)
+        amendment = self._amendment(session_row, data.reason)
 
         changes = data.model_dump(exclude_unset=True, exclude={"reason"})
         before = {field: getattr(record, field) for field in changes}
@@ -516,11 +557,11 @@ class AttendanceService:
             await record_tenant_action(
                 self.session,
                 self.auth,
-                f"{RECORD_TARGET}.updated",
+                action_for(f"{RECORD_TARGET}.updated", amendment),
                 target_type=RECORD_TARGET,
                 target_id=record.id,
                 request=request,
-                changes=applied,
+                changes=applied | (amendment or {}),
                 reason=data.reason,
             )
         await self.session.refresh(record)
@@ -531,13 +572,15 @@ class AttendanceService:
     ) -> None:
         """Soft-delete a record. The only removal path outside the retention job.
 
-        Refused once the session is closed, which is what makes the freeze in
-        assurance level 0 mean anything: a late entry has to be impossible, not
-        merely visible. That is also why the reason may be omitted here — the
-        window this is reachable in is the evening itself.
+        Inside an open session the reason may be omitted: a removal there is
+        almost always a mistap from seconds ago, and the audit entry's actor and
+        timestamp are what evidence it. Once the session is closed a reason
+        becomes mandatory and the entry is filed under a different action — see
+        [_amendment].
         """
         record = await self.get_record(record_id)
-        await self._require_open(await self.get_session(record.session_id))
+        session_row = await self.get_session(record.session_id)
+        amendment = self._amendment(session_row, reason)
 
         # Who and when are kept in the entry: once the row is soft-deleted it
         # drops out of every ordinary query, and the trail has to stand alone.
@@ -546,12 +589,12 @@ class AttendanceService:
             "session_id": jsonable(record.session_id),
             "occurred_on": jsonable(record.occurred_on),
             "checked_in_at": jsonable(record.checked_in_at),
-        }
+        } | (amendment or {})
         await self.records.soft_delete(record_id)
         await record_tenant_action(
             self.session,
             self.auth,
-            f"{RECORD_TARGET}.deleted",
+            action_for(f"{RECORD_TARGET}.deleted", amendment),
             target_type=RECORD_TARGET,
             target_id=record_id,
             request=request,
