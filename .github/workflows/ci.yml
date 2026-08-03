@@ -1,0 +1,113 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: unefy
+          POSTGRES_PASSWORD: unefy
+          POSTGRES_DB: unefy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unefy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # mypy --strict is the stated bar (backend/CLAUDE.md), but the repo-wide
+      # baseline predates it and does not pass. Until that debt is paid, strict
+      # checking covers the modules known to be clean, so new code in them
+      # cannot regress.
+      - name: Type-check (clean modules)
+        run: >
+          uv run mypy --strict
+          app/integrations/push.py
+          app/events/push_fanout.py
+          app/api/v1/push.py
+          app/repositories/push_device.py
+          app/models/push_device.py
+          app/schemas/push.py
+
+      # One process, deliberately: the suite shares one database, and parallel
+      # runs produce phantom failures.
+      - name: Tests
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://unefy:unefy@localhost:5432/unefy_test
+        run: uv run pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # google-services.json is deliberately absent here — the conditional
+      # plugin application must keep the build green without it, and CI is
+      # exactly the fork-shaped environment that proves it.
+      - name: Unit tests, lint, build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
