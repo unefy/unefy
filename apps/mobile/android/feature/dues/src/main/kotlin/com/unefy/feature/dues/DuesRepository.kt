@@ -1,5 +1,8 @@
 package com.unefy.feature.dues
 
+import com.unefy.core.database.DueWithMemberName
+import com.unefy.core.database.SyncCursorDao
+import com.unefy.core.database.SyncedDueDao
 import com.unefy.core.model.DuesEntry
 import com.unefy.core.model.DuesStatus
 import com.unefy.core.model.DuesSummary
@@ -14,6 +17,8 @@ import dagger.hilt.components.SingletonComponent
 import io.ktor.client.request.parameter
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -21,7 +26,13 @@ import kotlinx.serialization.Serializable
 internal data class DuesDto(
     val id: String,
     @SerialName("member_id") val memberId: String = "",
-    @SerialName("member_name") val memberName: String = "",
+    /**
+     * Nullable, not defaulted-empty: the sync payload carries an explicit
+     * `member_name: null` (the merge only happens on the list endpoints), and
+     * an explicit null does not fall back to a default — it threw, mid-apply,
+     * and the dues mirror never filled.
+     */
+    @SerialName("member_name") val memberName: String? = null,
     @SerialName("fee_name") val feeName: String = "",
     val amount: String = "0",
     @SerialName("due_date") val dueDate: String? = null,
@@ -40,7 +51,7 @@ internal data class DuesSummaryDto(
 internal fun DuesDto.toDomain() = DuesEntry(
     id = id,
     memberId = memberId,
-    memberName = memberName,
+    memberName = memberName.orEmpty(),
     feeName = feeName,
     amount = amount,
     dueDate = dueDate,
@@ -51,46 +62,58 @@ internal fun DuesDto.toDomain() = DuesEntry(
 internal fun DuesSummaryDto.toDomain() =
     DuesSummary(openCount, openAmount, paidCount, paidAmount)
 
+/** A mirror row as the domain model — the name arrives from the member join. */
+internal fun DueWithMemberName.toDomain() = DuesEntry(
+    id = id,
+    memberId = memberId,
+    memberName = memberName,
+    feeName = feeName,
+    amount = amount,
+    dueDate = dueDate,
+    status = DuesStatus.fromApi(status),
+    paidAt = paidAt,
+)
+
 interface DuesRepository {
     /**
-     * Administrative: every member's dues, board and above only.
+     * Administrative: every member's dues, from the local mirror, board and
+     * above only (a plain member's sync is refused and latched, so the mirror
+     * simply stays empty for them).
      *
-     * @param status one of the backend's `open`, `paid`, `cancelled`, or null for
-     *   all of them. Filtering here rather than on the loaded pages: a ledger
-     *   runs to thousands of rows, and "offen" has to mean every open due, not
-     *   the open ones that happen to be among the pages fetched so far.
+     * @param status one of the backend's `open`, `paid`, `cancelled`, or null
+     *   for all of them. Filtered in SQL — the local counterpart of the server
+     *   filter the chips used to reload with: "offen" means every open due in
+     *   the ledger, not the open ones among the rows on screen.
      */
-    suspend fun list(
-        page: Int = 1,
-        perPage: Int = 50,
-        status: String? = null,
-    ): ApiResult<List<DuesEntry>>
+    fun stream(status: String? = null): Flow<List<DuesEntry>>
 
-    /** Self-service: the caller's own dues. */
+    /** Whether the dues mirror holds the whole ledger — see MembersRepository. */
+    fun hasSynced(): Flow<Boolean>
+
+    /** Self-service: the caller's own dues. Online — see the plan: a plain
+     * member may not sync the dues collection, so this stays a paged request. */
     suspend fun mine(
         page: Int = 1,
         perPage: Int = 50,
         status: String? = null,
     ): ApiResult<List<DuesEntry>>
 
+    /** The club-wide totals. Deliberately online-only: one implementation of
+     * the money arithmetic, on the server. Offline the header is hidden. */
     suspend fun summary(): ApiResult<DuesSummary>
 }
 
 @Singleton
 class DefaultDuesRepository @Inject constructor(
     private val apiClient: ApiClient,
+    private val dues: SyncedDueDao,
+    private val cursors: SyncCursorDao,
 ) : DuesRepository {
-    override suspend fun list(
-        page: Int,
-        perPage: Int,
-        status: String?,
-    ): ApiResult<List<DuesEntry>> = apiClient
-        .get<List<DuesDto>>(ApiEndpoints.DUES) {
-            parameter("page", page)
-            parameter("per_page", perPage)
-            status?.let { parameter("status", it) }
-        }
-        .map { dtos -> dtos.map(DuesDto::toDomain) }
+    override fun stream(status: String?): Flow<List<DuesEntry>> =
+        dues.withMemberNames(status).map { rows -> rows.map(DueWithMemberName::toDomain) }
+
+    override fun hasSynced(): Flow<Boolean> =
+        cursors.bootstrapCompleteStream(DuesSyncCollection.COLLECTION)
 
     override suspend fun mine(
         page: Int,

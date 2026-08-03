@@ -7,34 +7,45 @@ import com.unefy.core.model.DuesStatus
 import com.unefy.core.model.DuesSummary
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
-import com.unefy.core.network.PageTracker
+import com.unefy.core.sync.SyncCoordinator
+import com.unefy.core.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface DuesUiState {
     data object Loading : DuesUiState
 
     data class Content(
+        /** Null offline or before the aggregate has loaded — the header hides. */
         val summary: DuesSummary?,
         /**
-         * What the backend returned for the active [filter]. Already filtered —
-         * the chips reload rather than narrow what is on screen, because the
-         * pages loaded so far are not the whole ledger.
+         * The rows for the active [filter]. On the board screen this is a SQL
+         * filter over the local mirror; on MyDues it is what the backend
+         * returned — either way already filtered, never narrowed on screen.
          */
         val entries: List<DuesEntry>,
         val filter: DuesFilter,
         val isRefreshing: Boolean = false,
-        /** A refresh that failed, so the screen can say so and then forget it. */
+        /** A refresh that failed (MyDues only — the mirror uses [staleBecause]). */
         val refreshFailed: Boolean = false,
-        /** A further page is on its way, so the list can show a footer. */
+        /** A further page is on its way (MyDues only — the mirror has no pages). */
         val isLoadingMore: Boolean = false,
+        /**
+         * Why the mirror is not current, if it is not (board screen only). A
+         * standing fact, not an event: clears itself on the next successful sync.
+         */
+        val staleBecause: ApiError? = null,
     ) : DuesUiState
 
     data class Failure(val error: ApiError) : DuesUiState
@@ -53,121 +64,104 @@ enum class DuesFilter(val apiValue: String?) {
     PAID(DuesStatus.PAID.apiValue),
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DuesViewModel @Inject constructor(
     private val repository: DuesRepository,
+    private val coordinator: SyncCoordinator,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<DuesUiState>(DuesUiState.Loading)
-    val uiState: StateFlow<DuesUiState> = _uiState.asStateFlow()
-
-    private var filter = DuesFilter.ALL
-
-    private val pages = PageTracker()
-
-    /** Cancelled by [load], so a late page cannot append to a reloaded list. */
-    private var moreInFlight: Job? = null
-
-    init {
-        load()
-    }
-
-    fun retry() = load()
-
-    fun refresh() = load(showRefreshing = true, keepOnFailure = true)
-
-    fun onMessageShown() = _uiState.update { state ->
-        (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
-    }
-
-    /** Appends the next page of entries, under the filter that is active. */
-    fun loadMore() {
-        if (!pages.start()) return
-        _uiState.update { state ->
-            (state as? DuesUiState.Content)?.copy(isLoadingMore = true) ?: state
-        }
-
-        moreInFlight = viewModelScope.launch {
-            when (val result = repository.list(page = pages.next, status = filter.apiValue)) {
-                is ApiResult.Success -> {
-                    pages.advance(result.meta)
-                    _uiState.update { state ->
-                        (state as? DuesUiState.Content)?.copy(
-                            entries = state.entries + result.data,
-                            isLoadingMore = false,
-                        ) ?: state
-                    }
-                }
-
-                is ApiResult.Failure -> {
-                    pages.fail()
-                    _uiState.update { state ->
-                        (state as? DuesUiState.Content)
-                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
-                    }
-                }
-            }
-        }
-    }
+    private val filter = MutableStateFlow(DuesFilter.ALL)
+    private val refreshing = MutableStateFlow(false)
 
     /**
-     * Reloads under the new filter. A round trip, where this used to be a local
-     * list operation — the cost of the chips telling the truth about a ledger
-     * that does not fit in memory.
+     * The club-wide totals, online-only by decision: one implementation of the
+     * money arithmetic, on the server. Null hides the header — offline the list
+     * stays and the totals simply are not claimed.
      */
-    fun onFilterChange(value: DuesFilter) {
-        if (value == filter) return
-        filter = value
-        // The chip flips immediately; the rows follow. keepOnFailure is false on
-        // purpose — rows from the old filter under a chip that says "offen" would
-        // be worse than the error screen.
-        _uiState.update { state ->
-            (state as? DuesUiState.Content)?.copy(filter = value) ?: state
-        }
-        load(showRefreshing = true, keepOnFailure = false)
+    private val summary = MutableStateFlow<DuesSummary?>(null)
+
+    /**
+     * Filter and rows together, from one flow — a chip tap must never pair the
+     * new chip with the old rows for a frame. The filter runs in SQL over the
+     * mirror; a chip change is a local re-query, not a round trip, which is why
+     * the old in-flight-request race simply no longer exists here.
+     */
+    private val filtered = filter.flatMapLatest { f ->
+        repository.stream(f.apiValue).map { f to it }
     }
 
-    private fun load(
-        /** Keep the rows on screen with the refresh indicator, rather than clearing them. */
-        showRefreshing: Boolean = false,
-        /** Keep the rows if the call fails, instead of showing the error screen. */
-        keepOnFailure: Boolean = false,
-    ) {
-        moreInFlight?.cancel()
-        val current = _uiState.value
-        if (showRefreshing && current is DuesUiState.Content) {
-            _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
-        } else {
-            _uiState.value = DuesUiState.Loading
-        }
-        pages.reset()
+    val uiState: StateFlow<DuesUiState> = repository.hasSynced()
+        .distinctUntilChanged()
+        .flatMapLatest { hasSynced -> if (hasSynced) contentState() else preSyncState() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_GRACE_MS),
+            initialValue = DuesUiState.Loading,
+        )
 
-        viewModelScope.launch {
-            // Both calls in flight at once — the summary is not derived from the
-            // page of entries, so waiting for one before the other is wasted time.
-            val entriesDeferred = async { repository.list(page = 1, status = filter.apiValue) }
-            val summaryDeferred = async { repository.summary() }
+    init {
+        viewModelScope.launch { loadSummary() }
+    }
 
-            when (val entries = entriesDeferred.await()) {
-                is ApiResult.Success -> {
-                    pages.advance(entries.meta)
-                    _uiState.value = DuesUiState.Content(
-                        summary = (summaryDeferred.await() as? ApiResult.Success)?.data,
-                        entries = entries.data,
-                        filter = filter,
-                    )
-                }
+    private fun contentState(): Flow<DuesUiState> = combine(
+        filtered,
+        summary,
+        coordinator.status(DuesSyncCollection.COLLECTION),
+        refreshing,
+    ) { (activeFilter, entries), totals, status, isRefreshing ->
+        DuesUiState.Content(
+            summary = totals,
+            entries = entries,
+            filter = activeFilter,
+            isRefreshing = isRefreshing,
+            staleBecause = (status as? SyncStatus.Failed)?.error,
+        )
+    }
 
-                // A refresh that fails keeps the list it already has and says so
-                // in a snackbar. Replacing loaded content with a full-screen
-                // error because the connection dropped for a second is worse
-                // than showing something a minute out of date.
-                is ApiResult.Failure -> {
-                    val keep = if (keepOnFailure) _uiState.value as? DuesUiState.Content else null
-                    _uiState.value = keep?.copy(isRefreshing = false, refreshFailed = true)
-                        ?: DuesUiState.Failure(entries.error)
-                }
+    private fun preSyncState(): Flow<DuesUiState> =
+        coordinator.status(DuesSyncCollection.COLLECTION).map { status ->
+            when {
+                // A plain member may not mirror the ledger; the coordinator
+                // latches the refusal, and this screen reports it as what it is.
+                status == SyncStatus.NotPermitted -> DuesUiState.Failure(ApiError.Forbidden)
+                status is SyncStatus.Failed -> DuesUiState.Failure(status.error)
+                else -> DuesUiState.Loading
             }
         }
+
+    fun retry() = syncNow()
+
+    fun refresh() = syncNow()
+
+    /** A local re-query over the mirror — no request, no race, no reload. */
+    fun onFilterChange(value: DuesFilter) {
+        filter.value = value
+    }
+
+    private fun syncNow() {
+        // Claimed before launching — see MembersViewModel: the pull gesture
+        // fires on drag, so three drags would otherwise start three drains.
+        if (!refreshing.compareAndSet(expect = false, update = true)) return
+
+        viewModelScope.launch {
+            try {
+                // The mirror and the aggregate together: the header should match
+                // the rows it sits above.
+                val drain = launch { coordinator.syncNow(DuesSyncCollection.COLLECTION) }
+                loadSummary()
+                drain.join()
+            } finally {
+                refreshing.value = false
+            }
+        }
+    }
+
+    private suspend fun loadSummary() {
+        (repository.summary() as? ApiResult.Success)?.let { summary.value = it.data }
+    }
+
+    private companion object {
+        const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }

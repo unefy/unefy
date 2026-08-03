@@ -32,9 +32,11 @@ import com.unefy.core.designsystem.theme.UnefyMoneyTextStyle
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.DuesEntry
+import com.unefy.core.network.ApiError
 import com.unefy.core.model.DuesStatus
 import com.unefy.core.model.DuesSummary
 
@@ -50,8 +52,6 @@ fun DuesRoute(
         onFilterChange = viewModel::onFilterChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
-        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -65,7 +65,8 @@ fun DuesScreen(
     onFilterChange: (DuesFilter) -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    onLoadMore: () -> Unit = {},
+    /** Null on the board screen — its mirror holds the whole ledger. */
+    onLoadMore: (() -> Unit)? = null,
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? DuesUiState.Content
@@ -79,6 +80,19 @@ fun DuesScreen(
         message = stringResource(DesignR.string.refresh_failed)
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
+        banner = {
+            val stale = content?.staleBecause
+            UnefyStaleBanner(
+                visible = stale != null,
+                text = stringResource(
+                    if (stale is ApiError.Network) {
+                        DesignR.string.stale_offline
+                    } else {
+                        DesignR.string.stale_generic
+                    },
+                ),
+            )
+        },
     ) {
         when (state) {
             DuesUiState.Loading -> Unit

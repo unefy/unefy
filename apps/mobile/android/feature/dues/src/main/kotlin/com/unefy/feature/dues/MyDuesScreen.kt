@@ -40,6 +40,9 @@ class MyDuesViewModel @Inject constructor(
     /** Cancelled by [load], so a late page cannot append to a reloaded list. */
     private var moreInFlight: Job? = null
 
+    /** Cancelled by the next [load] — see [DuesViewModel.loadInFlight]. */
+    private var loadInFlight: Job? = null
+
     init {
         load()
     }
@@ -98,6 +101,7 @@ class MyDuesViewModel @Inject constructor(
         keepOnFailure: Boolean = false,
     ) {
         moreInFlight?.cancel()
+        loadInFlight?.cancel()
         val current = _uiState.value
         if (showRefreshing && current is DuesUiState.Content) {
             _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
@@ -106,15 +110,16 @@ class MyDuesViewModel @Inject constructor(
         }
         pages.reset()
 
-        viewModelScope.launch {
-            when (val result = repository.mine(page = 1, status = filter.apiValue)) {
+        val requested = filter
+        loadInFlight = viewModelScope.launch {
+            when (val result = repository.mine(page = 1, status = requested.apiValue)) {
                 is ApiResult.Success -> {
                     pages.advance(result.meta)
                     _uiState.value = DuesUiState.Content(
                         // No summary: /dues/summary is club-wide and board-only.
                         summary = null,
                         entries = result.data,
-                        filter = filter,
+                        filter = requested,
                     )
                 }
 
