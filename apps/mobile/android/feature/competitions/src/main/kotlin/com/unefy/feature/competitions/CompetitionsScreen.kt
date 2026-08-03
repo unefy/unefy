@@ -149,7 +149,7 @@ private fun CompetitionRow(competition: Competition, onClick: () -> Unit) {
 }
 
 @Composable
-private fun dateRange(competition: Competition): String {
+internal fun dateRange(competition: Competition): String {
     val start = UnefyFormat.date(competition.startDate)
     val end = competition.endDate?.let(UnefyFormat::date)
     return if (end.isNullOrBlank() || end == start) start else "$start – $end"

@@ -53,6 +53,10 @@ interface SyncedCompetitionDao {
     @Query("SELECT * FROM synced_competitions ORDER BY startDate DESC, name")
     fun all(): Flow<List<SyncedCompetition>>
 
+    /** One competition, live: the detail updates when a sync touches the row. */
+    @Query("SELECT * FROM synced_competitions WHERE id = :id")
+    fun byIdStream(id: String): Flow<SyncedCompetition?>
+
     @Upsert
     suspend fun upsert(competitions: List<SyncedCompetition>)
 

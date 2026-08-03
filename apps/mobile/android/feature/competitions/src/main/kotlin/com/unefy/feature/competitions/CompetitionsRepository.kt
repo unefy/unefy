@@ -15,6 +15,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.ktor.client.request.parameter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -114,9 +115,17 @@ interface CompetitionsRepository {
     /** Whether the mirror holds the whole collection — see MembersRepository. */
     fun hasSynced(): Flow<Boolean>
 
-    /** The live ranking. Online-only: a stale ranking shown as current would be
-     * worse than a spinner, and the server owns the aggregation. */
-    suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard>
+    /** One competition from the mirror, live — the detail is fully offline. */
+    fun byIdStream(id: String): Flow<Competition?>
+
+    /**
+     * The live ranking. Online-only: a stale ranking shown as current would be
+     * worse than a spinner, and the server owns the aggregation.
+     *
+     * @param discipline narrows the board to one discipline; null is the
+     *   combined ranking over all of them.
+     */
+    suspend fun scoreboard(competitionId: String, discipline: String? = null): ApiResult<Scoreboard>
 }
 
 @Singleton
@@ -132,8 +141,16 @@ class DefaultCompetitionsRepository @Inject constructor(
     override fun hasSynced(): Flow<Boolean> =
         cursors.bootstrapCompleteStream(CompetitionSyncCollection.COLLECTION)
 
-    override suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard> = apiClient
-        .getWhole<ScoreboardEnvelopeDto>(ApiEndpoints.competitionScoreboard(competitionId))
+    override fun byIdStream(id: String): Flow<Competition?> =
+        competitions.byIdStream(id).map { it?.toDomain() }
+
+    override suspend fun scoreboard(
+        competitionId: String,
+        discipline: String?,
+    ): ApiResult<Scoreboard> = apiClient
+        .getWhole<ScoreboardEnvelopeDto>(ApiEndpoints.competitionScoreboard(competitionId)) {
+            discipline?.let { parameter("discipline", it) }
+        }
         .map(ScoreboardEnvelopeDto::toDomain)
 }
 

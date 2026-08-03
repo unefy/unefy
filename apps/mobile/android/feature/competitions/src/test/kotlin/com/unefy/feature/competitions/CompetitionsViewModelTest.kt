@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -162,6 +163,46 @@ class CompetitionsViewModelTest {
     }
 
     @Test
+    fun `selecting a discipline reloads the board filtered`() = runTest(dispatcher) {
+        val repository = FakeCompetitionsRepository(
+            competitions = listOf(
+                competition("c-1").copy(disciplines = listOf("Luftgewehr", "KK-Pistole")),
+            ),
+            scoreboard = Scoreboard(unit = "Ringe", highestWins = true, rows = emptyList()),
+        )
+        val viewModel = scoreboardViewModel(repository)
+
+        viewModel.load("c-1")
+        advanceUntilIdle()
+        assertEquals(listOf("Luftgewehr", "KK-Pistole"), viewModel.disciplines.value)
+
+        viewModel.selectDiscipline("Luftgewehr")
+        advanceUntilIdle()
+        assertEquals("Luftgewehr", viewModel.selectedDiscipline.value)
+
+        viewModel.selectDiscipline(null)
+        advanceUntilIdle()
+
+        assertEquals(listOf(null, "Luftgewehr", null), repository.scoreboardRequests)
+    }
+
+    @Test
+    fun `reselecting the current discipline does not reload`() = runTest(dispatcher) {
+        val repository = FakeCompetitionsRepository(
+            scoreboard = Scoreboard(unit = "Ringe", highestWins = true, rows = emptyList()),
+        )
+        val viewModel = scoreboardViewModel(repository)
+
+        viewModel.load("c-1")
+        advanceUntilIdle()
+
+        viewModel.selectDiscipline(null)
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>(null), repository.scoreboardRequests)
+    }
+
+    @Test
     fun `a failing scoreboard is an error`() = runTest(dispatcher) {
         val repository = FakeCompetitionsRepository(scoreboardFailure = ApiError.Forbidden)
         val viewModel = ScoreboardViewModel(repository)
@@ -171,6 +212,12 @@ class CompetitionsViewModelTest {
 
         assertTrue(viewModel.uiState.value is ScoreboardUiState.Failure)
     }
+
+    /** [ScoreboardViewModel.disciplines] is `WhileSubscribed` — it needs a collector. */
+    private fun TestScope.scoreboardViewModel(repository: CompetitionsRepository) =
+        ScoreboardViewModel(repository).also { vm ->
+            backgroundScope.launch { vm.disciplines.collect {} }
+        }
 
     /** Subscribes on [TestScope.backgroundScope] — `WhileSubscribed` needs a collector. */
     private fun TestScope.viewModel(
@@ -203,11 +250,22 @@ private class FakeCompetitionsRepository(
 
     val rows = MutableStateFlow(competitions)
 
+    /** The discipline of each scoreboard call, null for the combined board. */
+    val scoreboardRequests = mutableListOf<String?>()
+
     override fun stream(): Flow<List<Competition>> = rows
 
     override fun hasSynced(): Flow<Boolean> = MutableStateFlow(hasSynced)
 
-    override suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard> =
-        scoreboardFailure?.let { ApiResult.Failure(it) }
+    override fun byIdStream(id: String): Flow<Competition?> =
+        rows.map { list -> list.find { it.id == id } }
+
+    override suspend fun scoreboard(
+        competitionId: String,
+        discipline: String?,
+    ): ApiResult<Scoreboard> {
+        scoreboardRequests += discipline
+        return scoreboardFailure?.let { ApiResult.Failure(it) }
             ?: ApiResult.Success(requireNotNull(scoreboard))
+    }
 }

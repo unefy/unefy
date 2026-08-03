@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -119,6 +120,7 @@ sealed interface ScoreboardUiState {
     data class Failure(val error: ApiError) : ScoreboardUiState
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ScoreboardViewModel @Inject constructor(
     private val repository: CompetitionsRepository,
@@ -130,12 +132,45 @@ class ScoreboardViewModel @Inject constructor(
     /** Remembered so [refresh] does not need the id passed in a second time. */
     private var competitionId: String? = null
 
+    private val competitionIdFlow = MutableStateFlow<String?>(null)
+
+    /**
+     * The competition's disciplines, from the mirror — what the filter chips
+     * offer. The scoreboard response cannot answer this: a filtered board only
+     * names the discipline it was asked for.
+     */
+    val disciplines: StateFlow<List<String>> = competitionIdFlow
+        .flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) }
+        .map { it?.disciplines.orEmpty() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_GRACE_MS),
+            initialValue = emptyList(),
+        )
+
+    private val _selectedDiscipline = MutableStateFlow<String?>(null)
+
+    /** Null is the combined ranking — the view every board opens with. */
+    val selectedDiscipline: StateFlow<String?> = _selectedDiscipline.asStateFlow()
+
     fun load(competitionId: String) {
         this.competitionId = competitionId
+        competitionIdFlow.value = competitionId
         load(refreshing = false)
     }
 
     fun refresh() = load(refreshing = true)
+
+    /**
+     * Switches the board to one discipline (null: all). Loaded as a refresh,
+     * not a reload — the old ranking stays visible under the spinner instead
+     * of blinking to a blank screen for every chip tap.
+     */
+    fun selectDiscipline(discipline: String?) {
+        if (_selectedDiscipline.value == discipline) return
+        _selectedDiscipline.value = discipline
+        load(refreshing = true)
+    }
 
     fun onMessageShown() = _uiState.update { state ->
         (state as? ScoreboardUiState.Content)?.copy(refreshFailed = false) ?: state
@@ -151,7 +186,12 @@ class ScoreboardViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.value = when (val result = repository.scoreboard(id)) {
+            val requested = _selectedDiscipline.value
+            val result = repository.scoreboard(id, requested)
+            // Superseded by a later chip tap: a slow response for the old
+            // discipline must not overwrite the board the person asked for.
+            if (requested != _selectedDiscipline.value) return@launch
+            _uiState.value = when (result) {
                 is ApiResult.Success -> ScoreboardUiState.Content(result.data)
 
                 is ApiResult.Failure -> (_uiState.value as? ScoreboardUiState.Content)
@@ -159,5 +199,9 @@ class ScoreboardViewModel @Inject constructor(
                     ?: ScoreboardUiState.Failure(result.error)
             }
         }
+    }
+
+    private companion object {
+        const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }

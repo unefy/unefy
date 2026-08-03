@@ -1,5 +1,6 @@
 package com.unefy.feature.competitions
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,12 +46,17 @@ fun ScoreboardRoute(
     viewModel: ScoreboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val disciplines by viewModel.disciplines.collectAsStateWithLifecycle()
+    val selectedDiscipline by viewModel.selectedDiscipline.collectAsStateWithLifecycle()
     LaunchedEffect(competitionId) { viewModel.load(competitionId) }
     ScoreboardScreen(
         state = state,
         competitionName = competitionName,
+        disciplines = disciplines,
+        selectedDiscipline = selectedDiscipline,
         onBack = onBack,
         onRefresh = viewModel::refresh,
+        onSelectDiscipline = viewModel::selectDiscipline,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -57,8 +65,11 @@ fun ScoreboardRoute(
 fun ScoreboardScreen(
     state: ScoreboardUiState,
     competitionName: String,
+    disciplines: List<String> = emptyList(),
+    selectedDiscipline: String? = null,
     onBack: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onSelectDiscipline: (String?) -> Unit = {},
     onMessageShown: () -> Unit = {},
 ) {
     val content = state as? ScoreboardUiState.Content
@@ -83,6 +94,33 @@ fun ScoreboardScreen(
             .takeIf { content?.refreshFailed == true },
         onMessageShown = onMessageShown,
     ) {
+        // One chip per discipline plus "Gesamt" — only when there is a choice
+        // to make. A single-discipline competition has nothing to filter.
+        if (disciplines.size > 1) {
+            item(key = "disciplines") {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.xs),
+                ) {
+                    FilterChip(
+                        selected = selectedDiscipline == null,
+                        onClick = { onSelectDiscipline(null) },
+                        label = { Text(stringResource(R.string.scoreboard_all_disciplines)) },
+                    )
+                    disciplines.forEach { discipline ->
+                        FilterChip(
+                            selected = discipline == selectedDiscipline,
+                            onClick = { onSelectDiscipline(discipline) },
+                            label = { Text(discipline) },
+                        )
+                    }
+                }
+            }
+        }
+
         when (state) {
             ScoreboardUiState.Loading -> Unit
 
@@ -134,6 +172,7 @@ private fun ScoreRow(row: ScoreboardRow, unit: String) {
                 text = stringResource(
                     R.string.scoreboard_detail,
                     formatScore(row.bestScore),
+                    formatScore(row.averageScore),
                     row.entryCount,
                 ),
                 style = MaterialTheme.typography.labelMedium,
