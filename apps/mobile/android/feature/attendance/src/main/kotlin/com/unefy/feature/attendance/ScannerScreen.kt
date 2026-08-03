@@ -121,6 +121,10 @@ fun ScannerScreen(
     onTapNotReady: () -> Unit = {},
     onTagDetected: () -> Unit = {},
 ) {
+    // The scanner is only a reader while it is on screen, so letting the phone
+    // lock during an evening silently ends check-in.
+    KeepScreenAwake()
+
     if (state.manual.open) {
         ManualPickSheet(
             state = state.manual,

@@ -44,6 +44,29 @@ internal fun KeepScreenBrightAndAwake() {
     }
 }
 
+/**
+ * Keeps the screen on without touching brightness.
+ *
+ * For the scanner. NFC reader mode only runs while this screen is showing, so a
+ * phone that locks after a minute stops being able to read anything — and from
+ * the outside that is indistinguishable from NFC being broken, which is exactly
+ * how it presented. A supervisor puts the phone down between people; it has to
+ * still be listening when the next one arrives.
+ *
+ * Brightness is left alone here: nobody is reading this screen from a metre
+ * away, and an evening at full brightness costs a battery the QR screen's few
+ * seconds do not.
+ */
+@Composable
+internal fun KeepScreenAwake() {
+    val activity = LocalContext.current.findActivity() ?: return
+
+    DisposableEffect(activity) {
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+}
+
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
