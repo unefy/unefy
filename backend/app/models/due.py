@@ -23,6 +23,10 @@ class FeeType(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "fee_types"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_fee_types_sync", "tenant_id", "updated_at", "id"),
         UniqueConstraint("tenant_id", "name"),
         Index("ix_fee_types_tenant_active", "tenant_id", "is_active"),
     )
@@ -44,6 +48,10 @@ class MemberFee(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "member_fees"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_member_fees_sync", "tenant_id", "updated_at", "id"),
         Index("ix_member_fees_tenant_member", "tenant_id", "member_id"),
         Index("ix_member_fees_tenant_fee_type", "tenant_id", "fee_type_id"),
     )
@@ -62,6 +70,10 @@ class Due(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "dues"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_dues_sync", "tenant_id", "updated_at", "id"),
         # Idempotency of assessment runs: one due per member/fee type/period
         UniqueConstraint("tenant_id", "member_id", "fee_type_id", "period_start"),
         Index("ix_dues_tenant_status", "tenant_id", "status"),

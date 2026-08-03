@@ -26,6 +26,10 @@ class Event(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "events"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_events_sync", "tenant_id", "updated_at", "id"),
         Index("ix_events_tenant_starts", "tenant_id", "starts_at"),
         Index("ix_events_tenant_session", "tenant_id", "session_id"),
         Index("ix_events_tenant_competition", "tenant_id", "competition_id"),
@@ -67,6 +71,10 @@ class EventRegistration(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "event_registrations"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_event_registrations_sync", "tenant_id", "updated_at", "id"),
         UniqueConstraint("tenant_id", "event_id", "member_id"),
         Index("ix_event_registrations_tenant_event", "tenant_id", "event_id"),
         Index("ix_event_registrations_tenant_member", "tenant_id", "member_id"),

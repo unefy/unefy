@@ -26,7 +26,13 @@ class Competition(TenantModel, AuditMixin, SoftDeleteMixin):
     """
 
     __tablename__ = "competitions"
-    __table_args__ = (Index("ix_competitions_tenant_type", "tenant_id", "competition_type"),)
+    __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_competitions_sync", "tenant_id", "updated_at", "id"),
+        Index("ix_competitions_tenant_type", "tenant_id", "competition_type"),
+    )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,7 +64,13 @@ class Session(TenantModel, AuditMixin, SoftDeleteMixin):
     """One round, date, or discipline-block within a competition."""
 
     __tablename__ = "sessions"
-    __table_args__ = (Index("ix_sessions_tenant_competition", "tenant_id", "competition_id"),)
+    __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_sessions_sync", "tenant_id", "updated_at", "id"),
+        Index("ix_sessions_tenant_competition", "tenant_id", "competition_id"),
+    )
 
     competition_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("competitions.id", ondelete="CASCADE"), nullable=False
@@ -89,6 +101,10 @@ class Entry(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "entries"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_entries_sync", "tenant_id", "updated_at", "id"),
         Index("ix_entries_tenant_session", "tenant_id", "session_id"),
         Index("ix_entries_tenant_member", "tenant_id", "member_id"),
     )

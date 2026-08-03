@@ -12,6 +12,10 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
 
     __tablename__ = "members"
     __table_args__ = (
+        # Delta sync pages with a keyset predicate on (updated_at, id);
+        # tenant_id leads so each club scans its own contiguous range.
+        # See alembic f2b9d84c1a07 and app/repositories/sync.py.
+        Index("ix_members_sync", "tenant_id", "updated_at", "id"),
         UniqueConstraint("tenant_id", "member_number"),
         Index("ix_members_tenant_status", "tenant_id", "status"),
         Index("ix_members_tenant_name", "tenant_id", "last_name", "first_name"),
