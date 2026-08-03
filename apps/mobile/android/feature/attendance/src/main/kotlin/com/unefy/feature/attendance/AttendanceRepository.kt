@@ -73,6 +73,8 @@ internal data class ScanResultDto(
 
 @Serializable
 internal data class ManualCheckInRequest(
+    /** Client-assigned record id — a replayed drain is a retry, not a second person. */
+    val id: String? = null,
     // Exactly one of the two, mirroring the backend's CHECK.
     @SerialName("member_id") val memberId: String? = null,
     @SerialName("guest_name") val guestName: String? = null,
@@ -190,6 +192,7 @@ interface AttendanceRepository {
         memberId: String? = null,
         guestName: String? = null,
         checkedInAt: String? = null,
+        clientId: String? = null,
     ): ApiResult<ScanOutcome>
 
     /**
@@ -310,10 +313,12 @@ class DefaultAttendanceRepository @Inject constructor(
         memberId: String?,
         guestName: String?,
         checkedInAt: String?,
+        clientId: String?,
     ): ApiResult<ScanOutcome> = apiClient
         .post<ScanResultDto>(
             ApiEndpoints.attendanceCheckIn(sessionId),
             body = ManualCheckInRequest(
+                id = clientId,
                 memberId = memberId,
                 guestName = guestName,
                 checkedInAt = checkedInAt,

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
+import java.util.UUID
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
@@ -36,6 +37,13 @@ data class PendingCheckIn(
     /** Device clock, unix seconds. The only record of when this happened. */
     val checkedInAtEpochSeconds: Long,
     val installId: String? = null,
+    /**
+     * Client-assigned record id, sent as the check-in's `id`. What makes an
+     * interrupted drain retryable: the server treats a replay of this key as
+     * the same check-in, so a guest booked over a flaky connection is one
+     * guest, not two. Nullable only for rows queued before the column existed.
+     */
+    val clientId: String? = UUID.randomUUID().toString(),
     /**
      * How often sending has been tried. Kept so a row that the server keeps
      * refusing can be surfaced rather than retried forever in silence.

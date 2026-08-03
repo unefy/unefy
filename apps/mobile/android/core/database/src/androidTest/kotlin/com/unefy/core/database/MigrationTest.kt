@@ -45,6 +45,14 @@ class MigrationTest {
         helper.runMigrationsAndValidate(DB, 7, true, *DatabaseModule.ALL_MIGRATIONS).close()
     }
 
+    /** The queue's client id column — nullable, so old queued rows still drain. */
+    @Test
+    fun migrates_from_7_to_8() {
+        helper.createDatabase(DB, 7).close()
+
+        helper.runMigrationsAndValidate(DB, 8, true, *DatabaseModule.ALL_MIGRATIONS).close()
+    }
+
     /**
      * A queued check-in exists nowhere else, so the one thing the chain must
      * not do is lose one. Pinned rather than assumed — the 4→5 migration already
@@ -63,7 +71,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 7, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 8, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -78,7 +86,7 @@ class MigrationTest {
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 7, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 8, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",

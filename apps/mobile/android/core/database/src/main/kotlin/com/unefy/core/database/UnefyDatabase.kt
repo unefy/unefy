@@ -40,7 +40,7 @@ import javax.inject.Singleton
         SyncedCompetition::class,
         SyncCursorEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -91,6 +91,7 @@ object DatabaseModule {
             MIGRATION_4_5,
             MIGRATION_5_6,
             MIGRATION_6_7,
+            MIGRATION_7_8,
         )
     }
 
@@ -343,6 +344,17 @@ object DatabaseModule {
     @Provides
     fun provideSyncedCompetitionDao(database: UnefyDatabase): SyncedCompetitionDao =
         database.syncedCompetitionDao()
+
+    /**
+     * The queue's client-assigned check-in id. Nullable on purpose: rows queued
+     * before the column existed drain exactly as they always did, and every new
+     * row gets its id at construction.
+     */
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("ALTER TABLE pending_check_ins ADD COLUMN clientId TEXT")
+        }
+    }
 
     private const val DATABASE_NAME = "unefy.db"
 }

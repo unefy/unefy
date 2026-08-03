@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -99,6 +100,31 @@ class CheckInQueueTest {
         // lookup they may have no connection to make.
         assertEquals(MEMBER.name, row.memberLabel)
         assertNull(row.code)
+    }
+
+    /**
+     * The regression test for the duplicate guest. The server deduplicates
+     * check-ins by a client-assigned id — but only if every retry of the same
+     * queued row sends the *same* id. A fresh id per attempt would make the
+     * mechanism decorative.
+     */
+    @Test
+    fun `a retried drain sends the same client id every time`() = runTest {
+        repository.nextResult = offline()
+        queue.checkInGuest(SESSION, "Jonas Gast", installId = null)
+
+        repository.nextResult = offline()
+        queue.sync()
+        repository.nextResult = null
+        queue.sync()
+
+        // Three sends: the live attempt, the offline drain, the successful
+        // drain — one id across all of them.
+        val sent = repository.sentClientIds
+        assertEquals(3, sent.size)
+        assertNotNull(sent[0])
+        assertEquals(1, sent.toSet().size)
+        assertTrue(dao.rows.isEmpty())
     }
 
     @Test
@@ -285,12 +311,16 @@ private class FakeRepository : AttendanceRepository {
         memberId: String?,
         guestName: String?,
         checkedInAt: String?,
+        clientId: String?,
     ): ApiResult<ScanOutcome> {
         calls++
         lastCheckedInAt = checkedInAt
         lastGuestName = guestName
+        sentClientIds += clientId
         return nextResult ?: success
     }
+
+    val sentClientIds = mutableListOf<String?>()
 
     override suspend fun createSession(
         title: String,

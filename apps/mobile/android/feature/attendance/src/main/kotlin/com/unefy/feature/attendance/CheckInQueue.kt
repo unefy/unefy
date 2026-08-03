@@ -5,6 +5,7 @@ import com.unefy.core.database.PendingCheckInDao
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -77,8 +78,15 @@ class CheckInQueue @Inject constructor(
         installId: String?,
     ): CheckInResult {
         val at = clock.epochSeconds()
+        // Minted before the live attempt and reused by every retry of the
+        // queued row: the server dedupes check-ins by this id, so even a live
+        // attempt whose *response* was lost cannot double-book once the queue
+        // drains.
+        val clientId = UUID.randomUUID().toString()
         return submit(
-            attempt = { repository.checkInManually(sessionId, memberId = member.id) },
+            attempt = {
+                repository.checkInManually(sessionId, memberId = member.id, clientId = clientId)
+            },
             enqueue = {
                 PendingCheckIn(
                     sessionId = sessionId,
@@ -86,6 +94,7 @@ class CheckInQueue @Inject constructor(
                     memberLabel = member.name,
                     checkedInAtEpochSeconds = at,
                     installId = installId,
+                    clientId = clientId,
                 )
             },
         )
@@ -104,8 +113,12 @@ class CheckInQueue @Inject constructor(
         installId: String?,
     ): CheckInResult {
         val at = clock.epochSeconds()
+        // Same id live and queued — see [checkInManually].
+        val clientId = UUID.randomUUID().toString()
         return submit(
-            attempt = { repository.checkInManually(sessionId, guestName = guestName) },
+            attempt = {
+                repository.checkInManually(sessionId, guestName = guestName, clientId = clientId)
+            },
             enqueue = {
                 PendingCheckIn(
                     sessionId = sessionId,
@@ -113,6 +126,7 @@ class CheckInQueue @Inject constructor(
                     memberLabel = guestName,
                     checkedInAtEpochSeconds = at,
                     installId = installId,
+                    clientId = clientId,
                 )
             },
         )
@@ -203,12 +217,17 @@ class CheckInQueue @Inject constructor(
                 sessionId = entry.sessionId,
                 memberId = memberId,
                 checkedInAt = at,
+                clientId = entry.clientId,
             )
 
             guestName != null -> repository.checkInManually(
                 sessionId = entry.sessionId,
                 guestName = guestName,
                 checkedInAt = at,
+                // The whole reason the id exists: a drain that dies after the
+                // server booked the guest but before the row was deleted must
+                // not book them again on the retry.
+                clientId = entry.clientId,
             )
 
             // Neither, which the schema should make impossible. Reported as a
