@@ -15,6 +15,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    // The bearer provider caches its token; clearing it on sign-out is what
+    // stops requests going out as the previous account.
+    implementation(libs.ktor.client.auth)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.serialization.json)

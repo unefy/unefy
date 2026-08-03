@@ -564,6 +564,18 @@ Telefon passiert.
   statt gepusht, weil FCM nicht gebaut ist; scheitert die Abfrage, bleibt der
   Code stehen, das Offline-Verhalten ändert sich also nicht.
 
+**Kontowechsel.** Beim Abmelden wird der Ktor-Token-Cache geleert und jedes
+Feature räumt seine kontobezogenen Daten selbst weg (Multibinding `SignOutTask`).
+Der Seed muss dabei sein: er ist das Credential eines Mitglieds, und ihn liegen
+zu lassen hieße, dass die nächste Person auf diesem Telefon den Code von
+jemand anderem ausgibt.
+
+**Bewusst nicht geleert wird die Check-in-Queue** — darin liegen Check-ins, die
+es sonst nirgends gibt. Sie werden unter dem nächsten angemeldeten Konto
+übertragen, womit `verified_by_user_id` die falsche Aufsicht nennt. Ungelöst;
+sauber wäre, die Queue vor dem Abmelden zu leeren oder das Abmelden zu
+verweigern, solange etwas wartet.
+
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch
 nie mit Verbindung offen hatte, hat weder Einheiten- noch Mitgliederliste.

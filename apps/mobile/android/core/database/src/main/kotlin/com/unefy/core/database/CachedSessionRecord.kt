@@ -58,4 +58,8 @@ interface CachedSessionRecordDao {
 
     @Query("DELETE FROM cached_session_records WHERE sessionId = :sessionId")
     suspend fun deleteForSession(sessionId: String)
+
+    /** Every session's records, for signing out. */
+    @Query("DELETE FROM cached_session_records")
+    suspend fun deleteAll()
 }
