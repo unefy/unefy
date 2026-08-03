@@ -19,6 +19,7 @@ import javax.inject.Singleton
 class WakeupDrain @Inject constructor(
     private val coordinator: SyncCoordinator,
     private val collections: Set<@JvmSuppressWildcards SyncCollection>,
+    private val observers: Set<@JvmSuppressWildcards BackgroundSyncObserver>,
     private val tokens: TokenStore,
 ) {
 
@@ -28,11 +29,13 @@ class WakeupDrain @Inject constructor(
         // drain is a 401 and a retry loop nobody asked for.
         if (tokens.current() == null) return false
 
+        observers.forEach { it.beforeDrain() }
         for (collection in collections) {
             // NotPermitted collections return immediately — latched in the
             // coordinator, same as on the foreground path.
             coordinator.syncNow(collection.name)
         }
+        observers.forEach { it.afterDrain() }
         return true
     }
 }

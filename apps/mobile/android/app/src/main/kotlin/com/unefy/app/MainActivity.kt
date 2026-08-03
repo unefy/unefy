@@ -1,9 +1,14 @@
 package com.unefy.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -66,6 +71,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Notifications ("Neuer Termin") need POST_NOTIFICATIONS from API 33.
+        // Asked once, tied to being signed in — an anonymous first launch has
+        // nothing to notify about. Android remembers a refusal; asking again
+        // would be nagging, and the sync works identically without it.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                authRepository.isSignedIn.distinctUntilChanged().filter { it }.collect {
+                    requestNotificationPermissionOnce()
+                }
+            }
+        }
+
         // A sign-in is a sync trigger of its own. Sign-out wipes every mirror,
         // and the coordinator's other triggers do not fire here: the network
         // did not change and no doorbell rings for data that did not change —
@@ -79,5 +96,17 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent { UnefyRoot() }
+    }
+
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private fun requestNotificationPermissionOnce() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

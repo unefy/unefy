@@ -16,12 +16,15 @@ dependencies {
     // Room mirrors the event list, and core:sync fills it.
     implementation(project(":core:database"))
     implementation(project(":core:sync"))
+    // The background-drain observer that renders "Neuer Termin" locally.
+    implementation(project(":core:push"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.core.ktx)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.hilt.android)

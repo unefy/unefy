@@ -23,6 +23,7 @@ class WakeupDrainTest {
         val drain = WakeupDrain(
             coordinator,
             setOf(NamedCollection("members"), NamedCollection("events")),
+            emptySet(),
             FakeTokens(signedIn = true),
         )
 
@@ -40,6 +41,7 @@ class WakeupDrainTest {
         val drain = WakeupDrain(
             coordinator,
             setOf(NamedCollection("members")),
+            emptySet(),
             FakeTokens(signedIn = false),
         )
 

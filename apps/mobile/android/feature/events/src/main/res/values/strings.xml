@@ -13,4 +13,8 @@
     <string name="events_register">Anmelden</string>
     <string name="events_unregister">Abmelden</string>
     <string name="events_registration_closed">Anmeldung geschlossen</string>
+    <string name="events_notification_channel">Termine</string>
+    <string name="events_notification_new">Neuer Termin</string>
+    <string name="events_notification_new_many">%1$d neue Termine</string>
+    <string name="events_notification_new_many_body">In der App ansehen</string>
 </resources>

@@ -35,4 +35,8 @@ abstract class PushSignOutModule {
     @Binds
     @IntoSet
     abstract fun bindPushSignOut(impl: PushSignOut): SignOutTask
+
+    /** Declared so a build with no observers still gets an (empty) set. */
+    @dagger.multibindings.Multibinds
+    abstract fun backgroundSyncObservers(): Set<BackgroundSyncObserver>
 }

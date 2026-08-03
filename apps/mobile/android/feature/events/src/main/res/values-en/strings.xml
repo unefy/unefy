@@ -13,4 +13,8 @@
     <string name="events_register">Register</string>
     <string name="events_unregister">Cancel</string>
     <string name="events_registration_closed">Registration closed</string>
+    <string name="events_notification_channel">Events</string>
+    <string name="events_notification_new">New event</string>
+    <string name="events_notification_new_many">%1$d new events</string>
+    <string name="events_notification_new_many_body">Open the app to see them</string>
 </resources>
