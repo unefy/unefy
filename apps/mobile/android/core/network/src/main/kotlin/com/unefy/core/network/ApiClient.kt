@@ -78,8 +78,19 @@ class ApiClient @Inject constructor(
      * there is nothing to decode, and calling [execute] here would try to parse
      * an envelope that was never sent.
      */
-    suspend fun deleteNoContent(path: String): ApiResult<Unit> = try {
-        val response = httpClient.delete(path)
+    suspend fun deleteNoContent(path: String): ApiResult<Unit> =
+        noContent { httpClient.delete(path) }
+
+    /** [deleteNoContent]'s sibling for 204-answering POSTs with a JSON body. */
+    suspend fun postNoContent(path: String, body: Any): ApiResult<Unit> = noContent {
+        httpClient.post(path) {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+    }
+
+    private suspend fun noContent(request: suspend () -> HttpResponse): ApiResult<Unit> = try {
+        val response = request()
         if (response.status.isSuccess()) {
             ApiResult.Success(Unit)
         } else {

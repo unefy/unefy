@@ -41,6 +41,12 @@ object ApiEndpoints {
     /** The change stream. A doorbell: it says something changed, not what. */
     const val STREAM = "/api/v1/stream"
 
+    /** Where a phone asks to be woken (FCM). Registering is an upsert by token. */
+    const val PUSH_DEVICES = "/api/v1/push/devices"
+
+    /** A POST, not a DELETE: the token must not appear in a URL or access log. */
+    const val PUSH_DEVICES_UNREGISTER = "$PUSH_DEVICES/unregister"
+
     const val ATTENDANCE = "/api/v1/attendance"
     const val ATTENDANCE_SESSIONS = "$ATTENDANCE/sessions"
 

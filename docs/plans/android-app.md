@@ -130,6 +130,17 @@ Regeln.
 
   Die Anwesenheits-Caches bleiben Caches (list-refresh + `retainOnly`), nicht
   Spiegel. Details in `attendance-and-shooting-proof.md`.
+
+  **Hintergrund-Push (FCM) ist verdrahtet:** Modul `core:push` — stiller
+  Daten-Weckruf (nur tenant/entity, keine Inhalte, keine Berechtigung nötig),
+  `PushSyncWorker` mit `SETTLE_DELAY_MS`-Verzögerung drained alle Collections,
+  Registrierung per Token-Upsert bei Sign-in/`onNewToken`, Abmeldung als
+  `SignOutTask` **vor** dem Token-Löschen. Backend: `push_devices`-Tabelle,
+  `POST /api/v1/push/devices[/unregister]`, Consumer-Group-Fanout über die
+  Outbox-Streams mit per-Verein-Koaleszierung und Rollenfilter; ohne
+  `PUSH_ENABLED`/Credentials antwortet der Server 503 `PUSH_DISABLED` und der
+  Client latcht. Beide Build-Varianten (mit/ohne `google-services.json`)
+  bauen; ein Fork ohne Firebase verliert nur den Hintergrund-Weckruf.
 - **Die App ist fast nur lesend.** Außer der eigenen Terminanmeldung gibt es
   kein Anlegen oder Bearbeiten — keine Mitglieder, keine Termine, keine
   Wettkämpfe. Für Vorstandsrollen ist das die auffälligste Lücke.

@@ -41,8 +41,13 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun signOut() {
-        tokenManager.clear()
+        // Tasks first, then the tokens: a task that has to tell the backend
+        // something — push unregistration says "stop waking this phone" — needs
+        // the session it is saying goodbye with. The reverse order handed those
+        // tasks a 401. Mirrors [devLogin], where the tasks also run while the
+        // old account's tokens are still there.
         forgetPreviousAccount()
+        tokenManager.clear()
     }
 
     /**

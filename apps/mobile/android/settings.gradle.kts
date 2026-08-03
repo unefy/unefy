@@ -30,6 +30,7 @@ include(":core:auth")
 include(":core:database")
 include(":core:sync")
 include(":core:testing")
+include(":core:push")
 
 include(":feature:attendance")
 include(":feature:members")

@@ -270,32 +270,36 @@ class DefaultSyncCoordinator @Inject constructor(
 
     private companion object {
         const val COALESCE_WINDOW_MS = 250L
-
-        /**
-         * How long after a hint the change actually becomes readable.
-         *
-         * The hint is published after commit, but the sync query deliberately
-         * refuses to read anything newer than `now() - CURSOR_SAFETY_LAG`
-         * (5 seconds, see backend/app/sync/cursor.py). `updated_at` is transaction
-         * *start* time, so without that watermark a slow transaction could commit
-         * behind a cursor already handed out and never be delivered at all.
-         *
-         * The consequence for this side is the whole reason this constant exists,
-         * and it is not obvious: a drain served a quarter-second after the doorbell
-         * asks for changes the server is still holding back. It returns nothing,
-         * stores the cursor, and reports success — and since nothing else ever asks
-         * again, the change stays invisible until some unrelated edit happens to
-         * trigger the next sync. Verified on a device: a member renamed in the web
-         * app did not appear at all, not even late.
-         *
-         * So a hint schedules two drains: one now, which usually finds nothing and
-         * costs one small request, and one after the watermark has moved past the
-         * change. The second is the one that actually delivers.
-         *
-         * Comfortably past the server's five seconds rather than exactly on it —
-         * the two clocks are unrelated, and being early here means missing the
-         * change entirely rather than merely waiting for it.
-         */
-        const val SETTLE_DELAY_MS = 6_500L
     }
 }
+
+/**
+ * How long after a hint the change actually becomes readable.
+ *
+ * The hint is published after commit, but the sync query deliberately
+ * refuses to read anything newer than `now() - CURSOR_SAFETY_LAG`
+ * (5 seconds, see backend/app/sync/cursor.py). `updated_at` is transaction
+ * *start* time, so without that watermark a slow transaction could commit
+ * behind a cursor already handed out and never be delivered at all.
+ *
+ * The consequence for this side is the whole reason this constant exists,
+ * and it is not obvious: a drain served a quarter-second after the doorbell
+ * asks for changes the server is still holding back. It returns nothing,
+ * stores the cursor, and reports success — and since nothing else ever asks
+ * again, the change stays invisible until some unrelated edit happens to
+ * trigger the next sync. Verified on a device: a member renamed in the web
+ * app did not appear at all, not even late.
+ *
+ * So a hint schedules two drains: one now, which usually finds nothing and
+ * costs one small request, and one after the watermark has moved past the
+ * change. The second is the one that actually delivers.
+ *
+ * Comfortably past the server's five seconds rather than exactly on it —
+ * the two clocks are unrelated, and being early here means missing the
+ * change entirely rather than merely waiting for it.
+ *
+ * Top-level rather than private to the coordinator: the FCM wake-up worker
+ * waits the same lag for the same reason, and two copies of this number would
+ * drift the day the server's lag changes.
+ */
+const val SETTLE_DELAY_MS = 6_500L

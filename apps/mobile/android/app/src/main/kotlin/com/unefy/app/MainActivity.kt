@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.unefy.core.push.PushRegistrar
 import com.unefy.core.sync.SyncCoordinator
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -21,6 +22,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var syncCoordinator: SyncCoordinator
+
+    @Inject
+    lateinit var pushRegistrar: PushRegistrar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +48,15 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 syncCoordinator.run()
+            }
+        }
+
+        // Registers this device for wake-ups whenever somebody signs in. A
+        // no-op on builds without Firebase and on servers that answer
+        // PUSH_DISABLED — see PushRegistrar for both quiet exits.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                pushRegistrar.run()
             }
         }
 

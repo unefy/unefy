@@ -5,6 +5,15 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Conditionally, not unconditionally: the google-services plugin hard-fails
+// without its json, and that file is deliberately not checked in — a fork must
+// not ship somebody else's Firebase project, and a self-hoster has none. Both
+// variants must build; without the file the app simply never registers for
+// push (see core:push, which guards at runtime the same way).
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+}
+
 // No hardcoded URLs (apps/mobile/CLAUDE.md). The default targets the emulator's
 // host alias; override in gradle.properties with the machine's LAN address when
 // running on a physical device.
@@ -56,6 +65,8 @@ dependencies {
     implementation(project(":core:auth"))
     // MainActivity starts the change stream and the syncs it triggers.
     implementation(project(":core:sync"))
+    // MainActivity keeps the push registration in step with sign-in.
+    implementation(project(":core:push"))
     implementation(project(":feature:attendance"))
     implementation(project(":feature:members"))
     implementation(project(":feature:events"))
