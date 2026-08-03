@@ -211,9 +211,7 @@ async def test_dues_me_returns_only_the_callers_dues(
     test_membership: TenantMembership,
 ) -> None:
     """The member_id comes from the session, so another member's dues stay hidden."""
-    mine = await _add_member(
-        db_session, test_tenant.id, member_number="001", user_id=test_user.id
-    )
+    mine = await _add_member(db_session, test_tenant.id, member_number="001", user_id=test_user.id)
     theirs = await _add_member(db_session, test_tenant.id, member_number="002")
     await _add_due(db_session, test_tenant.id, mine.id, amount="120.00")
     await _add_due(db_session, test_tenant.id, theirs.id, amount="999.00")
@@ -349,9 +347,7 @@ async def test_setting_club_sports_requires_admin_and_rejects_unknown_ids(
         db_session, fake_redis, test_user.id, test_tenant.id, role="admin"
     )
     async with admin_client as ac:
-        unknown = await ac.put(
-            "/api/v1/club/sports", json={"sport_ids": [str(uuid.uuid4())]}
-        )
+        unknown = await ac.put("/api/v1/club/sports", json={"sport_ids": [str(uuid.uuid4())]})
     assert unknown.status_code == 404
 
 
@@ -363,9 +359,7 @@ async def test_directory_is_open_to_members_but_narrow(
     test_membership: TenantMembership,
 ) -> None:
     """A member sees who else is in the club — and nothing sensitive about them."""
-    member = await _add_member(
-        db_session, test_tenant.id, member_number="001", first_name="Klara"
-    )
+    member = await _add_member(db_session, test_tenant.id, member_number="001", first_name="Klara")
     member.email = "klara@example.com"
     member.iban = "DE02120300000000202051"
     member.city = "Tübingen"
@@ -394,9 +388,7 @@ async def test_directory_only_lists_active_members(
 ) -> None:
     """Former members are not part of "who is in the club"."""
     await _add_member(db_session, test_tenant.id, member_number="001", first_name="Aktiv")
-    gone = await _add_member(
-        db_session, test_tenant.id, member_number="002", first_name="Weg"
-    )
+    gone = await _add_member(db_session, test_tenant.id, member_number="002", first_name="Weg")
     gone.status = "resigned"
     await db_session.flush()
 
@@ -416,9 +408,7 @@ async def test_directory_search_does_not_match_on_email(
     test_membership: TenantMembership,
 ) -> None:
     """Otherwise the directory becomes an oracle for "is this address a member?"."""
-    member = await _add_member(
-        db_session, test_tenant.id, member_number="001", first_name="Klara"
-    )
+    member = await _add_member(db_session, test_tenant.id, member_number="001", first_name="Klara")
     member.email = "geheim@example.com"
     await db_session.flush()
 
