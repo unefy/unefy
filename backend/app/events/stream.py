@@ -42,11 +42,6 @@ logger = structlog.get_logger()
 #: an idle club costs almost nothing.
 HEARTBEAT_SECONDS = 25
 
-#: Where a client with no `Last-Event-ID` starts: "only what happens from now on".
-#: Not `0`, which would replay the whole retained window to a client that has just
-#: finished a delta sync and needs none of it.
-STREAM_NOW = "$"
-
 
 async def event_stream(
     redis: Redis,
@@ -69,7 +64,23 @@ async def event_stream(
         dead one age out of the connection cap instead of holding a slot forever.
     """
     key = stream_key(tenant_id)
-    cursor = last_event_id or STREAM_NOW
+    cursor = last_event_id
+    if cursor is None:
+        # No `Last-Event-ID` means "only what happens from now on" — not `0`,
+        # which would replay the whole retained window to a client that has just
+        # finished a delta sync and needs none of it. "Now" is pinned to the
+        # newest entry that currently exists, once, right here. Redis's `$` would
+        # say the same thing more cheaply but re-resolves to "the newest id right
+        # now" on *every* xread call, so an event landing in the gap between one
+        # read returning empty and the next being issued would be skipped
+        # forever. An absent or empty stream pins to `0-0`: nothing is retained,
+        # so everything that arrives later is genuinely new.
+        try:
+            newest = await redis.xrevrange(key, count=1)
+        except Exception:
+            logger.warning("event_stream_resolve_failed", exc_info=True)
+            return
+        cursor = newest[0][0] if newest else "0-0"
 
     # An immediate frame, before anything has changed. Two jobs: it flushes the
     # response headers through any buffering proxy so the client's connection

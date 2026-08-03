@@ -7,6 +7,7 @@ about the row again — no error, no failing request, just an app that is
 occasionally one edit stale.
 """
 
+import asyncio
 import uuid
 from datetime import date
 from typing import Any
@@ -106,6 +107,25 @@ class TestOutboxOrdering:
 
         entries = await _read_stream(fake_redis, test_tenant.id)
         assert [e["id"] for e in entries] == [str(first), str(second)]
+        assert [e["op"] for e in entries] == ["upsert", "delete"]
+
+    async def test_identical_hints_from_one_transaction_collapse_to_one_entry(
+        self,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        """A row flushed several times in one transaction queues the same hint
+        several times. One entry says everything the duplicates would; the extras
+        only burn the stream's bounded history and fan out frames every client
+        coalesces away anyway.
+        """
+        member_id = uuid.uuid4()
+        duplicate = ChangeEvent(test_tenant.id, "members", member_id, "upsert")
+        distinct = ChangeEvent(test_tenant.id, "members", member_id, "delete")
+
+        await publish(fake_redis, [duplicate, duplicate, distinct, duplicate])
+
+        entries = await _read_stream(fake_redis, test_tenant.id)
         assert [e["op"] for e in entries] == ["upsert", "delete"]
 
     async def test_a_redis_failure_never_reaches_the_caller(
@@ -394,6 +414,36 @@ class TestEventStream:
         assert '"entity":"events"' in frame
         assert "members" not in frame
 
+    async def test_an_event_published_between_two_reads_is_not_skipped(
+        self,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        """The regression test for resuming from `$`.
+
+        `$` re-resolves to "the newest id right now" on every `xread` call, so an
+        event published in the gap between one read returning and the next being
+        issued would land *behind* the freshly-resolved position and never be
+        delivered. The generator is parked on its opening frame — after the start
+        position was fixed, before any read — and the publish lands exactly in
+        that gap.
+        """
+        await publish(fake_redis, [ChangeEvent(test_tenant.id, "members", uuid.uuid4(), "upsert")])
+
+        gen = event_stream(fake_redis, test_tenant.id)
+        try:
+            assert (await anext(gen)).startswith(":")
+
+            member_id = uuid.uuid4()
+            await publish(fake_redis, [ChangeEvent(test_tenant.id, "members", member_id, "upsert")])
+            # Bounded, so the failure mode is a red test and not a 25s heartbeat
+            # wait: with `$` the frame never arrives.
+            frame = await asyncio.wait_for(anext(gen), timeout=2)
+        finally:
+            await gen.aclose()
+
+        assert str(member_id) in frame
+
     async def test_a_dead_redis_ends_the_stream_instead_of_raising(
         self,
         test_tenant: Tenant,
@@ -404,7 +454,65 @@ class TestEventStream:
             async def xread(self, *_a: object, **_k: object) -> None:
                 raise ConnectionError("redis is gone")
 
-        gen = event_stream(BrokenRedis(), test_tenant.id)  # type: ignore[arg-type]
+        # A resumption cursor, so the failure is the mid-stream read — a redis
+        # that is already dead at connection time ends before the opening frame.
+        gen = event_stream(BrokenRedis(), test_tenant.id, last_event_id="0")  # type: ignore[arg-type]
         assert (await anext(gen)).startswith(":")
         with pytest.raises(StopAsyncIteration):
             await anext(gen)
+
+
+class TestStreamRoute:
+    """`GET /api/v1/stream` itself — auth and the connection cap.
+
+    The generator's behaviour is covered above; these pin the two branches only
+    the route owns: who may open a stream at all, and what a reconnect storm is
+    told.
+    """
+
+    async def test_an_anonymous_caller_may_not_open_a_stream(
+        self, anon_client: AsyncClient
+    ) -> None:
+        response = await anon_client.get("/api/v1/stream")
+        assert response.status_code == 403
+
+    async def test_an_authenticated_caller_gets_an_event_stream(
+        self, auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Auth, headers and the glue — the generator itself is pinned above.
+
+        The real stream never ends and the test transport buffers the whole
+        body before handing it over, so a bounded stand-in stream is
+        substituted; what this pins is the route, not the generator.
+        """
+        import app.api.v1.stream as stream_route
+
+        async def one_frame(*_a: object, **_k: object):
+            yield ": open\n\n"
+
+        monkeypatch.setattr(stream_route, "event_stream", one_frame)
+
+        response = await auth_client.get("/api/v1/stream")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert response.text.startswith(": open")
+
+    async def test_the_per_user_cap_answers_429(
+        self,
+        auth_client: AsyncClient,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        """The backstop against a reconnect storm from a buggy client."""
+        from app.api.v1.auth import get_session_data
+        from app.api.v1.stream import MAX_STREAMS_PER_USER, _claim_slot
+
+        session_token = auth_client.cookies["unefy_session"]
+        data = await get_session_data(session_token)
+        assert data is not None
+        for _ in range(MAX_STREAMS_PER_USER):
+            await _claim_slot(test_tenant.id, data.user_id, uuid.uuid4().hex)
+
+        response = await auth_client.get("/api/v1/stream")
+        assert response.status_code == 429
+        assert response.json()["error"]["code"] == "TOO_MANY_STREAMS"

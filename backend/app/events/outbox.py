@@ -211,6 +211,11 @@ async def publish(redis: Redis, events: list[ChangeEvent]) -> None:
     """
     if not events:
         return
+    # A transaction that flushes the same row several times queues the same hint
+    # several times. One entry says everything the duplicates would; the extras
+    # only burn the stream's bounded history and fan out frames every client
+    # coalesces away. Order is preserved, first occurrence wins.
+    events = list(dict.fromkeys(events))
     try:
         pipe = redis.pipeline()
         for event in events:

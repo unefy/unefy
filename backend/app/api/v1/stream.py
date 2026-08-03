@@ -26,6 +26,7 @@ Next.js route handler, which forwards the session cookie server-side, and the
 mobile clients use real HTTP clients that can set `Authorization` on a GET.
 """
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -126,8 +127,8 @@ async def _touch_slot(tenant_id: uuid.UUID, user_id: uuid.UUID, connection_id: s
 async def _release_slot(tenant_id: uuid.UUID, user_id: uuid.UUID, connection_id: str) -> None:
     """Give the slot back immediately rather than waiting for it to age out.
 
-    Best-effort by design — see [_claim_slot]. If cancellation swallows this, the
-    entry expires within [SLOT_TTL_SECONDS] anyway.
+    Best-effort by design — see [_claim_slot]. If this is lost, the entry
+    expires within [SLOT_TTL_SECONDS] anyway.
     """
     redis = get_redis()
     tenant_key, user_key = _slot_keys(tenant_id, user_id)
@@ -138,6 +139,25 @@ async def _release_slot(tenant_id: uuid.UUID, user_id: uuid.UUID, connection_id:
         await pipe.execute()
     except Exception:
         logger.warning("sse_slot_release_failed", exc_info=True)
+
+
+#: Keeps in-flight release tasks alive — a bare `create_task` result that nothing
+#: references may be garbage-collected before it runs.
+_release_tasks: set[asyncio.Task[None]] = set()
+
+
+def _release_slot_soon(tenant_id: uuid.UUID, user_id: uuid.UUID, connection_id: str) -> None:
+    """Schedule the release as its own task, immune to this request's teardown.
+
+    The natural `await _release_slot(...)` in the generator's `finally` runs
+    during task cancellation, where the await itself is cancellable — so three
+    quick reloads dropped three releases, filled the per-user cap, and locked
+    the user out of live updates for [SLOT_TTL_SECONDS]. A detached task is not
+    cancelled with the request and gets the decrement through.
+    """
+    task = asyncio.create_task(_release_slot(tenant_id, user_id, connection_id))
+    _release_tasks.add(task)
+    task.add_done_callback(_release_tasks.discard)
 
 
 @router.get("")
@@ -178,9 +198,9 @@ async def stream(request: Request) -> StreamingResponse:
             ):
                 yield frame
         finally:
-            # An optimisation, not a requirement: if cancellation swallows this,
-            # the entry ages out of the set on its own.
-            await _release_slot(tenant_id, user_id, connection_id)
+            # An optimisation, not a requirement: if the detached task is lost
+            # with the event loop, the entry ages out of the set on its own.
+            _release_slot_soon(tenant_id, user_id, connection_id)
 
     return StreamingResponse(
         frames(),
