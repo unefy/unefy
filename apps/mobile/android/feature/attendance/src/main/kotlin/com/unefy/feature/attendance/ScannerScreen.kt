@@ -56,6 +56,7 @@ import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
+import com.unefy.feature.attendance.nfc.AntennaHint
 import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.feature.attendance.nfc.NfcReader
 import com.unefy.feature.attendance.nfc.NfcState
@@ -277,6 +278,11 @@ private fun LazyListScope.scannerContent(
     // spot is looking. Antenna placement is not something a user can be
     // expected to know, and hunting for it blind was the worst part of the tap.
     item("nfc-hint") {
+        AntennaHint(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = UnefySpacing.sm),
+        )
         Text(
             text = when (state.nfc) {
                 NfcState.Listening -> stringResource(R.string.scanner_nfc_hint)

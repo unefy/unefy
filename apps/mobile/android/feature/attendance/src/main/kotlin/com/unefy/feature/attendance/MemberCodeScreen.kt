@@ -44,6 +44,7 @@ import com.unefy.core.designsystem.theme.UnefyMotion
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.ClubRole
+import com.unefy.feature.attendance.nfc.AntennaHint
 
 @Composable
 fun MemberCodeRoute(
@@ -172,6 +173,10 @@ private fun CodeCard(state: MemberCodeUiState.Content) {
         }
 
         CodeCountdown(state.secondsRemaining)
+
+        // The other phone cannot be told where this one's antenna is, so each
+        // shows its own and the two people meet in the middle.
+        AntennaHint(modifier = Modifier.fillMaxWidth())
 
         if (state.seedStale) {
             Text(
