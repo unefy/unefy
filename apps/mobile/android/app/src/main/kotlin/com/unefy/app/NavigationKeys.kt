@@ -25,6 +25,9 @@ data class MemberDetailKey(val memberId: String) : UnefyNavKey
 data object EventsKey : UnefyNavKey
 
 @Serializable
+data class EventDetailKey(val eventId: String) : UnefyNavKey
+
+@Serializable
 data object DuesKey : UnefyNavKey
 
 @Serializable
@@ -38,6 +41,12 @@ data object MyDuesKey : UnefyNavKey
 
 @Serializable
 data object CompetitionsKey : UnefyNavKey
+
+@Serializable
+data class CompetitionDetailKey(
+    val competitionId: String,
+    val competitionName: String,
+) : UnefyNavKey
 
 @Serializable
 data class ScoreboardKey(val competitionId: String, val competitionName: String) : UnefyNavKey

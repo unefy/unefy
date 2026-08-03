@@ -71,10 +71,12 @@ import com.unefy.app.ui.accountActions
 import com.unefy.core.model.ClubRole
 import com.unefy.feature.attendance.MemberCodeRoute
 import com.unefy.feature.attendance.ScannerRoute
+import com.unefy.feature.competitions.CompetitionDetailRoute
 import com.unefy.feature.competitions.CompetitionsRoute
 import com.unefy.feature.competitions.ScoreboardRoute
 import com.unefy.feature.dues.DuesRoute
 import com.unefy.feature.dues.MyDuesRoute
+import com.unefy.feature.events.EventDetailRoute
 import com.unefy.feature.events.EventsRoute
 import com.unefy.feature.members.DirectoryRoute
 import com.unefy.feature.members.MemberDetailRoute
@@ -391,7 +393,15 @@ internal fun unefyEntryProvider(
     entry<MemberDetailKey> { key ->
         MemberDetailRoute(memberId = key.memberId, onBack = onBack)
     }
-    entry<EventsKey> { EventsRoute(actions = accountActions) }
+    entry<EventsKey> {
+        EventsRoute(
+            actions = accountActions,
+            onEventClick = { id -> onOpen(EventDetailKey(id)) },
+        )
+    }
+    entry<EventDetailKey> { key ->
+        EventDetailRoute(eventId = key.eventId, onBack = onBack)
+    }
     entry<DuesKey> { DuesRoute(actions = accountActions) }
     entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
     entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
@@ -409,7 +419,19 @@ internal fun unefyEntryProvider(
     entry<CompetitionsKey> {
         CompetitionsRoute(
             actions = accountActions,
-            onCompetitionClick = { id, name -> onOpen(ScoreboardKey(id, name)) },
+            // The overview first, not the ranking: what a competition *is* —
+            // dates, disciplines, scoring — answers before who is winning it.
+            onCompetitionClick = { id, name -> onOpen(CompetitionDetailKey(id, name)) },
+        )
+    }
+    entry<CompetitionDetailKey> { key ->
+        CompetitionDetailRoute(
+            competitionId = key.competitionId,
+            competitionName = key.competitionName,
+            onBack = onBack,
+            onOpenScoreboard = {
+                onOpen(ScoreboardKey(key.competitionId, key.competitionName))
+            },
         )
     }
     entry<MoreKey> {
