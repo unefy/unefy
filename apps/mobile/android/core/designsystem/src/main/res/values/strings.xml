@@ -2,4 +2,6 @@
 <resources>
     <string name="search_clear">Suche löschen</string>
     <string name="refresh_failed">Aktualisieren fehlgeschlagen</string>
+    <string name="stale_offline">Keine Verbindung — Stand vom letzten Abgleich</string>
+    <string name="stale_generic">Nicht aktuell — Abgleich fehlgeschlagen</string>
 </resources>

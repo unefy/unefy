@@ -1,24 +1,42 @@
 package com.unefy.feature.members
 
+import com.unefy.core.model.DirectoryEntry
 import com.unefy.core.model.Member
 import com.unefy.core.model.MemberStatus
 import com.unefy.core.network.ApiError
-import com.unefy.core.network.ApiMeta
 import com.unefy.core.network.ApiResult
+import com.unefy.core.sync.SyncCoordinator
+import com.unefy.core.sync.SyncStatus
+import com.unefy.core.testing.FakeCoordinator
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+/**
+ * The member list reads a local mirror now rather than fetching a page.
+ *
+ * What that changes, and what these tests pin: the list is a query over rows that
+ * are already there, so "loading" means the mirror has never been filled, an empty
+ * list means the club is empty, and a sync failure is a banner over real data
+ * rather than a screen full of error. Confusing the first two is how a first launch
+ * ends up claiming the club has no members while the bootstrap is still running.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MembersViewModelTest {
 
@@ -31,264 +49,265 @@ class MembersViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `starts in Loading before the repository answers`() = runTest(dispatcher) {
-        val viewModel = MembersViewModel(FakeMembersRepository())
+    fun `an unsynced mirror is Loading, not empty`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeMembersRepository(hasSynced = false))
+        advanceUntilIdle()
+
         assertEquals(MembersUiState.Loading, viewModel.uiState.value)
     }
 
+    /**
+     * The distinction the stored cursor exists for. Same zero rows as above,
+     * opposite meaning — and the only thing telling them apart is whether a sync
+     * has ever finished.
+     */
     @Test
-    fun `successful load produces Content with the members`() = runTest(dispatcher) {
-        val viewModel = MembersViewModel(FakeMembersRepository(members = listOf(member("1"))))
+    fun `a synced but empty mirror is Content, not Loading`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeMembersRepository(members = emptyList(), hasSynced = true))
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertTrue(state is MembersUiState.Content)
-        assertEquals(1, (state as MembersUiState.Content).members.size)
+        assertEquals(emptyList<Member>(), (state as MembersUiState.Content).members)
     }
 
     @Test
-    fun `an empty club is Content, not an error`() = runTest(dispatcher) {
-        val viewModel = MembersViewModel(FakeMembersRepository(members = emptyList()))
+    fun `mirrored members are shown with the club's total`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            FakeMembersRepository(members = listOf(member("1"), member("2")), total = 47),
+        )
         advanceUntilIdle()
 
-        assertEquals(MembersUiState.Content(emptyList()), viewModel.uiState.value)
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(listOf("1", "2"), state.members.map(Member::id))
+        // The club's size, not the number of rows on screen.
+        assertEquals(47, state.total)
+    }
+
+    /**
+     * The point of the mirror: a change synced in the background reaches the screen
+     * without the screen asking for anything.
+     */
+    @Test
+    fun `a row appearing in the mirror reaches the screen unasked`() = runTest(dispatcher) {
+        val repository = FakeMembersRepository(members = listOf(member("1")))
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        repository.rows.value = listOf(member("1"), member("2"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(listOf("1", "2"), state.members.map(Member::id))
     }
 
     @Test
-    fun `a failing load surfaces the typed error`() = runTest(dispatcher) {
-        val failure = ApiError.Network(IOException("offline"))
-        val viewModel = MembersViewModel(FakeMembersRepository(failure = failure))
+    fun `a query filters against the mirror`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            FakeMembersRepository(
+                members = listOf(member("1", last = "Müller"), member("2", last = "Bauer")),
+            ),
+        )
         advanceUntilIdle()
 
-        assertEquals(MembersUiState.Failure(failure), viewModel.uiState.value)
+        viewModel.onQueryChange("müller")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals(listOf("1"), state.members.map(Member::id))
+        assertEquals("müller", state.query)
     }
 
+    /**
+     * Query and results have to move together. Combining them from separate flows
+     * lets a keystroke pair the new query with the old list for a frame, which is
+     * long enough to render "no matches" over results that do match.
+     */
     @Test
-    fun `retry after a failure recovers`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(failure = ApiError.Unauthorized)
-        val viewModel = MembersViewModel(repository)
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value is MembersUiState.Failure)
-
-        repository.failure = null
-        repository.members = listOf(member("1"), member("2"))
-        viewModel.retry()
-        advanceUntilIdle()
-
-        assertEquals(2, (viewModel.uiState.value as MembersUiState.Content).members.size)
-    }
-
-    @Test
-    fun `the search query is passed to the repository`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository()
-        val viewModel = MembersViewModel(repository)
+    fun `the query on screen always matches the list on screen`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            FakeMembersRepository(
+                members = listOf(member("1", last = "Müller"), member("2", last = "Bauer")),
+            ),
+        )
         advanceUntilIdle()
 
         viewModel.onQueryChange("bauer")
         advanceUntilIdle()
 
-        assertEquals("bauer", repository.lastSearch)
+        val state = viewModel.uiState.value as MembersUiState.Content
+        assertEquals("bauer", state.query)
+        assertEquals(listOf("2"), state.members.map(Member::id))
     }
 
     /**
-     * Regression guard: a slow earlier search must not overwrite a faster later
-     * one. The ViewModel cancels the in-flight job for exactly this reason.
+     * A failed sync over a mirror that holds data is a banner, not a takeover.
+     * Replacing a working list with a full-screen error because the connection
+     * dropped for a second is worse than showing a list a minute out of date.
      */
     @Test
-    fun `a superseded search does not clobber the newer result`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = listOf(member("stale")))
-        val viewModel = MembersViewModel(repository)
+    fun `a sync failure keeps the list and reports why it is stale`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator()
+        val viewModel = viewModel(FakeMembersRepository(members = listOf(member("1"))), coordinator)
         advanceUntilIdle()
 
-        viewModel.onQueryChange("a")
-        repository.members = listOf(member("fresh"))
-        viewModel.onQueryChange("ab")
+        coordinator.status.value = SyncStatus.Failed(ApiError.Network(IOException("no signal")))
         advanceUntilIdle()
 
         val state = viewModel.uiState.value as MembersUiState.Content
-        assertEquals("fresh", state.members.single().id)
-        assertEquals("ab", repository.lastSearch)
+        assertEquals(listOf("1"), state.members.map(Member::id))
+        assertTrue(state.staleBecause is ApiError.Network)
+    }
+
+    /** It clears itself: there is no event to dismiss, only a fact that stops being true. */
+    @Test
+    fun `a later successful sync clears the stale reason`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator(SyncStatus.Failed(ApiError.Network(IOException())))
+        val viewModel = viewModel(FakeMembersRepository(members = listOf(member("1"))), coordinator)
+        advanceUntilIdle()
+        assertTrue((viewModel.uiState.value as MembersUiState.Content).staleBecause != null)
+
+        coordinator.status.value = SyncStatus.Idle
+        advanceUntilIdle()
+
+        assertNull((viewModel.uiState.value as MembersUiState.Content).staleBecause)
+    }
+
+    /** With nothing mirrored there is no list to keep, so the error is all there is. */
+    @Test
+    fun `a sync failure with an empty mirror is a Failure`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator(SyncStatus.Failed(ApiError.Network(IOException())))
+        val viewModel = viewModel(FakeMembersRepository(hasSynced = false), coordinator)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is MembersUiState.Failure)
+        assertTrue((state as MembersUiState.Failure).error is ApiError.Network)
+    }
+
+    /**
+     * A plain member may not mirror the member list. Reported as Forbidden because
+     * that is what it is, and because signing in again will not help.
+     */
+    @Test
+    fun `a refused collection is a Forbidden failure`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator(SyncStatus.NotPermitted)
+        val viewModel = viewModel(FakeMembersRepository(hasSynced = false), coordinator)
+        advanceUntilIdle()
+
+        assertEquals(MembersUiState.Failure(ApiError.Forbidden), viewModel.uiState.value)
     }
 
     @Test
-    fun `a refresh picks up what was added elsewhere`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = listOf(member("1")))
-        val viewModel = MembersViewModel(repository)
+    fun `refresh asks the coordinator to sync now`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator()
+        val viewModel = viewModel(FakeMembersRepository(), coordinator)
         advanceUntilIdle()
 
-        repository.members = listOf(member("1"), member("2"))
         viewModel.refresh()
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value as MembersUiState.Content
-        assertEquals(2, state.members.size)
-        assertTrue(!state.isRefreshing)
+        assertEquals(listOf("members"), coordinator.syncedNow)
     }
 
+    /**
+     * The pull gesture fires on drag rather than on intent, so a slow sync would
+     * otherwise be asked for several times over.
+     */
     @Test
-    fun `a failing refresh keeps the list and reports the failure`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = listOf(member("1")))
-        val viewModel = MembersViewModel(repository)
+    fun `a second refresh while one is running is ignored`() = runTest(dispatcher) {
+        val coordinator = FakeCoordinator(blockSync = true)
+        val viewModel = viewModel(FakeMembersRepository(), coordinator)
         advanceUntilIdle()
 
-        repository.failure = ApiError.Network(IOException("offline"))
+        viewModel.refresh()
+        viewModel.refresh()
         viewModel.refresh()
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value as MembersUiState.Content
-        assertEquals(1, state.members.size)
-        assertTrue(state.refreshFailed)
-        assertTrue(!state.isRefreshing)
-
-        viewModel.onMessageShown()
-        assertTrue(!(viewModel.uiState.value as MembersUiState.Content).refreshFailed)
+        assertEquals(1, coordinator.syncedNow.size)
     }
 
     /**
-     * Keeping the list is right for a refresh and wrong for a search: those rows
-     * do not answer what was typed, and "Aktualisieren fehlgeschlagen" would not
-     * explain why they are still there.
+     * Builds the ViewModel and subscribes to its state.
+     *
+     * The subscription is not incidental. `uiState` is shared with
+     * `WhileSubscribed`, so with no collector it never runs its upstream and
+     * reports its initial value forever — which in a test looks exactly like a
+     * ViewModel stuck on Loading. Compose provides the collector in the app; here
+     * `backgroundScope` does, and it is torn down with the test.
      */
-    @Test
-    fun `a failing search shows the error instead of the old results`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = listOf(member("1")))
-        val viewModel = MembersViewModel(repository)
-        advanceUntilIdle()
-
-        repository.failure = ApiError.Network(IOException("offline"))
-        viewModel.onQueryChange("bauer")
-        advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value is MembersUiState.Failure)
+    private fun TestScope.viewModel(
+        repository: MembersRepository,
+        coordinator: SyncCoordinator = FakeCoordinator(),
+    ) = MembersViewModel(repository, coordinator).also { vm ->
+        backgroundScope.launch { vm.uiState.collect {} }
     }
-
-    /**
-     * The bug this exists for: the backend caps a page at 100, so a club bigger
-     * than one page simply lost the rest, with nothing on screen to say so.
-     */
-    @Test
-    fun `a club larger than one page keeps going`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = (1..120).map { member("$it") })
-        val viewModel = MembersViewModel(repository)
-        advanceUntilIdle()
-        assertEquals(50, (viewModel.uiState.value as MembersUiState.Content).members.size)
-
-        viewModel.loadMore()
-        advanceUntilIdle()
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value as MembersUiState.Content
-        assertEquals(120, state.members.size)
-        assertEquals(120, state.members.distinctBy { it.id }.size)
-        assertEquals(listOf(1, 2, 3), repository.requestedPages)
-    }
-
-    /** The header counts the club, not the pages fetched so far. */
-    @Test
-    fun `the count is the club total, not what is loaded`() = runTest(dispatcher) {
-        val viewModel = MembersViewModel(FakeMembersRepository((1..120).map { member("$it") }))
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value as MembersUiState.Content
-        assertEquals(50, state.members.size)
-        assertEquals(120, state.total)
-    }
-
-    @Test
-    fun `load more past the last page asks for nothing`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = listOf(member("1")))
-        val viewModel = MembersViewModel(repository)
-        advanceUntilIdle()
-
-        repeat(5) { viewModel.loadMore() }
-        advanceUntilIdle()
-
-        assertEquals(listOf(1), repository.requestedPages)
-    }
-
-    /** Pages carry the search term, or page two would ignore what was typed. */
-    @Test
-    fun `paging a search stays inside the search`() = runTest(dispatcher) {
-        val repository = FakeMembersRepository(members = (1..120).map { member("$it") })
-        val viewModel = MembersViewModel(repository)
-        advanceUntilIdle()
-
-        viewModel.onQueryChange("bauer")
-        advanceUntilIdle()
-        viewModel.loadMore()
-        advanceUntilIdle()
-
-        assertEquals("bauer", repository.lastSearch)
-        // A new search restarts at page one, then pages on from there.
-        assertEquals(listOf(1, 1, 2), repository.requestedPages)
-    }
-
-    private fun member(id: String) = Member(
-        id = id,
-        memberNumber = "TV-0$id",
-        firstName = "Susanne",
-        lastName = "Bauer",
-        email = null,
-        phone = null,
-        mobile = null,
-        birthday = null,
-        street = null,
-        zipCode = null,
-        city = null,
-        status = MemberStatus.ACTIVE,
-        category = null,
-        joinedAt = "2007-04-10",
-        leftAt = null,
-        iban = null,
-    )
 }
 
+private fun member(id: String, last: String = "Muster") = Member(
+    id = id,
+    memberNumber = "000$id",
+    firstName = "Vorname",
+    lastName = last,
+    email = null,
+    phone = null,
+    mobile = null,
+    birthday = null,
+    street = null,
+    zipCode = null,
+    city = null,
+    status = MemberStatus.ACTIVE,
+    category = null,
+    joinedAt = "2007-04-10",
+    leftAt = null,
+    iban = null,
+)
+
+/**
+ * Stands in for Room. [rows] is mutable so a test can change the mirror under the
+ * screen, which is the behaviour the whole rewrite is for.
+ *
+ * The filter is the same shape as the DAO's — a case-insensitive substring over the
+ * name — but not the same code. What the real SQL does with umlauts is tested
+ * against real SQLite in `SyncedMemberDaoTest`.
+ */
 private class FakeMembersRepository(
-    var members: List<Member> = emptyList(),
-    var failure: ApiError? = null,
+    members: List<Member> = emptyList(),
+    private val total: Int? = null,
+    private val hasSynced: Boolean = true,
 ) : MembersRepository {
-    var lastSearch: String? = null
 
-    /** Every page number asked for, in order. */
-    val requestedPages = mutableListOf<Int>()
+    val rows = MutableStateFlow(members)
 
-    /**
-     * Pages the way the backend does, so a ViewModel that ignores meta fails.
-     * The search term is recorded but not applied — what these tests check is
-     * that it travels with every page, not how the backend matches it.
-     */
-    override suspend fun list(page: Int, perPage: Int, search: String?): ApiResult<List<Member>> {
-        lastSearch = search
-        requestedPages += page
-        failure?.let { return ApiResult.Failure(it) }
-
-        val totalPages = if (members.isEmpty()) 1 else (members.size + perPage - 1) / perPage
-        return ApiResult.Success(
-            members.drop((page - 1) * perPage).take(perPage),
-            ApiMeta(total = members.size, page = page, perPage = perPage, totalPages = totalPages),
-        )
+    override fun stream(query: String): Flow<List<Member>> = rows.map { list ->
+        if (query.isBlank()) {
+            list
+        } else {
+            list.filter { it.displayName.contains(query, ignoreCase = true) }
+        }
     }
 
+    override fun count(): Flow<Int> = rows.map { total ?: it.size }
+
+    override fun hasSynced(): Flow<Boolean> = MutableStateFlow(hasSynced)
+
+    override fun byIdStream(id: String): Flow<Member?> = rows.map { list ->
+        list.firstOrNull { it.id == id }
+    }
+
+    override suspend fun byId(id: String): ApiResult<Member> =
+        rows.value.firstOrNull { it.id == id }
+            ?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure(ApiError.NotFound(null))
+
     override suspend fun me(): ApiResult<Member> =
-        failure?.let { ApiResult.Failure(it) }
-            ?: members.firstOrNull()?.let { ApiResult.Success(it) }
+        rows.value.firstOrNull()?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure(ApiError.NotFound(null))
 
     override suspend fun directory(
         page: Int,
         perPage: Int,
         search: String?,
-    ): ApiResult<List<com.unefy.core.model.DirectoryEntry>> = failure?.let { ApiResult.Failure(it) }
-        ?: ApiResult.Success(
-            members.map {
-                com.unefy.core.model.DirectoryEntry(it.id, it.firstName, it.lastName, it.category)
-            },
-        )
-
-    override suspend fun byId(id: String): ApiResult<Member> =
-        failure?.let { ApiResult.Failure(it) }
-            ?: members.firstOrNull { it.id == id }
-                ?.let { ApiResult.Success(it) }
-            ?: ApiResult.Failure(ApiError.NotFound(null))
+    ): ApiResult<List<DirectoryEntry>> = ApiResult.Success(emptyList())
 }

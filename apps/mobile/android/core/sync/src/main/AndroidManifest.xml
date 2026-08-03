@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ConnectivityMonitor needs this. Declared in the module that uses it rather than
+  in the app manifest, so the permission travels with the code that depends on it
+  and a module removal takes it along.
+
+  Not a runtime permission and not user-visible: it reports whether there is a
+  network, not what is on it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

@@ -54,6 +54,8 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:network"))
     implementation(project(":core:auth"))
+    // MainActivity starts the change stream and the syncs it triggers.
+    implementation(project(":core:sync"))
     implementation(project(":feature:attendance"))
     implementation(project(":feature:members"))
     implementation(project(":feature:events"))

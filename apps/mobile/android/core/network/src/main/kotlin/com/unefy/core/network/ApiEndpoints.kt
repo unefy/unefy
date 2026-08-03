@@ -24,7 +24,22 @@ object ApiEndpoints {
 
     const val EVENTS = "/api/v1/events"
 
+    const val COMPETITIONS = "/api/v1/competitions"
+
     const val CLUB = "/api/v1/club"
+
+    /**
+     * Delta-sync. Deliberately separate from the list endpoints: `/members`
+     * carries filters, offset paging and a `status_counts` aggregate, and these
+     * carry a keyset cursor and tombstones. See backend/app/api/v1/sync.py.
+     */
+    const val SYNC = "/api/v1/sync"
+
+    /** The collection name is the path segment, and also the SSE `entity` value. */
+    fun sync(collection: String): String = "$SYNC/$collection"
+
+    /** The change stream. A doorbell: it says something changed, not what. */
+    const val STREAM = "/api/v1/stream"
 
     const val ATTENDANCE = "/api/v1/attendance"
     const val ATTENDANCE_SESSIONS = "$ATTENDANCE/sessions"
@@ -47,4 +62,8 @@ object ApiEndpoints {
     fun member(id: String): String = "$MEMBERS/$id"
 
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"
+
+    /** The live ranking — a server aggregate, not a synced collection. */
+    fun competitionScoreboard(competitionId: String): String =
+        "$COMPETITIONS/$competitionId/scoreboard"
 }

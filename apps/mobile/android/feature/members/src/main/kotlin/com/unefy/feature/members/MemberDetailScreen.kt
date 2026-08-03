@@ -52,9 +52,14 @@ import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface MemberDetailUiState {
@@ -63,22 +68,63 @@ sealed interface MemberDetailUiState {
     data class Failure(val error: ApiError) : MemberDetailUiState
 }
 
+/**
+ * One member, from two sources that answer different questions.
+ *
+ * The mirror has everything this screen shows except the bank details, and it has
+ * it without a network — so tapping a row is instant, and still works in the
+ * basement the list itself was read in. The banking fields are deliberately never
+ * written to disk, so they come from the server or not at all.
+ *
+ * The two are merged rather than raced. Whichever arrives last must not win: the
+ * mirror is authoritative for the fields it holds, because a sync can update them
+ * while this screen is open, and the fetched copy contributes only the one field
+ * the mirror does not carry. Letting either replace the other wholesale means the
+ * IBAN appears and then vanishes the next time the row is synced.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MemberDetailViewModel @Inject constructor(
     private val repository: MembersRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<MemberDetailUiState>(MemberDetailUiState.Loading)
-    val uiState: StateFlow<MemberDetailUiState> = _uiState.asStateFlow()
+    private val memberId = MutableStateFlow<String?>(null)
 
-    fun load(memberId: String) {
-        _uiState.value = MemberDetailUiState.Loading
-        viewModelScope.launch {
-            _uiState.value = when (val result = repository.byId(memberId)) {
-                is ApiResult.Success -> MemberDetailUiState.Content(result.data)
-                is ApiResult.Failure -> MemberDetailUiState.Failure(result.error)
-            }
+    /** The server's answer, kept only for the fields the mirror leaves out. */
+    private val remote = MutableStateFlow<ApiResult<Member>?>(null)
+
+    val uiState: StateFlow<MemberDetailUiState> = combine(
+        memberId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
+        remote,
+    ) { mirrored, result ->
+        val fetched = (result as? ApiResult.Success)?.data
+        val member = mirrored?.copy(iban = fetched?.iban) ?: fetched
+        when {
+            member != null -> MemberDetailUiState.Content(member)
+            // Only a failure when there is nothing to show. Replacing a mirrored
+            // member with an error because the connection dropped for a second
+            // would be a worse screen than one with an empty IBAN line.
+            result is ApiResult.Failure -> MemberDetailUiState.Failure(result.error)
+            else -> MemberDetailUiState.Loading
         }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_GRACE_MS),
+        initialValue = MemberDetailUiState.Loading,
+    )
+
+    fun load(id: String) {
+        if (memberId.value == id) return
+        memberId.value = id
+        remote.value = null
+
+        viewModelScope.launch {
+            remote.value = repository.byId(id)
+        }
+    }
+
+    private companion object {
+        const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }
 

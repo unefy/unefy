@@ -113,6 +113,15 @@ fun UnefyListScaffold(
     /** Shown once as a snackbar, then handed back via [onMessageShown]. */
     message: String? = null,
     onMessageShown: () -> Unit = {},
+    /**
+     * Drawn under the controls, inside the header — so it stays put while the list
+     * scrolls, and the list's top padding accounts for it appearing and going.
+     *
+     * For standing conditions rather than events: "this list is not current" is
+     * true until the next sync succeeds, which is not something a snackbar can
+     * express. See [UnefyStaleBanner].
+     */
+    banner: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     // The shell's state when there is one, so the navigation bar blurs the same
@@ -207,10 +216,13 @@ fun UnefyListScaffold(
                 )
             }
 
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
+                    // On the whole header, banner included, so the list's top
+                    // padding follows it. A banner measured outside this would
+                    // either cover the first row or leave a gap when it goes.
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                     .hazeEffect(
                         state = hazeState,
@@ -218,34 +230,45 @@ fun UnefyListScaffold(
                         // list visible underneath, not to hide it.
                         style = unefyGlassStyle(),
                     )
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-                    .padding(
-                        start = if (navigationIcon != null) UnefySpacing.xs else UnefySpacing.screen,
-                        end = UnefySpacing.screen,
-                        top = UnefySpacing.md,
-                        bottom = UnefySpacing.sm,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
             ) {
-                navigationIcon?.invoke()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = if (navigationIcon != null) {
+                                UnefySpacing.xs
+                            } else {
+                                UnefySpacing.screen
+                            },
+                            end = UnefySpacing.screen,
+                            top = UnefySpacing.md,
+                            bottom = UnefySpacing.sm,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+                ) {
+                    navigationIcon?.invoke()
 
-                if (search != null) {
-                    UnefySearchField(
-                        value = search.value,
-                        onValueChange = search.onValueChange,
-                        placeholder = search.placeholder,
-                        enabled = search.enabled,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    HeaderTitle(
-                        title = title,
-                        subtitle = subtitle,
-                        modifier = Modifier.weight(1f),
-                    )
+                    if (search != null) {
+                        UnefySearchField(
+                            value = search.value,
+                            onValueChange = search.onValueChange,
+                            placeholder = search.placeholder,
+                            enabled = search.enabled,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        HeaderTitle(
+                            title = title,
+                            subtitle = subtitle,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    actions()
                 }
-                actions()
+
+                banner()
             }
         }
     }

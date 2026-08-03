@@ -17,9 +17,12 @@ import javax.inject.Singleton
 /**
  * The app's local database.
  *
- * Four tables, all earned rather than speculative: the check-in queue, and the
- * member, session and attendance lists it needs to be usable offline. Caching for events
- * and dues belongs here too and is not built — see docs/plans/android-app.md.
+ * Two kinds of table, and the difference matters. The attendance tables are
+ * *caches*: refreshed from whatever a list call returned, read only when the
+ * network refuses, prunable with `retainOnly`. The `synced_*` tables are a
+ * *mirror*: filled by delta-sync, the only thing the member screens read, and
+ * emptied only by sign-out. Caching for events, dues and competitions still
+ * belongs here and is not built — see docs/plans/android-app.md.
  *
  * No `fallbackToDestructiveMigration`. The queue holds check-ins that exist
  * nowhere else until they sync, and dropping the table on a schema change would
@@ -31,8 +34,13 @@ import javax.inject.Singleton
         CachedMember::class,
         CachedSession::class,
         CachedSessionRecord::class,
+        SyncedMember::class,
+        SyncedEvent::class,
+        SyncedDue::class,
+        SyncedCompetition::class,
+        SyncCursorEntity::class,
     ],
-    version = 5,
+    version = 7,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -43,6 +51,16 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun cachedSessionDao(): CachedSessionDao
 
     abstract fun cachedSessionRecordDao(): CachedSessionRecordDao
+
+    abstract fun syncedMemberDao(): SyncedMemberDao
+
+    abstract fun syncedEventDao(): SyncedEventDao
+
+    abstract fun syncedDueDao(): SyncedDueDao
+
+    abstract fun syncedCompetitionDao(): SyncedCompetitionDao
+
+    abstract fun syncCursorDao(): SyncCursorDao
 }
 
 @Module
@@ -53,8 +71,28 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): UnefyDatabase =
         Room.databaseBuilder(context, UnefyDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(*ALL_MIGRATIONS)
             .build()
+
+    /**
+     * Every migration, in one list.
+     *
+     * One place rather than a call-site argument list, so a new migration cannot
+     * be written and then left out of the builder — a mistake that costs nothing
+     * on a fresh install and crashes every upgrading device. `internal` so the
+     * migration test can hand the same list to `MigrationTestHelper` instead of
+     * keeping a second copy that could drift.
+     */
+    internal val ALL_MIGRATIONS: Array<Migration> by lazy {
+        arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+        )
+    }
 
     /**
      * Adds the two caches.
@@ -107,6 +145,13 @@ object DatabaseModule {
     fun provideCachedSessionRecordDao(database: UnefyDatabase): CachedSessionRecordDao =
         database.cachedSessionRecordDao()
 
+    @Provides
+    fun provideSyncedMemberDao(database: UnefyDatabase): SyncedMemberDao =
+        database.syncedMemberDao()
+
+    @Provides
+    fun provideSyncCursorDao(database: UnefyDatabase): SyncCursorDao = database.syncCursorDao()
+
     /** The attendance list the scanner shows, so it survives losing signal. */
     private val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(connection: SQLiteConnection) {
@@ -157,6 +202,147 @@ object DatabaseModule {
             )
         }
     }
+
+    /**
+     * The member mirror and the sync cursors.
+     *
+     * Purely additive — nothing existing is touched, so there is no data to
+     * migrate. Both tables start empty and the first sync fills them: an empty
+     * `sync_cursors` is exactly how a device says "bootstrap me".
+     *
+     * `searchKey`/`sortKey` are `NOT NULL` with no default because every row is
+     * written through [SyncedMember], whose constructor derives them.
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_members (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    memberNumber TEXT NOT NULL,
+                    firstName TEXT NOT NULL,
+                    lastName TEXT NOT NULL,
+                    email TEXT,
+                    phone TEXT,
+                    mobile TEXT,
+                    birthday TEXT,
+                    street TEXT,
+                    zipCode TEXT,
+                    city TEXT,
+                    status TEXT,
+                    category TEXT,
+                    joinedAt TEXT NOT NULL,
+                    leftAt TEXT,
+                    generation INTEGER NOT NULL,
+                    searchKey TEXT NOT NULL,
+                    sortKey TEXT NOT NULL
+                )
+                """,
+            )
+            // The list is always read in this order, and the search is a
+            // substring match that no index can serve — so the index that pays
+            // for itself is the one on the sort.
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_members_sortKey ON synced_members (sortKey)",
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS sync_cursors (
+                    collection TEXT NOT NULL PRIMARY KEY,
+                    cursor TEXT,
+                    bootstrapComplete INTEGER NOT NULL,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+        }
+    }
+
+    /**
+     * The event, dues and competition mirrors.
+     *
+     * Purely additive, like 5→6: three empty tables the first sync fills. The
+     * dues table joins against `synced_members` at read time, which is why it
+     * indexes `memberId`; no foreign key, because the member row may arrive in
+     * a later page of the same bootstrap.
+     */
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_events (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    eventType TEXT,
+                    location TEXT,
+                    startsAt TEXT NOT NULL,
+                    endsAt TEXT,
+                    allDay INTEGER NOT NULL,
+                    registrationRequired INTEGER NOT NULL,
+                    registrationDeadline TEXT,
+                    maxParticipants INTEGER,
+                    status TEXT,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_events_startsAt " +
+                    "ON synced_events (startsAt)",
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_dues (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    memberId TEXT NOT NULL,
+                    feeName TEXT NOT NULL,
+                    amount TEXT NOT NULL,
+                    dueDate TEXT,
+                    status TEXT,
+                    paidAt TEXT,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_dues_dueDate ON synced_dues (dueDate)",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_dues_memberId ON synced_dues (memberId)",
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_competitions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    competitionType TEXT,
+                    startDate TEXT NOT NULL,
+                    endDate TEXT,
+                    scoringUnit TEXT NOT NULL,
+                    scoringMode TEXT NOT NULL,
+                    disciplines TEXT NOT NULL,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_competitions_startDate " +
+                    "ON synced_competitions (startDate)",
+            )
+        }
+    }
+
+    @Provides
+    fun provideSyncedEventDao(database: UnefyDatabase): SyncedEventDao = database.syncedEventDao()
+
+    @Provides
+    fun provideSyncedDueDao(database: UnefyDatabase): SyncedDueDao = database.syncedDueDao()
+
+    @Provides
+    fun provideSyncedCompetitionDao(database: UnefyDatabase): SyncedCompetitionDao =
+        database.syncedCompetitionDao()
 
     private const val DATABASE_NAME = "unefy.db"
 }

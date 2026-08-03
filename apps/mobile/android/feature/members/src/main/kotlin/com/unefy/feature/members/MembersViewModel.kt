@@ -4,15 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.model.Member
 import com.unefy.core.network.ApiError
-import com.unefy.core.network.ApiResult
-import com.unefy.core.network.PageTracker
+import com.unefy.core.sync.SyncCoordinator
+import com.unefy.core.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -21,144 +26,147 @@ import kotlinx.coroutines.launch
  * impossible combination.
  */
 sealed interface MembersUiState {
+    /**
+     * The mirror does not hold the whole collection yet, so there is genuinely
+     * nothing presentable — a half-filled mirror shown as content would announce
+     * part of the club as all of it.
+     *
+     * Distinguishable from an empty club only because the sync cursor is stored
+     * in the same database as the rows: until its `bootstrapComplete` flag is
+     * set this is "not yet", after it an empty mirror means "no members".
+     * Without that, a first launch would show "this club has no members" while
+     * the bootstrap was still running.
+     */
     data object Loading : MembersUiState
 
     data class Content(
         val members: List<Member>,
         /**
-         * How many the club has, not how many are loaded. With paging those
-         * differ, and the header claiming "50 Mitglieder" for a club of 300
-         * would be a plain lie.
+         * How many the club has, not how many are on screen — the count comes from
+         * the whole mirror, the list from the current search.
          */
-        val total: Int = members.size,
+        val total: Int,
         val query: String = "",
+        /** A drain the user asked for, so pull-to-refresh knows when to stop. */
         val isRefreshing: Boolean = false,
-        /** A refresh that failed, so the screen can say so and then forget it. */
-        val refreshFailed: Boolean = false,
-        /** A further page is on its way, so the list can show a footer. */
-        val isLoadingMore: Boolean = false,
+        /**
+         * Why the mirror is not current, if it is not.
+         *
+         * A standing fact rather than an event, which is what changed with the
+         * mirror: there is no longer a "refresh failed" moment to show once and
+         * forget, only a list that is as fresh as its last successful sync. It
+         * clears itself when the next sync succeeds.
+         */
+        val staleBecause: ApiError? = null,
     ) : MembersUiState
 
+    /**
+     * Nothing mirrored, and syncing failed. The only case where an error replaces
+     * the list — because there is no list. Once anything has been mirrored a
+     * failure is a banner, never a takeover: showing a full-screen error because
+     * the connection dropped for a second is worse than showing a list a minute
+     * out of date.
+     */
     data class Failure(val error: ApiError) : MembersUiState
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MembersViewModel @Inject constructor(
     private val repository: MembersRepository,
+    private val coordinator: SyncCoordinator,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<MembersUiState>(MembersUiState.Loading)
-    val uiState: StateFlow<MembersUiState> = _uiState.asStateFlow()
-
-    private var query: String = ""
-    private var inFlight: Job? = null
-
-    private val pages = PageTracker()
+    private val query = MutableStateFlow("")
+    private val refreshing = MutableStateFlow(false)
 
     /**
-     * Cancelled by [load]: a page that lands after a new search has started
-     * would append members who do not match what was typed.
+     * Query and result together, from one flow.
+     *
+     * Combining them separately would let a keystroke pair the new query with the
+     * previous list for a frame, long enough to render "no matches for Müll" over
+     * results that do match.
      */
-    private var moreInFlight: Job? = null
+    private val filtered = query.flatMapLatest { q -> repository.stream(q).map { q to it } }
 
-    init {
-        load()
+    /**
+     * Gated on the bootstrap having finished, and the gate is also an
+     * optimisation: until then nothing observes the Room queries, so a
+     * fifteen-page bootstrap commits fifteen transactions without re-running
+     * the full list query and re-mapping every row after each one.
+     */
+    val uiState: StateFlow<MembersUiState> = repository.hasSynced()
+        .distinctUntilChanged()
+        .flatMapLatest { hasSynced -> if (hasSynced) contentState() else preSyncState() }
+        .stateIn(
+        scope = viewModelScope,
+        // Survives a rotation without re-reading the database, and lets go
+        // afterwards so a screen nobody is on stops observing Room.
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_GRACE_MS),
+        initialValue = MembersUiState.Loading,
+    )
+
+    private fun contentState(): Flow<MembersUiState> = combine(
+        filtered,
+        repository.count(),
+        coordinator.status(MemberSyncCollection.COLLECTION),
+        refreshing,
+    ) { (searched, members), total, status, isRefreshing ->
+        MembersUiState.Content(
+            members = members,
+            total = total,
+            query = searched,
+            isRefreshing = isRefreshing,
+            staleBecause = (status as? SyncStatus.Failed)?.error,
+        )
     }
 
+    private fun preSyncState(): Flow<MembersUiState> =
+        coordinator.status(MemberSyncCollection.COLLECTION).map { status ->
+            when {
+                // Nothing mirrored yet. A refusal is reported as Forbidden because
+                // that is what it is — this role may not read the club's member
+                // list — and the screen already has wording for it.
+                status == SyncStatus.NotPermitted -> MembersUiState.Failure(ApiError.Forbidden)
+                status is SyncStatus.Failed -> MembersUiState.Failure(status.error)
+                else -> MembersUiState.Loading
+            }
+        }
+
+    /**
+     * Filters the mirror.
+     *
+     * Everything the previous version needed here — cancelling the in-flight
+     * request, resetting the pager, guarding against a slow earlier response
+     * landing after a fast later one — is gone, because there is no request. The
+     * list is a query over local rows, and `flatMapLatest` drops the superseded
+     * one.
+     */
     fun onQueryChange(value: String) {
-        query = value
-        _uiState.update { current ->
-            if (current is MembersUiState.Content) current.copy(query = value) else current
-        }
-        load(showSpinner = false)
+        query.value = value
     }
 
-    fun refresh() = load(showSpinner = false, refreshing = true)
+    fun refresh() = syncNow()
 
-    fun retry() = load()
+    fun retry() = syncNow()
 
-    fun onMessageShown() = _uiState.update { state ->
-        (state as? MembersUiState.Content)?.copy(refreshFailed = false) ?: state
-    }
+    private fun syncNow() {
+        // Claimed here rather than inside the coroutine. Checking the flag and then
+        // launching leaves a gap the whole length of the dispatcher's queue: the
+        // pull gesture fires on drag, so three drags all read "not refreshing" and
+        // all three start a drain before any of them has set the flag.
+        if (!refreshing.compareAndSet(expect = false, update = true)) return
 
-    /**
-     * Appends the next page of the current search. Called from scroll position,
-     * so it is asked far more often than there are pages — [PageTracker]
-     * absorbs that.
-     */
-    fun loadMore() {
-        if (!pages.start()) return
-        _uiState.update { state ->
-            (state as? MembersUiState.Content)?.copy(isLoadingMore = true) ?: state
-        }
-
-        moreInFlight = viewModelScope.launch {
-            when (val result = repository.list(page = pages.next, search = query)) {
-                is ApiResult.Success -> {
-                    pages.advance(result.meta)
-                    _uiState.update { state ->
-                        (state as? MembersUiState.Content)?.copy(
-                            members = state.members + result.data,
-                            isLoadingMore = false,
-                        ) ?: state
-                    }
-                }
-
-                is ApiResult.Failure -> {
-                    pages.fail()
-                    _uiState.update { state ->
-                        (state as? MembersUiState.Content)
-                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
-                    }
-                }
+        viewModelScope.launch {
+            try {
+                coordinator.syncNow(MemberSyncCollection.COLLECTION)
+            } finally {
+                refreshing.value = false
             }
         }
     }
 
-    private fun load(showSpinner: Boolean = true, refreshing: Boolean = false) {
-        // A new search supersedes the previous one; without this, a slow earlier
-        // response could land after a faster later one and show stale results.
-        inFlight?.cancel()
-        moreInFlight?.cancel()
-        pages.reset()
-
-        if (showSpinner) _uiState.value = MembersUiState.Loading
-        if (refreshing) {
-            _uiState.update { c ->
-                if (c is MembersUiState.Content) {
-                    c.copy(isRefreshing = true, refreshFailed = false)
-                } else {
-                    c
-                }
-            }
-        }
-
-        inFlight = viewModelScope.launch {
-            when (val result = repository.list(page = 1, search = query)) {
-                is ApiResult.Success -> {
-                    pages.advance(result.meta)
-                    _uiState.value = MembersUiState.Content(
-                        members = result.data,
-                        total = result.meta?.total ?: result.data.size,
-                        query = query,
-                    )
-                }
-
-                // A refresh that fails keeps the list it already has and says so
-                // in a snackbar. Replacing loaded content with a full-screen
-                // error because the connection dropped for a second is worse
-                // than showing something a minute out of date.
-                //
-                // Only a refresh, though. A failed *search* must not leave the
-                // previous results on screen — they do not answer what was
-                // typed, and a snackbar about refreshing would not explain why.
-                is ApiResult.Failure -> {
-                    val keep =
-                        if (refreshing) _uiState.value as? MembersUiState.Content else null
-                    _uiState.value = keep?.copy(isRefreshing = false, refreshFailed = true)
-                        ?: MembersUiState.Failure(result.error)
-                }
-            }
-        }
+    private companion object {
+        const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }

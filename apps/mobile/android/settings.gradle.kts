@@ -28,6 +28,8 @@ include(":core:designsystem")
 include(":core:network")
 include(":core:auth")
 include(":core:database")
+include(":core:sync")
+include(":core:testing")
 
 include(":feature:attendance")
 include(":feature:members")

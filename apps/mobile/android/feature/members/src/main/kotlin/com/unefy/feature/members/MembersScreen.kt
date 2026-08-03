@@ -48,8 +48,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.ScreenSearch
 import com.unefy.core.designsystem.component.UnefyListScaffold
-import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyMotion
 import com.unefy.core.designsystem.theme.UnefyNumericTextStyle
@@ -75,8 +75,6 @@ fun MembersRoute(
         onQueryChange = viewModel::onQueryChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
-        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -88,8 +86,6 @@ fun MembersScreen(
     onQueryChange: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    onLoadMore: () -> Unit = {},
-    onMessageShown: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -108,10 +104,22 @@ fun MembersScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
-        onLoadMore = onLoadMore,
-        message = stringResource(DesignR.string.refresh_failed)
-            .takeIf { content?.refreshFailed == true },
-        onMessageShown = onMessageShown,
+        // No onLoadMore. The mirror holds the whole club, so scrolling has nothing
+        // to fetch — and sync pages arrive in change order while this list is
+        // sorted by surname, so "one more page" would grow the list in the middle.
+        banner = {
+            val stale = content?.staleBecause
+            UnefyStaleBanner(
+                visible = stale != null,
+                text = stringResource(
+                    if (stale is ApiError.Network) {
+                        DesignR.string.stale_offline
+                    } else {
+                        DesignR.string.stale_generic
+                    },
+                ),
+            )
+        },
         floatingActionButton = {
             // The single filled emphasis on this screen.
             FloatingActionButton(onClick = {}) {
@@ -154,7 +162,6 @@ fun MembersScreen(
                     MemberRow(member, onClick = { onMemberClick(member.id) })
                     UnefyRowDivider()
                 }
-                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }
@@ -353,5 +360,40 @@ private fun MembersLoadingPreview() {
 @Preview
 @Composable
 private fun MembersEmptyPreview() {
-    UnefyTheme { MembersScreen(state = MembersUiState.Content(emptyList())) }
+    UnefyTheme { MembersScreen(state = MembersUiState.Content(emptyList(), total = 0)) }
+}
+
+/** The state the mirror added: real rows, and a standing reason they are not current. */
+@Preview
+@Composable
+private fun MembersOfflinePreview() {
+    UnefyTheme {
+        MembersScreen(
+            state = MembersUiState.Content(
+                members = listOf(
+                    Member(
+                        id = "1",
+                        memberNumber = "0042",
+                        firstName = "Jörg",
+                        lastName = "Grün",
+                        email = null,
+                        phone = null,
+                        mobile = null,
+                        birthday = null,
+                        street = null,
+                        zipCode = null,
+                        city = null,
+                        status = MemberStatus.ACTIVE,
+                        category = null,
+                        joinedAt = "2020-01-01",
+                        leftAt = null,
+                        iban = null,
+                    ),
+                ),
+                total = 1,
+                staleBecause = ApiError.Network(java.io.IOException("offline")),
+            ),
+            clubName = "SV Musterhausen",
+        )
+    }
 }
