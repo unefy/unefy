@@ -7,15 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.designsystem.R as DesignR
+import com.unefy.core.designsystem.component.Field
+import com.unefy.core.designsystem.component.LocalGlassBarHeight
+import com.unefy.core.designsystem.component.UnefyDetailSection
+import com.unefy.core.designsystem.component.UnefyPill
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefyNumericTextStyle
@@ -192,6 +197,9 @@ fun MemberDetailScreen(
 
                 is MemberDetailUiState.Content -> MemberDetailContent(state.member)
             }
+            // The glass bar floats over the content; the last row must be able
+            // to scroll clear of it.
+            Spacer(modifier = Modifier.height(LocalGlassBarHeight.current + UnefySpacing.lg))
         }
     }
 }
@@ -224,18 +232,18 @@ private fun MemberDetailContent(member: Member) {
         }
     }
 
-    Section(stringResource(R.string.detail_section_contact)) {
+    UnefyDetailSection(stringResource(R.string.detail_section_contact)) {
         Field(stringResource(R.string.detail_email), member.email)
         Field(stringResource(R.string.detail_phone), member.phone)
         Field(stringResource(R.string.detail_mobile), member.mobile)
     }
 
-    Section(stringResource(R.string.detail_section_address)) {
+    UnefyDetailSection(stringResource(R.string.detail_section_address)) {
         Field(stringResource(R.string.detail_street), member.street)
         Field(stringResource(R.string.detail_city), member.postalLine)
     }
 
-    Section(stringResource(R.string.detail_section_membership)) {
+    UnefyDetailSection(stringResource(R.string.detail_section_membership)) {
         Field(stringResource(R.string.detail_category), member.category)
         Field(stringResource(R.string.detail_joined), UnefyFormat.date(member.joinedAt), mono = true)
         Field(stringResource(R.string.detail_left), member.leftAt?.let(UnefyFormat::date), mono = true)
@@ -246,7 +254,7 @@ private fun MemberDetailContent(member: Member) {
         )
     }
 
-    Section(stringResource(R.string.detail_section_banking)) {
+    UnefyDetailSection(stringResource(R.string.detail_section_banking)) {
         Field(stringResource(R.string.detail_iban), member.maskedIban, mono = true)
     }
 }
@@ -332,69 +340,7 @@ private fun StatusPill(status: MemberStatus) {
             MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    Surface(shape = CircleShape, color = container) {
-        Text(
-            text = stringResource(label),
-            style = MaterialTheme.typography.labelMedium,
-            color = content,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
-    }
-}
-
-/**
- * A section renders nothing when every field inside it is empty — an empty
- * "Banking" heading over nothing is worse than no heading.
- */
-@Composable
-private fun Section(title: String, content: @Composable FieldScope.() -> Unit) {
-    val scope = FieldScope()
-    scope.content()
-    if (scope.fields.isEmpty()) return
-
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(
-            start = UnefySpacing.screen,
-            end = UnefySpacing.screen,
-            top = UnefySpacing.lg,
-            bottom = UnefySpacing.sm,
-        ),
-    )
-    scope.fields.forEach { field ->
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
-        ) {
-            Text(
-                text = field.label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = field.value,
-                style = if (field.mono) {
-                    UnefyNumericTextStyle
-                } else {
-                    MaterialTheme.typography.bodyLarge
-                },
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
-private class FieldScope {
-    val fields = mutableListOf<FieldData>()
-}
-
-private data class FieldData(val label: String, val value: String, val mono: Boolean)
-
-private fun FieldScope.Field(label: String, value: String?, mono: Boolean = false) {
-    if (!value.isNullOrBlank()) fields += FieldData(label, value, mono)
+    UnefyPill(text = stringResource(label), container = container, content = content)
 }
 
 private val HEADER_AVATAR = 64.dp
