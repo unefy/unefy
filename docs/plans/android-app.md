@@ -86,9 +86,18 @@ Regeln.
    - **Ktor fährt seine Pipeline auf eigenen Dispatchern.** `advanceUntilIdle`
      kehrt zurück, während ein Request über `MockEngine` noch läuft. Wer Zeitpunkte
      zählt, braucht dort einen Fake statt einer Mock-Engine.
-3. **OpenAPI-Drift-Test.** CLAUDE.md schreibt vor, dass die handgeschriebenen
-   DTOs gegen die FastAPI-Spec validiert werden, damit Backend-Drift den Build
-   bricht statt zur Laufzeit als Decoding-Fehler aufzutauchen. Existiert nicht.
+3. ~~**OpenAPI-Drift-Test.**~~ **Erledigt (2026-08-04)** — als Contract-Datei
+   statt OpenAPI, weil die Routen `dict` zurückgeben und die generierte Spec
+   fast keine Response-Schemas enthält: `docs/api/mobile-contract.json` wird
+   aus den Pydantic-Response-Modellen exportiert
+   (`backend/scripts/export_mobile_contract.py`), ein Backend-Test pinnt die
+   Frische, und JVM-Drift-Tests je Feature validieren jede DTO dagegen
+   (Serial-Namen + Nullability über die kotlinx-`SerialDescriptor`en; Helfer
+   `MobileContract` in `core:testing`). Fand beim ersten Lauf zwei echte
+   Fehler: `CompetitionDto.disciplines` non-nullable für ein nullable
+   Server-Feld (dieselbe Crash-Klasse wie `member_name`), und das
+   `ScoreboardRow`-Schema im Backend war unvollständig (`rank`/`member_name`
+   fehlten).
 4. **Adaptive Layouts.** Der Rail-Zweig für breite Fenster ist implementiert,
    aber nie gesehen. `ListDetailPaneScaffold` für Mitglieder/Termine fehlt
    ganz. Das ist bei targetSdk 36 eine Play-Anforderung, keine Kür.

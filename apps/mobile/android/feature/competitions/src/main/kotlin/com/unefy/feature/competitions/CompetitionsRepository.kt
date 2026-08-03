@@ -32,7 +32,10 @@ internal data class CompetitionDto(
     @SerialName("end_date") val endDate: String? = null,
     @SerialName("scoring_unit") val scoringUnit: String = "",
     @SerialName("scoring_mode") val scoringMode: String = "highest_wins",
-    val disciplines: List<String> = emptyList(),
+    // Nullable, not defaulted-empty: the server types this `list | null`, and
+    // an explicit null does not fall back to a default — it throws mid-decode.
+    // Same lesson as the dues mirror's member_name.
+    val disciplines: List<String>? = null,
 )
 
 internal fun CompetitionDto.toDomain() = Competition(
@@ -44,7 +47,7 @@ internal fun CompetitionDto.toDomain() = Competition(
     endDate = endDate,
     scoringUnit = scoringUnit,
     scoringMode = scoringMode,
-    disciplines = disciplines,
+    disciplines = disciplines.orEmpty(),
 )
 
 /**

@@ -164,7 +164,14 @@ class EntryResponse(BaseSchema):
 
 
 class ScoreboardRow(BaseSchema):
+    """One ranked line. Kept in step with what the scoreboard route actually
+    assembles — the route builds dicts, and this schema is the contract the
+    mobile DTOs are validated against, so a field the route adds belongs here.
+    """
+
+    rank: int
     member_id: uuid.UUID
+    member_name: str
     total_score: float
     entry_count: int
     average_score: float

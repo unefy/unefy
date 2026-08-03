@@ -67,6 +67,6 @@ internal fun CompetitionDto.toRow(generation: Long) = SyncedCompetition(
     endDate = endDate,
     scoringUnit = scoringUnit,
     scoringMode = scoringMode,
-    disciplines = disciplines.joinToString(DISCIPLINES_SEPARATOR),
+    disciplines = disciplines.orEmpty().joinToString(DISCIPLINES_SEPARATOR),
     generation = generation,
 )

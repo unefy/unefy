@@ -1,0 +1,339 @@
+{
+  "CompetitionResponse": {
+    "fields": {
+      "competition_type": {
+        "nullable": false
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "description": {
+        "nullable": true
+      },
+      "disciplines": {
+        "nullable": true
+      },
+      "end_date": {
+        "nullable": true
+      },
+      "id": {
+        "nullable": false
+      },
+      "name": {
+        "nullable": false
+      },
+      "scoring_mode": {
+        "nullable": false
+      },
+      "scoring_unit": {
+        "nullable": false
+      },
+      "start_date": {
+        "nullable": false
+      },
+      "updated_at": {
+        "nullable": false
+      }
+    }
+  },
+  "DueResponse": {
+    "fields": {
+      "amount": {
+        "nullable": false
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "due_date": {
+        "nullable": false
+      },
+      "fee_name": {
+        "nullable": false
+      },
+      "fee_type_id": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "member_name": {
+        "nullable": true
+      },
+      "note": {
+        "nullable": true
+      },
+      "paid_at": {
+        "nullable": true
+      },
+      "payment_method": {
+        "nullable": true
+      },
+      "period_end": {
+        "nullable": false
+      },
+      "period_start": {
+        "nullable": false
+      },
+      "status": {
+        "nullable": false
+      },
+      "updated_at": {
+        "nullable": false
+      }
+    }
+  },
+  "DueSummaryResponse": {
+    "fields": {
+      "open_amount": {
+        "nullable": false
+      },
+      "open_count": {
+        "nullable": false
+      },
+      "paid_amount": {
+        "nullable": false
+      },
+      "paid_count": {
+        "nullable": false
+      }
+    }
+  },
+  "EventRegistrationResponse": {
+    "fields": {
+      "created_at": {
+        "nullable": false
+      },
+      "event_id": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "member_name": {
+        "nullable": true
+      },
+      "note": {
+        "nullable": true
+      },
+      "status": {
+        "nullable": false
+      }
+    }
+  },
+  "EventResponse": {
+    "fields": {
+      "all_day": {
+        "nullable": false
+      },
+      "competition_id": {
+        "nullable": true
+      },
+      "competition_name": {
+        "nullable": true
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "description": {
+        "nullable": true
+      },
+      "ends_at": {
+        "nullable": true
+      },
+      "event_type": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "is_registered": {
+        "nullable": true
+      },
+      "location": {
+        "nullable": true
+      },
+      "max_participants": {
+        "nullable": true
+      },
+      "registered_count": {
+        "nullable": true
+      },
+      "registration_deadline": {
+        "nullable": true
+      },
+      "registration_required": {
+        "nullable": false
+      },
+      "session_id": {
+        "nullable": true
+      },
+      "starts_at": {
+        "nullable": false
+      },
+      "status": {
+        "nullable": false
+      },
+      "title": {
+        "nullable": false
+      },
+      "updated_at": {
+        "nullable": false
+      }
+    }
+  },
+  "MemberDirectoryEntry": {
+    "fields": {
+      "category": {
+        "nullable": true
+      },
+      "first_name": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "last_name": {
+        "nullable": false
+      }
+    }
+  },
+  "MemberResponse": {
+    "fields": {
+      "account_holder": {
+        "nullable": true
+      },
+      "bic": {
+        "nullable": true
+      },
+      "birthday": {
+        "nullable": true
+      },
+      "category": {
+        "nullable": true
+      },
+      "city": {
+        "nullable": true
+      },
+      "country": {
+        "nullable": true
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "email": {
+        "nullable": true
+      },
+      "first_name": {
+        "nullable": false
+      },
+      "iban": {
+        "nullable": true
+      },
+      "id": {
+        "nullable": false
+      },
+      "joined_at": {
+        "nullable": false
+      },
+      "last_name": {
+        "nullable": false
+      },
+      "left_at": {
+        "nullable": true
+      },
+      "member_number": {
+        "nullable": false
+      },
+      "mobile": {
+        "nullable": true
+      },
+      "notes": {
+        "nullable": true
+      },
+      "phone": {
+        "nullable": true
+      },
+      "sepa_mandate_date": {
+        "nullable": true
+      },
+      "sepa_mandate_reference": {
+        "nullable": true
+      },
+      "state": {
+        "nullable": true
+      },
+      "status": {
+        "nullable": false
+      },
+      "street": {
+        "nullable": true
+      },
+      "updated_at": {
+        "nullable": false
+      },
+      "user_id": {
+        "nullable": true
+      },
+      "zip_code": {
+        "nullable": true
+      }
+    }
+  },
+  "ScoreboardRow": {
+    "fields": {
+      "average_score": {
+        "nullable": false
+      },
+      "best_score": {
+        "nullable": false
+      },
+      "entry_count": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "member_name": {
+        "nullable": false
+      },
+      "rank": {
+        "nullable": false
+      },
+      "total_score": {
+        "nullable": false
+      }
+    }
+  },
+  "SyncMeta": {
+    "fields": {
+      "collection": {
+        "nullable": false
+      },
+      "cursor": {
+        "nullable": false
+      },
+      "has_more": {
+        "nullable": false
+      },
+      "server_time": {
+        "nullable": false
+      }
+    }
+  },
+  "Tombstone": {
+    "fields": {
+      "deleted_at": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      }
+    }
+  }
+}

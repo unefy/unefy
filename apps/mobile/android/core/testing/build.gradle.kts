@@ -1,5 +1,6 @@
 plugins {
     id("unefy.android.library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -11,4 +12,6 @@ dependencies {
     // SyncCoordinator types through this module.
     api(project(":core:sync"))
     api(libs.kotlinx.coroutines.android)
+    // MobileContract reads and walks the committed contract JSON.
+    implementation(libs.kotlinx.serialization.json)
 }
