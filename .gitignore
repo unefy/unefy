@@ -19,3 +19,17 @@ Thumbs.db
 *.pem
 *.key
 *.p12
+
+# Firebase
+#
+# google-services.json is not a secret — Google documents it as safe to check in,
+# and it only lets an app *receive* pushes. It stays out anyway for two reasons:
+# a fork must not silently ship somebody else's Firebase project, and the build
+# has to work without it (a self-hoster has no Google account, and the plugin is
+# applied conditionally for exactly that reason). Whoever builds for the Play
+# Store supplies their own — see docs/plans/android-app.md.
+apps/mobile/android/app/google-services.json
+
+# The service-account key the backend signs FCM requests with. This one *is* a
+# secret: it can send push to every device in every club.
+firebase-service-account*.json
