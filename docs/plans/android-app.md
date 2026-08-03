@@ -72,10 +72,20 @@ Regeln.
      die App auch von Hand benutzt wird, setzt das die Anordnung zurück.
    - Es gibt weder AVD noch System-Image auf der Maschine; `connectedCheck`
      braucht also das Testgerät.
-2. **Unit-Tests für die ViewModels** (JUnit + Turbine). Aktuell sechs
-   Testdateien im ganzen Projekt. Vorgabe: 80 % für Logik, 100 % für Auth. Der
-   `TokenManager` ist die riskanteste ungetestete Stelle (Refresh-Serialisierung,
-   Unterscheidung „Token tot“ vs. „Netz weg“).
+2. **Unit-Tests für die ViewModels** (JUnit; Turbine ist nicht im Katalog, die
+   bestehenden Tests fahren mit `runTest` + `advanceUntilIdle`). Stand
+   2026-08-03: 114 JVM-Tests, dazu 14 instrumentierte in `core:database`.
+   Vorgabe: 80 % für Logik, 100 % für Auth. Der `TokenManager` ist die
+   riskanteste ungetestete Stelle (Refresh-Serialisierung, Unterscheidung
+   „Token tot“ vs. „Netz weg“).
+
+   Zwei Dinge, die beim Testen der Sync-Schicht Zeit gekostet haben:
+   - **`stateIn(WhileSubscribed)` läuft ohne Collector nicht.** Ein Test, der nur
+     `uiState.value` liest, sieht für immer den Initialwert — was aussieht wie ein
+     ViewModel, das auf Loading hängt. `backgroundScope.launch { collect {} }`.
+   - **Ktor fährt seine Pipeline auf eigenen Dispatchern.** `advanceUntilIdle`
+     kehrt zurück, während ein Request über `MockEngine` noch läuft. Wer Zeitpunkte
+     zählt, braucht dort einen Fake statt einer Mock-Engine.
 3. **OpenAPI-Drift-Test.** CLAUDE.md schreibt vor, dass die handgeschriebenen
    DTOs gegen die FastAPI-Spec validiert werden, damit Backend-Drift den Build
    bricht statt zur Laufzeit als Decoding-Fehler aufzutauchen. Existiert nicht.
@@ -90,12 +100,36 @@ Regeln.
 
 ## B. Funktionale Lücken
 
-- **Offline.** Seit 2026-08-02 gibt es `core:database` (Room), allerdings nur
-  für Anwesenheit: eine Write-Queue für Check-ins und ein Cache der
-  Mitgliederliste. Mitglieder, Termine, Beiträge und Wettkämpfe sind ohne Netz
-  weiterhin leer, und die Einheitenliste des Scanners ebenfalls. Das Muster
-  steht damit, die Ausbreitung fehlt. Details in
-  `attendance-and-shooting-proof.md`.
+- **Offline.** Seit 2026-08-03 sind `feature:members`, `feature:events`,
+  `feature:dues` (Vorstands-Liste) und `feature:competitions` (Liste) offline:
+  Room ist Single Source of Truth, gefüllt per Delta-Sync (`/api/v1/sync/*`),
+  live gehalten per SSE-Klingel (`/api/v1/stream`). Modul `core:sync`
+  (`SyncEngine`, `SyncCoordinator`, `ChangeStream`, `ConnectivityMonitor`,
+  `SyncSignOut`); Features registrieren sich per Hilt-Multibinding als
+  `SyncCollection` (DB-Version 7, vier Spiegel-Tabellen). Was online bleibt,
+  mit Grund:
+  - **Event-Zusatzfelder** (`is_registered`, `registered_count`,
+    `competition_name`) sind Listen-Endpoint-Anreicherung, die `/sync/*` nie
+    liefert → Online-Overlay in `EventsRepository.overlay()`; offline keine
+    Kapazitäts-Pill, Button deaktiviert. Die eigene Anmeldung schreibt das
+    bestätigte Ergebnis in den Overlay (kein 6,5-s-Revert durch den Lag).
+  - **MyDues** (`/dues/me`): Rolle `member` darf `/sync/dues` nicht lesen
+    (Vorstand-only) → bleibt online mit `PageTracker`. Der Vorstands-Spiegel
+    joint `member_name` lokal aus `synced_members`.
+  - **`/dues/summary`** und **Scoreboard**: Server-Aggregate, eine
+    Implementierung der Arithmetik; offline versteckt statt falsch.
+  Zwei Dinge, die man bei weiteren Collections wissen muss:
+  - Ein Hinweis vom Stream braucht **zwei** Drains: einen sofort und einen nach
+    `SETTLE_DELAY_MS`, weil der Server Zeilen 5 s lang zurückhält
+    (`CURSOR_SAFETY_LAG`). Ohne den zweiten kommt die Änderung gar nicht an.
+  - Bankdaten werden bewusst **nicht** gespiegelt. `MemberResponse` liefert
+    `iban`/`bic`/`sepa_mandate_reference`; die Room-Entity lässt sie aus, das
+    Detail holt sie online nach. Bei jeder Collection dieselbe Frage stellen
+    (bei Dues beantwortet: Beträge ja — Board-only, keine Bankfelder im
+    Payload; `payment_method`/`note` nicht gespiegelt).
+
+  Die Anwesenheits-Caches bleiben Caches (list-refresh + `retainOnly`), nicht
+  Spiegel. Details in `attendance-and-shooting-proof.md`.
 - **Die App ist fast nur lesend.** Außer der eigenen Terminanmeldung gibt es
   kein Anlegen oder Bearbeiten — keine Mitglieder, keine Termine, keine
   Wettkämpfe. Für Vorstandsrollen ist das die auffälligste Lücke.
@@ -146,3 +180,13 @@ Regeln.
 - `material3` 1.4.0: `MaterialExpressiveTheme` und `MotionScheme` sind
   `internal`; stattdessen `UnefyMotion`. `NavigationSuiteScaffold` hat zwei
   Overloads, benannte Parameter binden an das falsche.
+- **`ktlintCheck` gibt es im Projekt nicht**, obwohl die CLAUDE.md es als Befehl
+  führt. Nicht konfiguriert, nie eingerichtet. `lintDebug` läuft.
+- **AGP 9: `sourceSets.getByName("x") { … }` wirft einen Cast-Fehler.**
+  `sourceSets { getByName("x").assets.srcDir(…) }` funktioniert. Getroffen beim
+  Verdrahten des Room-Schemaverzeichnisses als androidTest-Assets.
+- **Der Dev-Reload des Backends hängt, solange ein SSE-Strom offen ist.** Uvicorn
+  wartet auf laufende Responses, `/api/v1/stream` endet nie: ein offener
+  Webapp-Tab blockiert jeden Reload, ohne Traceback, und der Container steht
+  danach als „unhealthy" da und antwortet auf nichts. `docker restart
+  unefy-backend-1`.
