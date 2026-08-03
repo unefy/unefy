@@ -63,6 +63,16 @@ interface SyncCoordinator {
      */
     suspend fun syncNow(collection: String)
 
+    /**
+     * Asks for a drain of every registered collection, to happen shortly.
+     *
+     * For the moments when the mirrors as a whole may be behind or empty: the
+     * network returning, and somebody signing in — sign-out wipes every mirror,
+     * and without this the next account stared at empty screens until an
+     * unrelated doorbell happened to ring. Found on the device.
+     */
+    suspend fun requestAll()
+
     /** Runs until cancelled. See [DefaultSyncCoordinator] for where to launch it. */
     suspend fun run()
 
@@ -168,7 +178,7 @@ class DefaultSyncCoordinator @Inject constructor(
         }
     }
 
-    private suspend fun requestAll() = request(byName.keys)
+    override suspend fun requestAll() = request(byName.keys)
 
     private suspend fun request(names: Collection<String>, settle: Boolean = false) {
         val wanted = names.filter { name ->

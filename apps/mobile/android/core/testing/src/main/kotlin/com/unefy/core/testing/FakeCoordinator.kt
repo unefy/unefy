@@ -28,6 +28,10 @@ class FakeCoordinator(
         requested += collection
     }
 
+    override suspend fun requestAll() {
+        requested += "*"
+    }
+
     override suspend fun syncNow(collection: String) {
         syncedNow += collection
         if (blockSync) awaitCancellation()

@@ -7,10 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.unefy.core.auth.AuthRepository
 import com.unefy.core.push.PushRegistrar
 import com.unefy.core.sync.SyncCoordinator
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /**
@@ -25,6 +28,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var pushRegistrar: PushRegistrar
+
+    @Inject
+    lateinit var authRepository: AuthRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +63,18 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 pushRegistrar.run()
+            }
+        }
+
+        // A sign-in is a sync trigger of its own. Sign-out wipes every mirror,
+        // and the coordinator's other triggers do not fire here: the network
+        // did not change and no doorbell rings for data that did not change —
+        // without this the next account stared at empty screens until one did.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                authRepository.isSignedIn.distinctUntilChanged().filter { it }.collect {
+                    syncCoordinator.requestAll()
+                }
             }
         }
 

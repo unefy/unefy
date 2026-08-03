@@ -159,6 +159,7 @@ private class RecordingCoordinator : SyncCoordinator {
 
     override fun status(collection: String): Flow<SyncStatus> = flowOf(SyncStatus.Idle)
     override suspend fun request(collection: String) = Unit
+    override suspend fun requestAll() = Unit
     override suspend fun syncNow(collection: String) = Unit
     override suspend fun run() = Unit
     override fun forgetStatuses() {
