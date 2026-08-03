@@ -6,124 +6,104 @@ import com.unefy.core.model.Competition
 import com.unefy.core.model.Scoreboard
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
-import com.unefy.core.network.PageTracker
+import com.unefy.core.sync.SyncCoordinator
+import com.unefy.core.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface CompetitionsUiState {
+    /** The mirror has never finished a bootstrap — see MembersUiState.Loading. */
     data object Loading : CompetitionsUiState
 
     data class Content(
         val competitions: List<Competition>,
         val isRefreshing: Boolean = false,
-        /** A refresh that failed, so the screen can say so and then forget it. */
-        val refreshFailed: Boolean = false,
-        /** A further page is on its way, so the list can show a footer. */
-        val isLoadingMore: Boolean = false,
+        /**
+         * Why the mirror is not current, if it is not. A standing fact, not an
+         * event: it clears itself when the next sync succeeds.
+         */
+        val staleBecause: ApiError? = null,
     ) : CompetitionsUiState
 
+    /** Nothing mirrored, and syncing failed — the only full-screen error case. */
     data class Failure(val error: ApiError) : CompetitionsUiState
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CompetitionsViewModel @Inject constructor(
     private val repository: CompetitionsRepository,
+    private val coordinator: SyncCoordinator,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<CompetitionsUiState>(CompetitionsUiState.Loading)
-    val uiState: StateFlow<CompetitionsUiState> = _uiState.asStateFlow()
+    private val refreshing = MutableStateFlow(false)
 
-    private val pages = PageTracker()
+    val uiState: StateFlow<CompetitionsUiState> = repository.hasSynced()
+        .distinctUntilChanged()
+        .flatMapLatest { hasSynced -> if (hasSynced) contentState() else preSyncState() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_GRACE_MS),
+            initialValue = CompetitionsUiState.Loading,
+        )
 
-    /**
-     * Cancelled by [load]: a page that lands after a reload has started would
-     * append rows from the old list to the new one.
-     */
-    private var moreInFlight: Job? = null
-
-    init {
-        load()
+    private fun contentState(): Flow<CompetitionsUiState> = combine(
+        repository.stream(),
+        coordinator.status(CompetitionSyncCollection.COLLECTION),
+        refreshing,
+    ) { competitions, status, isRefreshing ->
+        CompetitionsUiState.Content(
+            // Ordered by the DAO, newest first — a club looks at the current
+            // season, not at the one from four years ago.
+            competitions = competitions,
+            isRefreshing = isRefreshing,
+            staleBecause = (status as? SyncStatus.Failed)?.error,
+        )
     }
 
-    fun retry() = load()
-
-    fun refresh() = load(refreshing = true)
-
-    fun onMessageShown() = _uiState.update { state ->
-        (state as? CompetitionsUiState.Content)?.copy(refreshFailed = false) ?: state
-    }
-
-    /**
-     * Appends the next page. Called from scroll position, so it is asked far
-     * more often than there are pages to fetch — [PageTracker] absorbs that.
-     */
-    fun loadMore() {
-        if (!pages.start()) return
-        _uiState.update { state ->
-            (state as? CompetitionsUiState.Content)?.copy(isLoadingMore = true) ?: state
-        }
-
-        moreInFlight = viewModelScope.launch {
-            when (val result = repository.list(page = pages.next)) {
-                is ApiResult.Success -> {
-                    pages.advance(result.meta)
-                    _uiState.update { state ->
-                        (state as? CompetitionsUiState.Content)?.copy(
-                            competitions = (state.competitions + result.data)
-                                .sortedByDescending { it.startDate },
-                            isLoadingMore = false,
-                        ) ?: state
-                    }
-                }
-
-                is ApiResult.Failure -> {
-                    pages.fail()
-                    _uiState.update { state ->
-                        (state as? CompetitionsUiState.Content)
-                            ?.copy(isLoadingMore = false, refreshFailed = true) ?: state
-                    }
-                }
+    private fun preSyncState(): Flow<CompetitionsUiState> =
+        coordinator.status(CompetitionSyncCollection.COLLECTION).map { status ->
+            when {
+                status == SyncStatus.NotPermitted ->
+                    CompetitionsUiState.Failure(ApiError.Forbidden)
+                status is SyncStatus.Failed -> CompetitionsUiState.Failure(status.error)
+                else -> CompetitionsUiState.Loading
             }
         }
-    }
 
-    private fun load(refreshing: Boolean = false) {
-        moreInFlight?.cancel()
-        val current = _uiState.value
-        if (refreshing && current is CompetitionsUiState.Content) {
-            _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
-        } else {
-            _uiState.value = CompetitionsUiState.Loading
-        }
-        pages.reset()
+    fun refresh() = syncNow()
+
+    fun retry() = syncNow()
+
+    private fun syncNow() {
+        // Claimed before launching — see MembersViewModel: the pull gesture
+        // fires on drag, so three drags would otherwise start three drains.
+        if (!refreshing.compareAndSet(expect = false, update = true)) return
 
         viewModelScope.launch {
-            _uiState.value = when (val result = repository.list(page = 1)) {
-                is ApiResult.Success -> {
-                    pages.advance(result.meta)
-                    CompetitionsUiState.Content(
-                        // Most recent first: a club looks at the current season,
-                        // not at the one from four years ago. The backend orders
-                        // the same way, so pages arrive already in order.
-                        result.data.sortedByDescending { it.startDate },
-                    )
-                }
-
-                // A refresh that fails keeps the list it already has and says so
-                // in a snackbar. Replacing loaded content with a full-screen
-                // error because the connection dropped for a second is worse
-                // than showing something a minute out of date.
-                is ApiResult.Failure -> (_uiState.value as? CompetitionsUiState.Content)
-                    ?.copy(isRefreshing = false, refreshFailed = true)
-                    ?: CompetitionsUiState.Failure(result.error)
+            try {
+                coordinator.syncNow(CompetitionSyncCollection.COLLECTION)
+            } finally {
+                refreshing.value = false
             }
         }
+    }
+
+    private companion object {
+        const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }
 

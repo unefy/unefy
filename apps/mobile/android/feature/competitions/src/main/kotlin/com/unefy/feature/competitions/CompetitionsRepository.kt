@@ -1,18 +1,24 @@
 package com.unefy.feature.competitions
 
+import com.unefy.core.database.DISCIPLINES_SEPARATOR
+import com.unefy.core.database.SyncCursorDao
+import com.unefy.core.database.SyncedCompetition
+import com.unefy.core.database.SyncedCompetitionDao
 import com.unefy.core.model.Competition
 import com.unefy.core.model.Scoreboard
 import com.unefy.core.model.ScoreboardRow
 import com.unefy.core.network.ApiClient
+import com.unefy.core.network.ApiEndpoints
 import com.unefy.core.network.ApiResult
 import com.unefy.core.network.map
-import io.ktor.client.request.parameter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -81,32 +87,51 @@ internal fun ScoreboardEnvelopeDto.toDomain() = Scoreboard(
     },
 )
 
+/** A mirror row as the domain model. */
+internal fun SyncedCompetition.toDomain() = Competition(
+    id = id,
+    name = name,
+    description = description,
+    type = competitionType,
+    startDate = startDate,
+    endDate = endDate,
+    scoringUnit = scoringUnit,
+    scoringMode = scoringMode,
+    disciplines = if (disciplines.isEmpty()) {
+        emptyList()
+    } else {
+        disciplines.split(DISCIPLINES_SEPARATOR)
+    },
+)
+
 interface CompetitionsRepository {
-    suspend fun list(page: Int = 1, perPage: Int = 50): ApiResult<List<Competition>>
+    /** The competition list, from the local mirror, newest first. */
+    fun stream(): Flow<List<Competition>>
+
+    /** Whether the mirror holds the whole collection — see MembersRepository. */
+    fun hasSynced(): Flow<Boolean>
+
+    /** The live ranking. Online-only: a stale ranking shown as current would be
+     * worse than a spinner, and the server owns the aggregation. */
     suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard>
 }
 
 @Singleton
 class DefaultCompetitionsRepository @Inject constructor(
     private val apiClient: ApiClient,
+    private val competitions: SyncedCompetitionDao,
+    private val cursors: SyncCursorDao,
 ) : CompetitionsRepository {
-    // Sending page and per_page explicitly, like every other list: without them
-    // the backend applied its own default of 20 and the 21st competition was
-    // simply absent, with nothing on screen to suggest it existed.
-    override suspend fun list(page: Int, perPage: Int): ApiResult<List<Competition>> = apiClient
-        .get<List<CompetitionDto>>(COMPETITIONS) {
-            parameter("page", page)
-            parameter("per_page", perPage)
-        }
-        .map { dtos -> dtos.map(CompetitionDto::toDomain) }
+
+    override fun stream(): Flow<List<Competition>> =
+        competitions.all().map { rows -> rows.map(SyncedCompetition::toDomain) }
+
+    override fun hasSynced(): Flow<Boolean> =
+        cursors.bootstrapCompleteStream(CompetitionSyncCollection.COLLECTION)
 
     override suspend fun scoreboard(competitionId: String): ApiResult<Scoreboard> = apiClient
-        .getWhole<ScoreboardEnvelopeDto>("$COMPETITIONS/$competitionId/scoreboard")
+        .getWhole<ScoreboardEnvelopeDto>(ApiEndpoints.competitionScoreboard(competitionId))
         .map(ScoreboardEnvelopeDto::toDomain)
-
-    private companion object {
-        const val COMPETITIONS = "/api/v1/competitions"
-    }
 }
 
 @Module

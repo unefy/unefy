@@ -22,12 +22,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
-import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.Competition
+import com.unefy.core.network.ApiError
 
 @Composable
 fun CompetitionsRoute(
@@ -42,8 +43,6 @@ fun CompetitionsRoute(
         onCompetitionClick = onCompetitionClick,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
-        onMessageShown = viewModel::onMessageShown,
     )
 }
 
@@ -54,8 +53,6 @@ fun CompetitionsScreen(
     onCompetitionClick: (String, String) -> Unit = { _, _ -> },
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    onLoadMore: () -> Unit = {},
-    onMessageShown: () -> Unit = {},
 ) {
     val content = state as? CompetitionsUiState.Content
 
@@ -64,10 +61,21 @@ fun CompetitionsScreen(
         actions = actions,
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
-        onLoadMore = onLoadMore,
-        message = stringResource(DesignR.string.refresh_failed)
-            .takeIf { content?.refreshFailed == true },
-        onMessageShown = onMessageShown,
+        // No onLoadMore. The mirror holds every competition, so scrolling has
+        // nothing to fetch.
+        banner = {
+            val stale = content?.staleBecause
+            UnefyStaleBanner(
+                visible = stale != null,
+                text = stringResource(
+                    if (stale is ApiError.Network) {
+                        DesignR.string.stale_offline
+                    } else {
+                        DesignR.string.stale_generic
+                    },
+                ),
+            )
+        },
     ) {
         when (state) {
             CompetitionsUiState.Loading -> Unit
@@ -101,7 +109,6 @@ fun CompetitionsScreen(
                     )
                     UnefyRowDivider(startInset = UnefySpacing.screen)
                 }
-                if (state.isLoadingMore) item(key = "more") { UnefyLoadMoreFooter() }
             }
         }
     }
