@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import structlog
 from fastapi import Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -287,6 +288,7 @@ class AttendanceService:
 
         return await self._record_check_in(
             row,
+            record_id=data.id,
             member_id=data.member_id,
             guest_name=data.guest_name,
             method=data.method,
@@ -324,13 +326,25 @@ class AttendanceService:
         self,
         row: AttendanceSession,
         *,
+        record_id: uuid.UUID | None = None,
         member_id: uuid.UUID | None = None,
         guest_name: str | None = None,
         method: str,
         note: str | None,
         claimed_at: datetime | None = None,
     ) -> AttendanceRecord:
-        """The shared half of every check-in, whatever proved the person."""
+        """The shared half of every check-in, whatever proved the person.
+
+        A client-assigned [record_id] makes the whole call idempotent, checked
+        *before* the member-dedupe below: a replayed request is a retry, and a
+        retry answering `ALREADY_CHECKED_IN` would dress the queue's own
+        success up as somebody else's conflict.
+        """
+        if record_id is not None:
+            replayed = await self.records.get_by_id(record_id)
+            if replayed is not None:
+                return replayed
+
         occurred_at, synced_at = self._resolve_occurred_at(row, claimed_at)
 
         # Guests are not deduplicated: nothing about a guest identifies them
@@ -346,6 +360,7 @@ class AttendanceService:
             )
 
         record = AttendanceRecord(
+            id=record_id or uuid.uuid4(),
             tenant_id=self.tenant_id,
             session_id=row.id,
             member_id=member_id,
@@ -368,8 +383,20 @@ class AttendanceService:
             created_by=self.auth.user_id,
             updated_by=self.auth.user_id,
         )
-        self.session.add(record)
-        await self.session.flush()
+        # A savepoint, not the request transaction — the pattern from
+        # `EntryRepository.create_idempotent`: two racing drains with the same
+        # client key must resolve to one row, and a plain rollback would take
+        # the request's other uncommitted work down with the duplicate.
+        try:
+            async with self.session.begin_nested():
+                self.session.add(record)
+                await self.session.flush()
+        except IntegrityError:
+            if record_id is not None:
+                replayed = await self.records.get_by_id(record_id)
+                if replayed is not None:
+                    return replayed
+            raise
         await self.session.refresh(record)
         return record
 

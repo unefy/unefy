@@ -145,6 +145,11 @@ def create_app() -> FastAPI:
     from starlette.middleware.sessions import SessionMiddleware
 
     app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET)
+    # Inside the logging middleware (added after = runs first), so replays are
+    # logged like any request; opt-in per request via the Idempotency-Key header.
+    from app.api.middleware.idempotency import IdempotencyMiddleware
+
+    app.add_middleware(IdempotencyMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
 
     # Routers

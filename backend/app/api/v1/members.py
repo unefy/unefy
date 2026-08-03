@@ -3,10 +3,11 @@ import uuid
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.preconditions import require_if_match, set_etag
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
@@ -131,16 +132,18 @@ async def list_member_directory(
 @router.get("/{member_id}")
 async def get_member(
     member_id: uuid.UUID,
+    response: Response,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Get a single member."""
+    """Get a single member. The ETag is the If-Match ticket for later writes."""
     service = _get_service(session, auth)
     member = await service.get(member_id)
 
     if member is None:
         raise NotFoundError("Member not found")
 
+    set_etag(response, member)
     return {"data": MemberResponse.model_validate(member).model_dump()}
 
 
@@ -161,11 +164,19 @@ async def create_member(
 async def update_member(
     member_id: uuid.UUID,
     data: MemberUpdate,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Update a member."""
+    """Update a member. Honours If-Match — absent, last write wins as ever."""
     service = _get_service(session, auth)
+    existing = await service.get(member_id)
+    if existing is None:
+        raise NotFoundError("Member not found")
+    require_if_match(
+        request, existing, MemberResponse.model_validate(existing).model_dump(mode="json")
+    )
+
     member = await service.update(member_id, data, updated_by=auth.user_id)
 
     if member is None:
@@ -177,11 +188,17 @@ async def update_member(
 @router.delete("/{member_id}", status_code=204)
 async def delete_member(
     member_id: uuid.UUID,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> None:
-    """Soft-delete a member. Requires admin or owner."""
+    """Soft-delete a member. Requires admin or owner. Honours If-Match."""
     service = _get_service(session, auth)
+    existing = await service.get(member_id)
+    if existing is not None:
+        require_if_match(
+            request, existing, MemberResponse.model_validate(existing).model_dump(mode="json")
+        )
     deleted = await service.delete(member_id)
 
     if not deleted:

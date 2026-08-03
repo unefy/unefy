@@ -111,9 +111,17 @@ class TestRegistration:
     async def test_an_unconfigured_server_answers_a_named_503(
         self,
         auth_client: AsyncClient,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Self-hosted without a Firebase project is healthy, not broken. The
-        client reads the code and stops asking for the session."""
+        client reads the code and stops asking for the session.
+
+        Disabled explicitly rather than by default: settings read `.env`, and a
+        developer machine with push switched on must not turn this test into a
+        registration."""
+        settings = get_settings()
+        monkeypatch.setattr(settings, "PUSH_ENABLED", False)
+        monkeypatch.setattr(settings, "FCM_CREDENTIALS_FILE", "")
         for path in (DEVICES, UNREGISTER):
             response = await auth_client.post(path, json={"token": TOKEN})
             assert response.status_code == 503, response.text

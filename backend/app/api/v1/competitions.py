@@ -3,10 +3,11 @@ import uuid
 from datetime import UTC, datetime, time
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.preconditions import require_if_match, set_etag
 from app.core.rate_limit import RateLimit
 from app.database import get_db_session
 from app.dependencies import AuthContext, require_role
@@ -108,6 +109,7 @@ async def create_competition(
 @router.get("/{competition_id}")
 async def get_competition(
     competition_id: uuid.UUID,
+    response: Response,
     auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
@@ -115,6 +117,7 @@ async def get_competition(
     comp = await repo.get_by_id(competition_id)
     if comp is None:
         raise NotFoundError("Competition not found")
+    set_etag(response, comp)
     return {"data": _comp_response(comp)}
 
 
@@ -122,10 +125,16 @@ async def get_competition(
 async def update_competition(
     competition_id: uuid.UUID,
     data: CompetitionUpdate,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     repo = _comp_repo(session, auth)
+    existing = await repo.get_by_id(competition_id)
+    if existing is None:
+        raise NotFoundError("Competition not found")
+    require_if_match(request, existing, _comp_response(existing))
+
     comp = await repo.update(competition_id, data)
     if comp is None:
         raise NotFoundError("Competition not found")
@@ -135,10 +144,14 @@ async def update_competition(
 @router.delete("/{competition_id}")
 async def delete_competition(
     competition_id: uuid.UUID,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
     repo = _comp_repo(session, auth)
+    existing = await repo.get_by_id(competition_id)
+    if existing is not None:
+        require_if_match(request, existing, _comp_response(existing))
     if not await repo.soft_delete(competition_id):
         raise NotFoundError("Competition not found")
     return {"data": {"message": "Deleted"}}

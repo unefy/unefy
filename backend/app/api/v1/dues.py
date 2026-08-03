@@ -3,11 +3,12 @@ import uuid
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.preconditions import require_if_match
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
@@ -271,11 +272,19 @@ async def generate_dues(
 async def update_due(
     due_id: uuid.UUID,
     data: DueUpdate,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Update note or due date of a due."""
+    """Update note or due date of a due. Honours If-Match."""
     service = _get_service(session, auth)
+    existing = await service.dues.get_by_id(due_id)
+    if existing is None:
+        raise NotFoundError("Due not found")
+    require_if_match(
+        request, existing, DueResponse.model_validate(existing).model_dump(mode="json")
+    )
+
     due = await service.update_due(due_id, data, updated_by=auth.user_id)
     if due is None:
         raise NotFoundError("Due not found")

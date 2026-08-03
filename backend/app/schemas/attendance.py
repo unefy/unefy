@@ -89,6 +89,14 @@ class AttendanceCheckIn(BufferedCheckIn):
     one that sends both is told which rule it broke.
     """
 
+    #: Client-assigned, optional. The whole point is the offline queue: a drain
+    #: that is interrupted and retried must not book the same guest twice, and
+    #: nothing about a guest identifies them well enough to deduplicate by
+    #: content. The key distinguishes *a retry* from *two real guests* without
+    #: pretending to identify anyone. Absent, the server assigns one — exactly
+    #: today's behaviour.
+    id: uuid.UUID | None = None
+
     member_id: uuid.UUID | None = None
     guest_name: str | None = Field(default=None, min_length=1, max_length=255)
     method: str = Field(default="manual", pattern=METHOD_PATTERN)

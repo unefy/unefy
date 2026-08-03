@@ -3,10 +3,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.preconditions import require_if_match, set_etag
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.models.member import Member
@@ -95,6 +96,7 @@ async def list_events(
 @router.get("/{event_id}")
 async def get_event(
     event_id: uuid.UUID,
+    response: Response,
     auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
@@ -103,6 +105,7 @@ async def get_event(
     event = await service.events.get_by_id(event_id)
     if event is None:
         raise NotFoundError("Event not found")
+    set_etag(response, event)
 
     rows = await service.registrations.get_for_event(event_id)
     registered_count = sum(1 for r, _f, _l in rows if r.status == "registered")
@@ -139,11 +142,19 @@ async def create_event(
 async def update_event(
     event_id: uuid.UUID,
     data: EventUpdate,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Update an event."""
+    """Update an event. Honours If-Match — absent, last write wins as ever."""
     service = _get_service(session, auth)
+    existing = await service.events.get_by_id(event_id)
+    if existing is None:
+        raise NotFoundError("Event not found")
+    require_if_match(
+        request, existing, EventResponse.model_validate(existing).model_dump(mode="json")
+    )
+
     event = await service.update(event_id, data, updated_by=auth.user_id)
     if event is None:
         raise NotFoundError("Event not found")
@@ -160,11 +171,17 @@ async def update_event(
 @router.delete("/{event_id}", status_code=204)
 async def delete_event(
     event_id: uuid.UUID,
+    request: Request,
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> None:
-    """Soft-delete an event."""
+    """Soft-delete an event. Honours If-Match."""
     service = _get_service(session, auth)
+    existing = await service.events.get_by_id(event_id)
+    if existing is not None:
+        require_if_match(
+            request, existing, EventResponse.model_validate(existing).model_dump(mode="json")
+        )
     deleted = await service.events.soft_delete(event_id)
     if not deleted:
         raise NotFoundError("Event not found")
