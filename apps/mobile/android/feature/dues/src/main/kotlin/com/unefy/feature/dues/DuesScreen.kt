@@ -126,7 +126,7 @@ fun DuesScreen(
                     }
                 }
 
-                items(state.visible, key = { it.id }) { entry ->
+                items(state.entries, key = { it.id }) { entry ->
                     DuesRow(entry, showMemberName)
                     // Dues rows have no leading avatar, so the divider starts at
                     // the screen margin rather than the row's text inset.

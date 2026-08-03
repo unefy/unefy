@@ -46,7 +46,7 @@ class MyDuesViewModel @Inject constructor(
 
     fun retry() = load()
 
-    fun refresh() = load(refreshing = true)
+    fun refresh() = load(showRefreshing = true, keepOnFailure = true)
 
     fun onMessageShown() = _uiState.update { state ->
         (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
@@ -59,7 +59,7 @@ class MyDuesViewModel @Inject constructor(
         }
 
         moreInFlight = viewModelScope.launch {
-            when (val result = repository.mine(page = pages.next)) {
+            when (val result = repository.mine(page = pages.next, status = filter.apiValue)) {
                 is ApiResult.Success -> {
                     pages.advance(result.meta)
                     _uiState.update { state ->
@@ -81,16 +81,25 @@ class MyDuesViewModel @Inject constructor(
         }
     }
 
+    /** Reloads under the new filter — see [DuesViewModel.onFilterChange]. */
     fun onFilterChange(value: DuesFilter) {
+        if (value == filter) return
         filter = value
-        _uiState.value = (_uiState.value as? DuesUiState.Content)?.copy(filter = value)
-            ?: _uiState.value
+        _uiState.update { state ->
+            (state as? DuesUiState.Content)?.copy(filter = value) ?: state
+        }
+        load(showRefreshing = true, keepOnFailure = false)
     }
 
-    private fun load(refreshing: Boolean = false) {
+    private fun load(
+        /** Keep the rows on screen with the refresh indicator, rather than clearing them. */
+        showRefreshing: Boolean = false,
+        /** Keep the rows if the call fails, instead of showing the error screen. */
+        keepOnFailure: Boolean = false,
+    ) {
         moreInFlight?.cancel()
         val current = _uiState.value
-        if (refreshing && current is DuesUiState.Content) {
+        if (showRefreshing && current is DuesUiState.Content) {
             _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
         } else {
             _uiState.value = DuesUiState.Loading
@@ -98,10 +107,10 @@ class MyDuesViewModel @Inject constructor(
         pages.reset()
 
         viewModelScope.launch {
-            _uiState.value = when (val result = repository.mine(page = 1)) {
+            when (val result = repository.mine(page = 1, status = filter.apiValue)) {
                 is ApiResult.Success -> {
                     pages.advance(result.meta)
-                    DuesUiState.Content(
+                    _uiState.value = DuesUiState.Content(
                         // No summary: /dues/summary is club-wide and board-only.
                         summary = null,
                         entries = result.data,
@@ -109,9 +118,11 @@ class MyDuesViewModel @Inject constructor(
                     )
                 }
 
-                is ApiResult.Failure -> (_uiState.value as? DuesUiState.Content)
-                    ?.copy(isRefreshing = false, refreshFailed = true)
-                    ?: DuesUiState.Failure(result.error)
+                is ApiResult.Failure -> {
+                    val keep = if (keepOnFailure) _uiState.value as? DuesUiState.Content else null
+                    _uiState.value = keep?.copy(isRefreshing = false, refreshFailed = true)
+                        ?: DuesUiState.Failure(result.error)
+                }
             }
         }
     }

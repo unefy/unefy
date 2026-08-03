@@ -23,6 +23,11 @@ sealed interface DuesUiState {
 
     data class Content(
         val summary: DuesSummary?,
+        /**
+         * What the backend returned for the active [filter]. Already filtered —
+         * the chips reload rather than narrow what is on screen, because the
+         * pages loaded so far are not the whole ledger.
+         */
         val entries: List<DuesEntry>,
         val filter: DuesFilter,
         val isRefreshing: Boolean = false,
@@ -30,19 +35,23 @@ sealed interface DuesUiState {
         val refreshFailed: Boolean = false,
         /** A further page is on its way, so the list can show a footer. */
         val isLoadingMore: Boolean = false,
-    ) : DuesUiState {
-        val visible: List<DuesEntry>
-            get() = when (filter) {
-                DuesFilter.ALL -> entries
-                DuesFilter.OPEN -> entries.filter { it.status != DuesStatus.PAID }
-                DuesFilter.PAID -> entries.filter { it.status == DuesStatus.PAID }
-            }
-    }
+    ) : DuesUiState
 
     data class Failure(val error: ApiError) : DuesUiState
 }
 
-enum class DuesFilter { ALL, OPEN, PAID }
+/**
+ * The chips, as the backend's own status values.
+ *
+ * `OPEN` maps to the literal `open` rather than to "everything not paid", which
+ * is what the old client-side filter meant. That quietly counted cancelled dues
+ * as outstanding — a due that was written off is not money anyone is waiting for.
+ */
+enum class DuesFilter(val apiValue: String?) {
+    ALL(null),
+    OPEN(DuesStatus.OPEN.apiValue),
+    PAID(DuesStatus.PAID.apiValue),
+}
 
 @HiltViewModel
 class DuesViewModel @Inject constructor(
@@ -65,17 +74,13 @@ class DuesViewModel @Inject constructor(
 
     fun retry() = load()
 
-    fun refresh() = load(refreshing = true)
+    fun refresh() = load(showRefreshing = true, keepOnFailure = true)
 
     fun onMessageShown() = _uiState.update { state ->
         (state as? DuesUiState.Content)?.copy(refreshFailed = false) ?: state
     }
 
-    /**
-     * Appends the next page of entries. The filter chips work on what is loaded,
-     * so "offen" narrows the pages fetched so far rather than the whole ledger —
-     * the backend has no status filter on this endpoint to hand the work to.
-     */
+    /** Appends the next page of entries, under the filter that is active. */
     fun loadMore() {
         if (!pages.start()) return
         _uiState.update { state ->
@@ -83,7 +88,7 @@ class DuesViewModel @Inject constructor(
         }
 
         moreInFlight = viewModelScope.launch {
-            when (val result = repository.list(page = pages.next)) {
+            when (val result = repository.list(page = pages.next, status = filter.apiValue)) {
                 is ApiResult.Success -> {
                     pages.advance(result.meta)
                     _uiState.update { state ->
@@ -105,18 +110,32 @@ class DuesViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Reloads under the new filter. A round trip, where this used to be a local
+     * list operation — the cost of the chips telling the truth about a ledger
+     * that does not fit in memory.
+     */
     fun onFilterChange(value: DuesFilter) {
+        if (value == filter) return
         filter = value
-        // Filtering is local: the list is already in memory, so a round trip
-        // would only add latency.
-        _uiState.value = (_uiState.value as? DuesUiState.Content)?.copy(filter = value)
-            ?: _uiState.value
+        // The chip flips immediately; the rows follow. keepOnFailure is false on
+        // purpose — rows from the old filter under a chip that says "offen" would
+        // be worse than the error screen.
+        _uiState.update { state ->
+            (state as? DuesUiState.Content)?.copy(filter = value) ?: state
+        }
+        load(showRefreshing = true, keepOnFailure = false)
     }
 
-    private fun load(refreshing: Boolean = false) {
+    private fun load(
+        /** Keep the rows on screen with the refresh indicator, rather than clearing them. */
+        showRefreshing: Boolean = false,
+        /** Keep the rows if the call fails, instead of showing the error screen. */
+        keepOnFailure: Boolean = false,
+    ) {
         moreInFlight?.cancel()
         val current = _uiState.value
-        if (refreshing && current is DuesUiState.Content) {
+        if (showRefreshing && current is DuesUiState.Content) {
             _uiState.value = current.copy(isRefreshing = true, refreshFailed = false)
         } else {
             _uiState.value = DuesUiState.Loading
@@ -126,13 +145,13 @@ class DuesViewModel @Inject constructor(
         viewModelScope.launch {
             // Both calls in flight at once — the summary is not derived from the
             // page of entries, so waiting for one before the other is wasted time.
-            val entriesDeferred = async { repository.list(page = 1) }
+            val entriesDeferred = async { repository.list(page = 1, status = filter.apiValue) }
             val summaryDeferred = async { repository.summary() }
 
-            _uiState.value = when (val entries = entriesDeferred.await()) {
+            when (val entries = entriesDeferred.await()) {
                 is ApiResult.Success -> {
                     pages.advance(entries.meta)
-                    DuesUiState.Content(
+                    _uiState.value = DuesUiState.Content(
                         summary = (summaryDeferred.await() as? ApiResult.Success)?.data,
                         entries = entries.data,
                         filter = filter,
@@ -143,9 +162,11 @@ class DuesViewModel @Inject constructor(
                 // in a snackbar. Replacing loaded content with a full-screen
                 // error because the connection dropped for a second is worse
                 // than showing something a minute out of date.
-                is ApiResult.Failure -> (_uiState.value as? DuesUiState.Content)
-                    ?.copy(isRefreshing = false, refreshFailed = true)
-                    ?: DuesUiState.Failure(entries.error)
+                is ApiResult.Failure -> {
+                    val keep = if (keepOnFailure) _uiState.value as? DuesUiState.Content else null
+                    _uiState.value = keep?.copy(isRefreshing = false, refreshFailed = true)
+                        ?: DuesUiState.Failure(entries.error)
+                }
             }
         }
     }

@@ -52,11 +52,26 @@ internal fun DuesSummaryDto.toDomain() =
     DuesSummary(openCount, openAmount, paidCount, paidAmount)
 
 interface DuesRepository {
-    /** Administrative: every member's dues, board and above only. */
-    suspend fun list(page: Int = 1, perPage: Int = 50): ApiResult<List<DuesEntry>>
+    /**
+     * Administrative: every member's dues, board and above only.
+     *
+     * @param status one of the backend's `open`, `paid`, `cancelled`, or null for
+     *   all of them. Filtering here rather than on the loaded pages: a ledger
+     *   runs to thousands of rows, and "offen" has to mean every open due, not
+     *   the open ones that happen to be among the pages fetched so far.
+     */
+    suspend fun list(
+        page: Int = 1,
+        perPage: Int = 50,
+        status: String? = null,
+    ): ApiResult<List<DuesEntry>>
 
     /** Self-service: the caller's own dues. */
-    suspend fun mine(page: Int = 1, perPage: Int = 50): ApiResult<List<DuesEntry>>
+    suspend fun mine(
+        page: Int = 1,
+        perPage: Int = 50,
+        status: String? = null,
+    ): ApiResult<List<DuesEntry>>
 
     suspend fun summary(): ApiResult<DuesSummary>
 }
@@ -65,17 +80,27 @@ interface DuesRepository {
 class DefaultDuesRepository @Inject constructor(
     private val apiClient: ApiClient,
 ) : DuesRepository {
-    override suspend fun list(page: Int, perPage: Int): ApiResult<List<DuesEntry>> = apiClient
+    override suspend fun list(
+        page: Int,
+        perPage: Int,
+        status: String?,
+    ): ApiResult<List<DuesEntry>> = apiClient
         .get<List<DuesDto>>(ApiEndpoints.DUES) {
             parameter("page", page)
             parameter("per_page", perPage)
+            status?.let { parameter("status", it) }
         }
         .map { dtos -> dtos.map(DuesDto::toDomain) }
 
-    override suspend fun mine(page: Int, perPage: Int): ApiResult<List<DuesEntry>> = apiClient
+    override suspend fun mine(
+        page: Int,
+        perPage: Int,
+        status: String?,
+    ): ApiResult<List<DuesEntry>> = apiClient
         .get<List<DuesDto>>(ApiEndpoints.DUES_ME) {
             parameter("page", page)
             parameter("per_page", perPage)
+            status?.let { parameter("status", it) }
         }
         .map { dtos -> dtos.map(DuesDto::toDomain) }
 
