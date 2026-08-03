@@ -245,11 +245,15 @@ class EntryRepository:
             recorded_at=data.recorded_at,
             notes=data.notes,
         )
-        self.session.add(entity)
+        # A savepoint, not the request transaction. `session.rollback()` here
+        # would discard every uncommitted change the request had already made —
+        # an audit row, a sibling entry — to recover from a duplicate that this
+        # method is designed to tolerate.
         try:
-            await self.session.flush()
+            async with self.session.begin_nested():
+                self.session.add(entity)
+                await self.session.flush()
         except IntegrityError:
-            await self.session.rollback()
             existing = await self.get_by_id(entry_id)
             if existing:
                 return existing, False

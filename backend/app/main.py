@@ -51,7 +51,13 @@ async def run_migrations() -> None:
         await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
         logger.info("migrations_applied")
     except Exception as e:
+        # Re-raised, not swallowed. Serving on an un-migrated schema fails in
+        # ways nobody connects back to this line: an endpoint 500s on a missing
+        # column, or a query that should ride an index seq-scans the whole
+        # tenant and the install just gets slower. A backend that will not start
+        # is a problem someone fixes; one that starts wrong is one they live with.
         logger.error("migration_failed", error=str(e))
+        raise
 
 
 @asynccontextmanager
