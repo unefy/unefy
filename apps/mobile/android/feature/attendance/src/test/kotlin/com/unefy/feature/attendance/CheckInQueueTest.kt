@@ -309,4 +309,7 @@ private class FakeRepository : AttendanceRepository {
         error("not used")
 
     override suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?> = error("not used")
+
+    override suspend fun deleteRecord(recordId: String, reason: String?): ApiResult<Unit> =
+        error("not used")
 }

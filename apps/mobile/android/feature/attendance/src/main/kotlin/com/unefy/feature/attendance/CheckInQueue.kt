@@ -172,6 +172,16 @@ class CheckInQueue @Inject constructor(
 
     suspend fun pendingFor(sessionId: String): List<PendingCheckIn> = dao.forSession(sessionId)
 
+    /**
+     * Drops a queued check-in that was a mistake.
+     *
+     * The only place a check-in is ever really destroyed rather than
+     * soft-deleted, and it is sound precisely because this one never reached a
+     * server: there is no record to correct and no trail to keep consistent
+     * with. Once sent, correction goes through the audited path instead.
+     */
+    suspend fun discard(id: Long) = dao.delete(id)
+
     private suspend fun send(entry: PendingCheckIn): ApiResult<ScanOutcome> {
         val at = Instant.ofEpochSecond(entry.checkedInAtEpochSeconds).toString()
         // Bound to locals: the entity lives in another module, so the compiler

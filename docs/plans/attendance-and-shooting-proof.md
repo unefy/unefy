@@ -576,6 +576,29 @@ es sonst nirgends gibt. Sie werden unter dem nächsten angemeldeten Konto
 sauber wäre, die Queue vor dem Abmelden zu leeren oder das Abmelden zu
 verweigern, solange etwas wartet.
 
+**Korrigieren während der Einheit** (2026-08-03). Eine Zeile in der
+Anwesenheitsliste lässt sich wegwischen. Weiterhin Soft-Delete mit
+Audit-Eintrag, weiterhin nur solange die Einheit offen ist — geändert hat sich
+nur, dass die **Begründung dort optional** ist. Grund: In einer offenen Einheit
+ist eine Rücknahme fast immer ein Fehltipper von vor Sekunden, und dafür Text
+zu verlangen erzeugt „x" und „Fehler" — womit gerade die Begründungen wertlos
+werden, auf die es bei einer echten Korrektur ankommt. Belegt wird eine
+Sofortrücknahme durch Akteur und Zeitstempel des Audit-Eintrags, nicht durch
+den Text. Eine *angegebene* Begründung muss weiterhin mindestens drei Zeichen
+haben.
+
+Gepufferte Check-ins werden beim Zurücknehmen wirklich gelöscht statt weich —
+sie haben nie einen Server erreicht, es gibt also keinen Datensatz zu
+korrigieren und keine Spur, zu der Konsistenz zu halten wäre.
+
+**Nach dem Schließen bleibt es gesperrt**, mit und ohne Begründung. Der
+Vorschlag, dort mit passenden Rechten weiter korrigieren zu lassen, würde
+genau das Einfrieren aufweichen, auf dem Stufe 0 beruht — dass ein Nachtrag
+unmöglich ist und nicht bloß sichtbar. Nicht umgesetzt; wenn es kommen soll,
+dann als eigener Pfad für `owner`/`admin` mit Pflichtbegründung und einer
+eigenen Audit-Aktion, damit im Trail unterscheidbar bleibt, was während der
+Einheit und was danach geändert wurde.
+
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch
 nie mit Verbindung offen hatte, hat weder Einheiten- noch Mitgliederliste.

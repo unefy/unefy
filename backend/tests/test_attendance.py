@@ -319,15 +319,62 @@ async def test_correction_without_actual_change_writes_no_entry(
     assert audit.json()["data"] == []
 
 
-async def test_delete_record_requires_reason(
+async def test_delete_record_needs_no_reason_while_the_session_is_open(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
 ) -> None:
+    """A supervisor undoing a mistap seconds ago should not have to write prose.
+
+    Demanding it produces "x" and "Fehler", which devalues the reasons on the
+    entries where one matters. The audit entry's own actor and timestamp are
+    what make an undo verifiable, and this endpoint cannot be reached at all
+    once the session is closed.
+    """
     member = await _add_member(db_session, test_tenant.id)
     session_row = await _create_session(auth_client)
     record = await _check_in(auth_client, session_row["id"], member.id)
 
     resp = await auth_client.delete(f"/api/v1/attendance/records/{record['id']}")
+
+    assert resp.status_code == 204, resp.text
+
+
+async def test_a_supplied_reason_still_has_to_say_something(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    # Optional is not the same as "anything goes": a one-character reason is
+    # worse than none, because it looks like an explanation.
+    member = await _add_member(db_session, test_tenant.id)
+    session_row = await _create_session(auth_client)
+    record = await _check_in(auth_client, session_row["id"], member.id)
+
+    resp = await auth_client.delete(
+        f"/api/v1/attendance/records/{record['id']}", params={"reason": "x"}
+    )
+
     assert resp.status_code == 422
+
+
+async def test_a_closed_session_still_refuses_removal(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """The freeze is what assurance level 0 rests on.
+
+    Making the reason optional loosened the check-in period, not the freeze —
+    after closing, a record cannot be removed with or without an explanation.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    session_row = await _create_session(auth_client)
+    record = await _check_in(auth_client, session_row["id"], member.id)
+    await auth_client.post(f"/api/v1/attendance/sessions/{session_row['id']}/close")
+
+    without = await auth_client.delete(f"/api/v1/attendance/records/{record['id']}")
+    with_reason = await auth_client.delete(
+        f"/api/v1/attendance/records/{record['id']}",
+        params={"reason": "Doch nicht da gewesen"},
+    )
+
+    assert without.status_code == 409
+    assert with_reason.status_code == 409
 
 
 async def test_delete_record_is_soft_and_audited(

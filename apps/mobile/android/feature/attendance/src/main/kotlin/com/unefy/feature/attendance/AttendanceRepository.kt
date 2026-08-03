@@ -16,6 +16,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.request.parameter
+import io.ktor.http.encodeURLParameter
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -218,6 +219,17 @@ interface AttendanceRepository {
      * whether it worked.
      */
     suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?>
+
+    /**
+     * Takes a check-in back.
+     *
+     * A soft delete with an audit entry, never a removal — and refused by the
+     * server once the session is closed, which is what keeps the freeze
+     * meaningful. The reason is optional: inside an open session this is nearly
+     * always somebody undoing a mistap, and the audit entry's own actor and
+     * timestamp are what make that verifiable.
+     */
+    suspend fun deleteRecord(recordId: String, reason: String? = null): ApiResult<Unit>
 }
 
 @Singleton
@@ -404,6 +416,12 @@ class DefaultAttendanceRepository @Inject constructor(
                 OwnCheckIn(it.sessionTitle, parseInstant(it.checkedInAt))
             }
         }
+
+    override suspend fun deleteRecord(recordId: String, reason: String?): ApiResult<Unit> =
+        apiClient.deleteNoContent(
+            ApiEndpoints.attendanceRecord(recordId) +
+                if (reason.isNullOrBlank()) "" else "?reason=${reason.encodeURLParameter()}",
+        )
 
     private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
         key = row.id,

@@ -68,6 +68,9 @@ sealed interface ScanFeedback {
     /** Antennas found each other. Hold still. */
     data object Detected : ScanFeedback
 
+    /** A check-in was taken back. */
+    data class Undone(val memberName: String) : ScanFeedback
+
     data class Failed(val error: ApiError) : ScanFeedback
 }
 
@@ -312,6 +315,31 @@ class ScannerViewModel @Inject constructor(
     fun refresh() {
         loadSessions()
         drainQueue()
+    }
+
+    /**
+     * Takes one check-in back.
+     *
+     * Both kinds, because from where the supervisor stands they are the same
+     * mistake: a queued one is dropped outright, since it reached no server and
+     * has no trail to keep consistent; a recorded one is soft-deleted and
+     * audited. The server refuses the second once the session is closed, which
+     * is the line this must not cross.
+     */
+    fun undo(entry: CheckedInEntry) {
+        viewModelScope.launch {
+            if (entry.pending) {
+                entry.key.removePrefix("pending-").toLongOrNull()?.let { queue.discard(it) }
+            } else {
+                val result = repository.deleteRecord(entry.key)
+                if (result is ApiResult.Failure) {
+                    _uiState.update { it.copy(feedback = feedbackFor(result.error)) }
+                    return@launch
+                }
+            }
+            _uiState.update { it.copy(feedback = ScanFeedback.Undone(entry.memberName)) }
+            refreshAttendance()
+        }
     }
 
     fun onNfcState(state: NfcState) {

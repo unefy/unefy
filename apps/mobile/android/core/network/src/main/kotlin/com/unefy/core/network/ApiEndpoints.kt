@@ -41,6 +41,9 @@ object ApiEndpoints {
 
     fun attendanceRecords(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/records"
 
+    /** Soft-deletes one record. Refused once the session is closed. */
+    fun attendanceRecord(recordId: String): String = "$ATTENDANCE/records/$recordId"
+
     fun member(id: String): String = "$MEMBERS/$id"
 
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"

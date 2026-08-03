@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -104,6 +108,7 @@ fun ScannerRoute(
         onTagDetected = viewModel::onTagDetected,
         onNfcState = viewModel::onNfcState,
         onRefresh = viewModel::refresh,
+        onUndo = viewModel::undo,
     )
 }
 
@@ -130,6 +135,7 @@ fun ScannerScreen(
     onTagDetected: () -> Unit = {},
     onNfcState: (NfcState) -> Unit = {},
     onRefresh: () -> Unit = {},
+    onUndo: (CheckedInEntry) -> Unit = {},
 ) {
     // The scanner is only a reader while it is on screen, so letting the phone
     // lock during an evening silently ends check-in.
@@ -221,6 +227,7 @@ fun ScannerScreen(
                 onGrantCamera = onGrantCamera,
                 onSelectSession = onSelectSession,
                 bindCamera = bindCamera,
+                onUndo = onUndo,
             )
         }
     }
@@ -232,6 +239,7 @@ private fun LazyListScope.scannerContent(
     onGrantCamera: () -> Unit,
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
+    onUndo: (CheckedInEntry) -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -344,7 +352,33 @@ private fun LazyListScope.scannerContent(
     // was scanned but not who is in the room, which is the question the paper
     // list answered and the one the supervisor actually has.
     items(state.attendance, key = { it.key }) { entry ->
-        AttendanceRow(entry)
+        // Swipe, matching the rest of the app's lists. A mistap is the common
+        // reason a row is here wrongly, and it wants to be undone in the same
+        // gesture-and-a-half it took to create.
+        val dismiss = rememberSwipeToDismissBoxState()
+        LaunchedEffect(dismiss.currentValue) {
+            if (dismiss.currentValue != SwipeToDismissBoxValue.Settled) onUndo(entry)
+        }
+        SwipeToDismissBox(
+            state = dismiss,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.errorContainer),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(
+                        text = stringResource(R.string.scanner_undo),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = UnefySpacing.screen),
+                    )
+                }
+            },
+        ) {
+            AttendanceRow(entry)
+        }
         UnefyRowDivider()
     }
 }
@@ -385,6 +419,8 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         -> colors.warningContainer
 
         ScanFeedback.Detected -> MaterialTheme.colorScheme.secondaryContainer
+
+        is ScanFeedback.Undone -> MaterialTheme.colorScheme.surfaceContainerHighest
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
         ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.errorContainer
@@ -398,6 +434,8 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         -> colors.onWarningContainer
 
         ScanFeedback.Detected -> MaterialTheme.colorScheme.onSecondaryContainer
+
+        is ScanFeedback.Undone -> MaterialTheme.colorScheme.onSurface
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
         ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.onErrorContainer
@@ -501,6 +539,7 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.NoSessionChosen -> stringResource(R.string.scanner_pick_session)
     ScanFeedback.Busy -> stringResource(R.string.scanner_busy)
     ScanFeedback.Detected -> stringResource(R.string.scanner_detected)
+    is ScanFeedback.Undone -> stringResource(R.string.scanner_undone, feedback.memberName)
 
     is ScanFeedback.QueuedOffline -> stringResource(
         R.string.scanner_queued,

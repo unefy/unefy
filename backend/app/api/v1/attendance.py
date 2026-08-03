@@ -349,9 +349,17 @@ async def delete_record(
     request: Request,
     auth: AuthContext = Depends(require_board),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
-    reason: str = Query(min_length=REASON_MIN_LENGTH, max_length=1000),
+    reason: str | None = Query(default=None, min_length=REASON_MIN_LENGTH, max_length=1000),
 ) -> None:
-    """Soft-delete a record, with a reason, into the audit trail."""
+    """Soft-delete a record into the audit trail.
+
+    The reason is optional, and only because this endpoint cannot be reached
+    after the session is closed. Inside an open session a removal is almost
+    always a supervisor undoing a mistap seconds ago, and demanding prose for
+    that produces "x" and "Fehler" — which devalues the reasons on the entries
+    where one actually matters. What makes an undo verifiable is the audit
+    entry's own actor and timestamp, not a sentence the client supplied.
+    """
     service = _get_service(session, auth)
     await service.delete_record(record_id, reason=reason, request=request)
 

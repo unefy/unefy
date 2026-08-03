@@ -527,9 +527,15 @@ class AttendanceService:
         return record
 
     async def delete_record(
-        self, record_id: uuid.UUID, *, reason: str, request: Request | None = None
+        self, record_id: uuid.UUID, *, reason: str | None = None, request: Request | None = None
     ) -> None:
-        """Soft-delete a record. The only removal path outside the retention job."""
+        """Soft-delete a record. The only removal path outside the retention job.
+
+        Refused once the session is closed, which is what makes the freeze in
+        assurance level 0 mean anything: a late entry has to be impossible, not
+        merely visible. That is also why the reason may be omitted here — the
+        window this is reachable in is the evening itself.
+        """
         record = await self.get_record(record_id)
         await self._require_open(await self.get_session(record.session_id))
 
