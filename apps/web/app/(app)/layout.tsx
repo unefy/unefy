@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { ImpersonationBanner } from "@/components/admin/impersonation-banner"
 import { AppSidebar } from "@/components/layout/app-sidebar"
+import { LiveUpdates } from "@/components/live-updates"
 import { Header } from "@/components/layout/header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -34,6 +35,8 @@ export default async function AppLayout({
 
   return (
     <TooltipProvider>
+      {/* One change stream for the whole shell — see the component for why here. */}
+      <LiveUpdates />
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar session={session} tenants={tenants} />
         <SidebarInset
