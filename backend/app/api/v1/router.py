@@ -14,6 +14,7 @@ from app.api.v1.dues import router as dues_router
 from app.api.v1.events import router as events_router
 from app.api.v1.members import router as members_router
 from app.api.v1.sports import router as sports_router
+from app.api.v1.stream import router as stream_router
 from app.api.v1.sync import router as sync_router
 from app.api.v1.units import router as units_router
 
@@ -35,5 +36,6 @@ router.include_router(dues_router, prefix="/dues", tags=["dues"])
 router.include_router(events_router, prefix="/events", tags=["events"])
 router.include_router(members_router, prefix="/members", tags=["members"])
 router.include_router(sports_router, prefix="/sports", tags=["sports"])
+router.include_router(stream_router, prefix="/stream", tags=["stream"])
 router.include_router(sync_router, prefix="/sync", tags=["sync"])
 router.include_router(units_router, prefix="/units", tags=["units"])

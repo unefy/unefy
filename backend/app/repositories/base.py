@@ -7,7 +7,9 @@ from pydantic import BaseModel as PydanticModel
 from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.events.outbox import queue_change
 from app.models.base import TenantModel
+from app.sync.registry import collection_for_model
 
 
 class BaseRepository[
@@ -26,6 +28,25 @@ class BaseRepository[
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id
+
+    def _announce(self, entity_id: uuid.UUID, op: str) -> None:
+        """Queue a change hint for after the commit.
+
+        Only [soft_delete_many] needs this. Every other write in the codebase goes
+        through the ORM and is picked up automatically by the flush listener in
+        `app/events/outbox.py` — a bulk UPDATE does not, because it never builds an
+        ORM object for the listener to see.
+        """
+        collection = collection_for_model(self.model_class)
+        if collection is None:
+            return
+        queue_change(
+            self.session,
+            tenant_id=self.tenant_id,
+            entity=collection,
+            entity_id=entity_id,
+            op=op,
+        )
 
     def _deleted_at(self) -> Any:
         """The soft-delete column, or None for models that hard-delete.
@@ -104,6 +125,14 @@ class BaseRepository[
         """Soft-delete multiple entities in a single UPDATE.
 
         Returns the number of rows actually affected (tenant-scoped).
+
+        `updated_at` is not listed in `.values()` and does not need to be:
+        SQLAlchemy applies the column's `onupdate=func.now()` to Core UPDATE
+        statements as well as to ORM flushes, so the emitted SQL is
+        `SET updated_at=now(), deleted_at=…`. That matters more than it looks —
+        delta sync orders tombstones by `updated_at`, and a bulk delete that
+        left it behind would sort the tombstone before every cursor already
+        issued and reach no client. `tests/test_repository_base.py` pins it.
         """
         if not entity_ids:
             return 0
@@ -120,5 +149,10 @@ class BaseRepository[
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
+        # Announced for every id asked for, not only the rows actually hit. The
+        # UPDATE does not report *which* ids matched, and a spurious hint costs a
+        # client one wasted delta sync while a missing one costs it a stale row.
+        for entity_id in entity_ids:
+            self._announce(entity_id, "delete")
         # CursorResult carries rowcount; the base Result type does not.
         return int(result.rowcount or 0)  # type: ignore[attr-defined]

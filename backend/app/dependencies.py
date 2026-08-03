@@ -16,7 +16,7 @@ from app.database import get_db_session
 from app.models.user import TenantMembership
 from app.redis import get_redis
 
-__all__ = ["get_current_user", "get_db_session", "get_redis"]
+__all__ = ["get_current_user", "get_db_session", "get_redis", "resolve_auth"]
 
 logger = structlog.get_logger()
 
@@ -193,6 +193,18 @@ async def _resolve_auth(
             return AuthContext(user_id=user_id, tenant_id=tenant_id, role=membership.role)
 
     return None
+
+
+async def resolve_auth(request: Request, session: AsyncSession) -> AuthContext | None:
+    """Auth resolution without FastAPI's dependency machinery.
+
+    Exists for one caller: the SSE route, which must not use
+    `Depends(get_db_session)`. A dependency-injected session is held for the whole
+    response, and an SSE response lasts minutes — thirty of them would exhaust the
+    connection pool and take the entire backend down. That route opens a session,
+    resolves auth, closes it, and then talks only to Redis.
+    """
+    return await _resolve_auth(request, session)
 
 
 async def get_current_user(
