@@ -1,7 +1,7 @@
 package com.unefy.feature.attendance
 
-import com.unefy.core.database.CachedMember
-import com.unefy.core.database.CachedMemberDao
+import com.unefy.core.database.SyncCursorDao
+import com.unefy.core.database.SyncedMemberDao
 import com.unefy.core.database.CachedSession
 import com.unefy.core.database.CachedSessionDao
 import com.unefy.core.database.CachedSessionRecord
@@ -19,6 +19,7 @@ import io.ktor.client.request.parameter
 import io.ktor.http.encodeURLParameter
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 import javax.inject.Singleton
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -238,7 +239,8 @@ interface AttendanceRepository {
 @Singleton
 class DefaultAttendanceRepository @Inject constructor(
     private val apiClient: ApiClient,
-    private val memberCache: CachedMemberDao,
+    private val syncedMembers: SyncedMemberDao,
+    private val syncCursors: SyncCursorDao,
     private val sessionCache: CachedSessionDao,
     private val recordCache: CachedSessionRecordDao,
 ) : AttendanceRepository {
@@ -338,17 +340,29 @@ class DefaultAttendanceRepository @Inject constructor(
         .map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
 
     /**
-     * The member list, from the network when possible and from the cache when
-     * not.
+     * The member list, from the mirror.
      *
-     * Cached because the supervisor's manual check-in list is useless without
-     * it: queueing the write while the read stays online-only means an empty
-     * list in exactly the basement the queue exists for. The cache is refreshed
-     * on every successful load and only read when the network refuses — a
-     * stale name is a far smaller problem than no name.
+     * This used to be its own cache (`cached_members`) with a network-first
+     * read, built for one concrete failure: the supervisor's manual check-in
+     * list came up empty in a basement. The member mirror answers the same
+     * need strictly better — complete rather than the last page that happened
+     * to load, current within a doorbell rather than a visit, searched with
+     * the umlaut folding the member list already uses, and cleared on
+     * sign-out with everything else.
+     *
+     * The network path survives only for the gap the mirror cannot cover: a
+     * fresh sign-in whose bootstrap has not finished yet.
      */
     override suspend fun members(search: String?): ApiResult<List<MemberPick>> {
-        val result = apiClient
+        if (syncCursors.bootstrapCompleteStream(MEMBERS_COLLECTION).first()) {
+            return ApiResult.Success(
+                syncedMembers.search(search.orEmpty()).first()
+                    .take(MEMBER_PAGE_SIZE)
+                    .map { MemberPick(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") },
+            )
+        }
+
+        return apiClient
             .get<List<MemberPickDto>>(ApiEndpoints.MEMBERS) {
                 parameter("page", 1)
                 parameter("per_page", MEMBER_PAGE_SIZE)
@@ -357,28 +371,6 @@ class DefaultAttendanceRepository @Inject constructor(
             .map { dtos ->
                 dtos.map { MemberPick(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") }
             }
-
-        return when {
-            result is ApiResult.Success -> {
-                memberCache.upsert(result.data.map { CachedMember(it.id, it.memberNumber, it.name) })
-                // Only after an unfiltered load: a search returns a subset, and
-                // pruning to it would throw away everyone who did not match.
-                if (search.isNullOrBlank()) {
-                    memberCache.retainOnly(result.data.map(MemberPick::id))
-                }
-                result
-            }
-
-            // Only a dead connection falls back. A 403 means this account may
-            // not list members, and answering it from a cache would be a lie.
-            result is ApiResult.Failure && result.error is ApiError.Network ->
-                ApiResult.Success(
-                    memberCache.search(search.orEmpty(), MEMBER_PAGE_SIZE)
-                        .map { MemberPick(it.id, it.memberNumber, it.name) },
-                )
-
-            else -> result
-        }
     }
 
     override suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>> {
@@ -446,6 +438,14 @@ class DefaultAttendanceRepository @Inject constructor(
         // The list is searchable, so this is a ceiling for "show me everyone",
         // not a page the user is expected to scroll to the end of.
         const val MEMBER_PAGE_SIZE = 100
+
+        /**
+         * The sync collection whose mirror answers the pick list. The name is
+         * the sync contract's (backend/app/sync/registry.py); feature:members
+         * owns the collection class, and module rules forbid reaching into it
+         * for the constant.
+         */
+        const val MEMBERS_COLLECTION = "members"
     }
 }
 

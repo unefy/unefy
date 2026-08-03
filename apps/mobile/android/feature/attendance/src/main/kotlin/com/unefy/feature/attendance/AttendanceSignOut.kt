@@ -1,7 +1,6 @@
 package com.unefy.feature.attendance
 
 import com.unefy.core.auth.SignOutTask
-import com.unefy.core.database.CachedMemberDao
 import com.unefy.core.database.CachedSessionDao
 import com.unefy.core.database.CachedSessionRecordDao
 import dagger.Binds
@@ -34,7 +33,6 @@ import javax.inject.Singleton
 @Singleton
 class AttendanceSignOut @Inject constructor(
     private val seedStore: SeedStore,
-    private val members: CachedMemberDao,
     private val sessions: CachedSessionDao,
     private val records: CachedSessionRecordDao,
 ) : SignOutTask {
@@ -45,7 +43,8 @@ class AttendanceSignOut @Inject constructor(
         // records would have come up empty right after clearing it.
         records.deleteAll()
         sessions.retainOnly(emptyList())
-        members.retainOnly(emptyList())
+        // The member mirror is cleared by SyncSignOut - it stopped being this
+        // feature's data when the manual pick list moved onto it.
     }
 }
 

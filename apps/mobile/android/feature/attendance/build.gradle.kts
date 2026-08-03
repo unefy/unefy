@@ -50,4 +50,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // The pick-list test runs the real ApiClient against a mock engine, so the
+    // "no network once mirrored" claim counts actual requests.
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.serialization.kotlinx.json)
 }

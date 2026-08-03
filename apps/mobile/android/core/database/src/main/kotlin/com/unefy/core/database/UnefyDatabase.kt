@@ -17,12 +17,11 @@ import javax.inject.Singleton
 /**
  * The app's local database.
  *
- * Two kinds of table, and the difference matters. The attendance tables are
- * *caches*: refreshed from whatever a list call returned, read only when the
- * network refuses, prunable with `retainOnly`. The `synced_*` tables are a
- * *mirror*: filled by delta-sync, the only thing the member screens read, and
- * emptied only by sign-out. Caching for events, dues and competitions still
- * belongs here and is not built — see docs/plans/android-app.md.
+ * Two kinds of table, and the difference matters. The attendance session/record
+ * tables are *caches*: refreshed from whatever a list call returned, read only
+ * when the network refuses, prunable with `retainOnly`. The `synced_*` tables
+ * are a *mirror*: filled by delta-sync, the only thing the list screens read,
+ * and emptied only by sign-out.
  *
  * No `fallbackToDestructiveMigration`. The queue holds check-ins that exist
  * nowhere else until they sync, and dropping the table on a schema change would
@@ -31,7 +30,6 @@ import javax.inject.Singleton
 @Database(
     entities = [
         PendingCheckIn::class,
-        CachedMember::class,
         CachedSession::class,
         CachedSessionRecord::class,
         SyncedMember::class,
@@ -40,13 +38,11 @@ import javax.inject.Singleton
         SyncedCompetition::class,
         SyncCursorEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
     abstract fun pendingCheckInDao(): PendingCheckInDao
-
-    abstract fun cachedMemberDao(): CachedMemberDao
 
     abstract fun cachedSessionDao(): CachedSessionDao
 
@@ -92,6 +88,7 @@ object DatabaseModule {
             MIGRATION_5_6,
             MIGRATION_6_7,
             MIGRATION_7_8,
+            MIGRATION_8_9,
         )
     }
 
@@ -133,10 +130,6 @@ object DatabaseModule {
     @Provides
     fun providePendingCheckInDao(database: UnefyDatabase): PendingCheckInDao =
         database.pendingCheckInDao()
-
-    @Provides
-    fun provideCachedMemberDao(database: UnefyDatabase): CachedMemberDao =
-        database.cachedMemberDao()
 
     @Provides
     fun provideCachedSessionDao(database: UnefyDatabase): CachedSessionDao =
@@ -353,6 +346,17 @@ object DatabaseModule {
     private val MIGRATION_7_8 = object : Migration(7, 8) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("ALTER TABLE pending_check_ins ADD COLUMN clientId TEXT")
+        }
+    }
+
+    /**
+     * Drops `cached_members` — the manual check-in pick list reads the member
+     * mirror now. Droppable precisely because it was a cache: nothing in it
+     * existed only on the device, unlike the check-in queue.
+     */
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("DROP TABLE IF EXISTS cached_members")
         }
     }
 

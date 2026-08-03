@@ -14,8 +14,9 @@ import kotlinx.coroutines.flow.Flow
  * not a cache they fall back to.
  *
  * Filled by delta-sync (`GET /api/v1/sync/members`) and emptied only by sign-out.
- * That is the difference from [CachedMember], which is refreshed from whatever a
- * list call happened to return and is consulted only when the network refuses.
+ * That is the difference from the attendance caches (sessions, records), which
+ * are refreshed from whatever a list call happened to return and are consulted
+ * only when the network refuses.
  *
  * **No banking fields.** `MemberResponse` carries `iban`, `bic` and
  * `sepa_mandate_reference`, and mirroring them would put every member's bank
