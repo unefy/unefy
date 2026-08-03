@@ -60,6 +60,9 @@ jobs:
       - name: Tests
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://unefy:unefy@localhost:5432/unefy_test
+          # Settings refuse placeholder secrets outside DEBUG — CI is a dev
+          # environment in that sense, and the tests mint their own sessions.
+          DEBUG: "true"
         run: uv run pytest -q
 
   web:
