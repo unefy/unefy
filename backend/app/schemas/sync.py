@@ -43,13 +43,9 @@ class SyncMeta(BaseSchema):
     #: the cursor that was sent, so a caller can store it unconditionally.
     cursor: str
 
-    #: The scan filled the page. Keep draining until this is false.
+    #: The scan filled the page. Keep draining until this is false; caught up
+    #: as of `server_time` once it is.
     has_more: bool
-
-    #: Caught up as of `server_time`. Currently the negation of `has_more`, kept
-    #: separate because they answer different questions for a UI, and because a
-    #: future `resync_required` would make them diverge.
-    complete: bool
 
     #: Lets a client measure its own clock offset without a second endpoint.
     server_time: datetime

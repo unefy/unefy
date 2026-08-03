@@ -101,17 +101,30 @@ class Cursor:
     entity_id: uuid.UUID
 
     #: False until the first page of a cold start has been drained. The only
-    #: thing it changes is whether tombstones are included — see `is_bootstrap`.
+    #: thing it changes is which tombstones are included — see `bootstrap_started_at`.
     bootstrap: bool = False
+
+    #: The watermark at the moment the bootstrap began, carried through every
+    #: bootstrap page. Tombstones older than this are withheld (worthless to a
+    #: client with no local state, and a privacy leak besides); tombstones newer
+    #: than this may describe a row an earlier page of *this* drain already
+    #: delivered live, so they must go out or the deletion is lost until the
+    #: cursor ages out a fortnight later. None once the bootstrap is over.
+    bootstrap_started_at: datetime | None = None
 
     @property
     def is_start(self) -> bool:
         return self.updated_at == EPOCH and self.entity_id == ZERO_UUID
 
 
-def start_cursor(*, bootstrap: bool) -> Cursor:
+def start_cursor(*, bootstrap: bool, started_at: datetime | None = None) -> Cursor:
     """The position a client with no cursor begins at."""
-    return Cursor(updated_at=EPOCH, entity_id=ZERO_UUID, bootstrap=bootstrap)
+    return Cursor(
+        updated_at=EPOCH,
+        entity_id=ZERO_UUID,
+        bootstrap=bootstrap,
+        bootstrap_started_at=started_at,
+    )
 
 
 def watermark(now: datetime) -> datetime:
@@ -126,6 +139,8 @@ def encode_cursor(cursor: Cursor) -> str:
         "id": str(cursor.entity_id),
         "phase": "bootstrap" if cursor.bootstrap else "live",
     }
+    if cursor.bootstrap_started_at is not None:
+        payload["bs"] = cursor.bootstrap_started_at.isoformat()
     raw = json.dumps(payload, separators=(",", ":")).encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
@@ -157,6 +172,18 @@ def decode_cursor(token: str, *, now: datetime) -> Cursor:
     except ValueError as exc:
         raise CursorInvalidError() from exc
 
+    bootstrap_started_at: datetime | None = None
+    raw_bs = payload.get("bs")
+    if raw_bs is not None:
+        if not isinstance(raw_bs, str):
+            raise CursorInvalidError()
+        try:
+            bootstrap_started_at = datetime.fromisoformat(raw_bs)
+        except ValueError as exc:
+            raise CursorInvalidError() from exc
+        if bootstrap_started_at.tzinfo is None:
+            raise CursorInvalidError("Sync cursor timestamp must carry a timezone")
+
     if updated_at.tzinfo is None:
         # A naive timestamp cannot be compared against `now`, and guessing a
         # zone here is how a client in UTC+2 would silently skip two hours.
@@ -171,4 +198,5 @@ def decode_cursor(token: str, *, now: datetime) -> Cursor:
         updated_at=updated_at,
         entity_id=entity_id,
         bootstrap=payload.get("phase") == "bootstrap",
+        bootstrap_started_at=bootstrap_started_at,
     )

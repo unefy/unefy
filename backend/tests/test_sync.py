@@ -86,12 +86,15 @@ def _sync(body: dict[str, Any]) -> tuple[list[Any], list[Any], dict[str, Any]]:
 
 
 async def _drain(
-    client: AsyncClient, url: str = SYNC_MEMBERS, *, limit: int = 200
+    client: AsyncClient,
+    url: str = SYNC_MEMBERS,
+    *,
+    limit: int = 200,
+    cursor: str | None = None,
 ) -> tuple[list[Any], list[Any], str]:
     """Page until caught up, returning everything seen and the final cursor."""
     changed: list[Any] = []
     deleted: list[Any] = []
-    cursor: str | None = None
     for _ in range(50):  # a loop bound, so a paging bug fails instead of hanging
         params: dict[str, Any] = {"limit": limit}
         if cursor is not None:
@@ -267,6 +270,54 @@ class TestTombstones:
         assert deleted == []
         assert [row["id"] for row in changed] == [str(alive.id)]
 
+    async def test_a_member_deleted_during_the_bootstrap_window_is_reported(
+        self,
+        auth_client: AsyncClient,
+        db_session: AsyncSession,
+        test_tenant: Tenant,
+        monkeypatch: Any,
+    ) -> None:
+        """A row delivered live early in a bootstrap can be deleted before the
+        drain finishes. Its tombstone sorts after the cursor, so the still-running
+        bootstrap is the only chance to hear about it — withhold it there and the
+        device shows a deleted member as live until the cursor ages out.
+
+        The lag is zeroed so the deletion becomes visible within the test instead
+        of five seconds from now; the property under test is the bootstrap-window
+        filter, not the watermark.
+        """
+        from app.sync import cursor as cursor_module
+
+        monkeypatch.setattr(cursor_module, "CURSOR_SAFETY_LAG", timedelta(0))
+
+        members = {
+            str(m.id): m
+            for m in [
+                await _add_member(db_session, test_tenant.id, member_number=f"{i:03d}")
+                for i in range(3)
+            ]
+        }
+        await _age_everything(db_session, test_tenant.id)
+
+        first_page = await auth_client.get(SYNC_MEMBERS, params={"limit": 1})
+        changed, _deleted, meta = _sync(first_page.json())
+        assert meta["has_more"] is True
+        delivered = members[changed[0]["id"]]
+
+        # Deleted mid-drain, at a position after the bootstrap began — the
+        # cursor itself says when that was.
+        assert await MemberRepository(db_session, test_tenant.id).soft_delete(delivered.id)
+        token = meta["cursor"]
+        payload = json.loads(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+        started = datetime.fromisoformat(payload["bs"])
+        await _set_updated_at(db_session, delivered, started + timedelta(milliseconds=1))
+
+        _changed2, deleted2, _cursor = await _drain(auth_client, cursor=token)
+        assert str(delivered.id) in {row["id"] for row in deleted2}, (
+            "a deletion inside the bootstrap window was withheld — the client "
+            "keeps showing this member until the cursor ages out"
+        )
+
     async def test_a_page_of_only_tombstones_still_advances(
         self,
         auth_client: AsyncClient,
@@ -364,7 +415,7 @@ class TestCursorHandling:
         changed, deleted, meta = _sync(response.json())
         assert changed == []
         assert deleted == []
-        assert meta["complete"] is True
+        assert meta["has_more"] is False
         # Storable unconditionally, so the client needs no special case.
         assert meta["cursor"]
 

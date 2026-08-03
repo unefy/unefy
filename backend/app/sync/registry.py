@@ -68,6 +68,11 @@ def collections_for(role: str | None) -> list[Collection]:
     return [c for c in COLLECTIONS.values() if role in c.roles]
 
 
+#: Inverted once at import: the lookup runs inside the `after_flush` listener,
+#: i.e. for every object of every flush in the whole backend, synced or not.
+_COLLECTION_BY_MODEL: dict[type[Any], str] = {c.model: c.name for c in COLLECTIONS.values()}
+
+
 def collection_for_model(model: type[Any]) -> str | None:
     """The collection a model belongs to, or None if it is not synced.
 
@@ -76,7 +81,4 @@ def collection_for_model(model: type[Any]) -> str | None:
     invitations, the discipline catalog) and writing one of those must stay a
     perfectly ordinary write, not an error.
     """
-    for collection in COLLECTIONS.values():
-        if collection.model is model:
-            return collection.name
-    return None
+    return _COLLECTION_BY_MODEL.get(model)
