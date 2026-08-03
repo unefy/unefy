@@ -16,15 +16,29 @@ compileSdk 37, targetSdk 36, minSdk 31. Läuft auf dem Testgerät.
 | `core:auth` | Keystore AES-GCM + DataStore, Refresh per Mutex serialisiert |
 | `core:designsystem` | Monochromes Schema aus den Web-Tokens, Fira Sans, Glass-Header/-Leiste |
 | `feature:members` | Liste, Detail, eigenes Profil, Mitgliederverzeichnis |
-| `feature:events` | Liste, Detail, Selbst-An-/Abmeldung |
+| `feature:events` | Liste, Detail (Beschreibung, Zeitraum, Typ/Status-Pills, Teilnehmerliste inkl. Warteliste, An-/Abmelden), Selbst-An-/Abmeldung auch in der Liste |
 | `feature:dues` | Übersicht, Liste, eigene Beiträge |
-| `feature:competitions` | Liste, Detail, Scoreboard |
+| `feature:competitions` | Liste, Detail (offline aus dem Spiegel: Beschreibung, Wertung, Disziplinen), Scoreboard mit Disziplin-Filter und Ø-Schnitt |
 | App-Shell | Nav3, Glass-Leiste, pro Rolle konfigurierbare Navigation per Drag & Drop |
 
 Backend-seitig ergänzt: Mitglieder-Selfservice (`/members/me`, `/members/directory`,
 `/dues/me`, `/events/{id}/registrations/me`), Wettkämpfe für Rolle `member`
 lesbar, `tenant_sports` (n:m) samt Migration, `GET /club` liefert `sports` +
-`modules`.
+`modules`. Seit 2026-08-04 liefert `GET /events/{id}` auch `is_registered`
+(gleiche Semantik wie die Liste: Warteliste zählt), damit das Termin-Detail
+ohne den Listen-Overlay auskommt.
+
+Seit 2026-08-04 haben Termine und Wettkämpfe echte Detail-Screens
+(`EventDetailKey`, `CompetitionDetailKey`; Wettkampf-Tap führt erst zum
+Detail, von dort zur Rangliste). Muster dabei: das gemeinsame
+Section/Field/Pill-Gerüst liegt jetzt in `core:designsystem`
+(`UnefyDetailSection`, `UnefyPill`), das Termin-Detail merged Spiegel-Zeile +
+`GET /events/{id}` wie das Mitglieder-Detail (Spiegel gewinnt für seine
+Felder, der Fetch liefert nur Enrichment + Teilnehmerliste; offline
+verschwinden die Anmelde-Affordanzen mit Hinweis statt zu lügen). Beim
+Verifizieren aufgefallen: die Seed-Sessions der „Vereinsmeisterschaft 2026“
+trugen andere Disziplin-Strings als `competition.disciplines` — der
+Scoreboard-Filter filtert exakt auf den String; in der Dev-DB angeglichen.
 
 ### Unmittelbare Risiken
 
