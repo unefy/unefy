@@ -81,6 +81,18 @@ def _evaluate(rule: ShootingProofRule, days: set[date]) -> tuple[int, int, bool]
     return len(days), len(months), passed
 
 
+def _self_certified(rows: list[tuple[uuid.UUID, date, str]]) -> set[date]:
+    """Days that rest on nothing but the member's own word.
+
+    A day is *not* self-certified as soon as one record of it came from somebody
+    else — the supervisor who ticks themselves off and is then scanned by a
+    colleague has an attested evening, and the weaker record beside it changes
+    nothing.
+    """
+    attested = {day for _, day, method in rows if method != "self"}
+    return {day for _, day, method in rows if method == "self"} - attested
+
+
 class ShootingService:
     def __init__(self, session: AsyncSession, auth: AuthContext) -> None:
         self.session = session
@@ -231,7 +243,8 @@ class ShootingService:
 
         start, end = await self._window(rule, as_of)
         rows = await self.proof.countable_records(member_id, start, end)
-        count, months, passed = _evaluate(rule, {occurred for _, occurred in rows})
+        count, months, passed = _evaluate(rule, {occurred for _, occurred, _ in rows})
+        self_days, corroborated = await self._self_entry_counts(member, rows, start, end)
         return {
             "member_id": member_id,
             "rule_key": rule_key,
@@ -240,7 +253,34 @@ class ShootingService:
             "session_count": count,
             "months_covered": months,
             "passed": passed,
+            "self_certified_days": self_days,
+            "corroborated_self_days": corroborated,
         }
+
+    async def _self_entry_counts(
+        self,
+        member: Member,
+        rows: list[tuple[uuid.UUID, date, str]],
+        start: date,
+        end: date,
+    ) -> tuple[int, int]:
+        """How many of the counted days the member vouched for themselves.
+
+        Reported rather than deducted. Whether a self-certified day is worth
+        anything is a question for the authority and the association, not for this
+        code — what the code owes them is the ability to see it, which the raw day
+        count cannot give them.
+
+        The second number is what saves the honest case: of those days, the ones on
+        which this person checked *other* people in. A supervisor who ran the desk
+        all evening is attested by everybody else's records, which is better
+        evidence than their own tick and does not depend on their word at all.
+        """
+        self_days = _self_certified(rows)
+        if not self_days or member.user_id is None:
+            return len(self_days), 0
+        confirming = await self.proof.days_confirming_others(member.user_id, member.id, start, end)
+        return len(self_days), len(self_days & confirming)
 
     # --- Certificates ---
 
@@ -254,8 +294,9 @@ class ShootingService:
 
         start, end = await self._window(rule, data.as_of)
         rows = await self.proof.countable_records(data.member_id, start, end)
-        count, months, passed = _evaluate(rule, {occurred for _, occurred in rows})
-        record_ids = sorted(str(record_id) for record_id, _ in rows)
+        count, months, passed = _evaluate(rule, {occurred for _, occurred, _ in rows})
+        self_days, corroborated = await self._self_entry_counts(member, rows, start, end)
+        record_ids = sorted(str(record_id) for record_id, _, _ in rows)
 
         certificate = ShootingProofCertificate(
             tenant_id=self.tenant_id,
@@ -265,6 +306,8 @@ class ShootingService:
             period_end=end,
             session_count=count,
             months_covered=months,
+            self_certified_days=self_days,
+            corroborated_self_days=corroborated,
             result="passed" if passed else "failed",
             issued_at=datetime.now(UTC),
             issued_by_user_id=self.auth.user_id,
@@ -375,6 +418,8 @@ def _content_hash(certificate: ShootingProofCertificate) -> str:
             "period_end": certificate.period_end.isoformat(),
             "session_count": certificate.session_count,
             "months_covered": certificate.months_covered,
+            "self_certified_days": certificate.self_certified_days,
+            "corroborated_self_days": certificate.corroborated_self_days,
             "result": certificate.result,
             "record_ids": sorted(certificate.record_ids),
         },

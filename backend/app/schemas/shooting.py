@@ -73,6 +73,12 @@ class ProofEvaluationResponse(BaseSchema):
     months_covered: int
     passed: bool
 
+    # Of the counted days, those resting on nothing but the member's own word,
+    # and of *those*, the ones on which they checked other people in. Shown so a
+    # reader can weigh the count instead of having to trust it.
+    self_certified_days: int = 0
+    corroborated_self_days: int = 0
+
 
 class CertificateIssue(BaseSchema):
     member_id: uuid.UUID
@@ -96,6 +102,8 @@ class CertificateResponse(BaseSchema):
     period_end: date
     session_count: int
     months_covered: int
+    self_certified_days: int = 0
+    corroborated_self_days: int = 0
     result: str
     issued_at: datetime
     issued_by_user_id: uuid.UUID

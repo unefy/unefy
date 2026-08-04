@@ -18,14 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db_session
+from app.events.outbox import take_pending
 from app.models.attendance import AttendanceCheckinContext, AttendanceRecord
 from app.models.member import Member
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.attendance import CHECK_IN_SIGNAL
 from app.services.attendance_code import (
     build_code,
     counter_for,
     derive_seed,
+    new_member_ref,
     seed_period,
 )
 
@@ -110,6 +113,28 @@ async def _seed_for(
     return resp.json()["data"]
 
 
+async def _seed_of(
+    session: AsyncSession, tenant_id: uuid.UUID, member: Member, at: int | None = None
+) -> dict:
+    """Somebody else's seed, minted directly.
+
+    `/me/seed` only ever answers for the caller, and most of what happens here is
+    a supervisor scanning a *different* person — the only scan that proves
+    anything. Deriving the seed the way the endpoint would is what lets a test
+    build that other person's code.
+    """
+    if member.attendance_ref is None:
+        member.attendance_ref = new_member_ref()
+        await session.flush()
+    moment = at if at is not None else _now()
+    return {
+        "member_ref": member.attendance_ref,
+        "seed": derive_seed(
+            get_settings().ATTENDANCE_SECRET, tenant_id, member.id, seed_period(moment)
+        ),
+    }
+
+
 # --- Seed handout ---
 
 
@@ -157,14 +182,267 @@ async def test_seed_needs_authentication(anon_client: AsyncClient) -> None:
     assert resp.status_code in (401, 403)
 
 
+# --- Self-entries ---
+
+
+async def test_the_supervisor_ticking_themselves_off_is_marked_as_a_self_entry(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """Who checks in the supervisor? They do, and it has to say so.
+
+    Only the board may create check-ins, and a supervisor alone at the range has
+    no other route to their own attendance — a QR needs two devices and theirs is
+    the reader. So this is allowed. What must not happen is that it looks like a
+    record somebody else vouched for: the people who can create records at will
+    are exactly the people such a record would flatter.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+
+    assert resp.status_code == 201, resp.text
+    record = resp.json()["data"]
+    assert record["method"] == "self"
+    assert record["assurance"] == "low"
+
+
+async def test_scanning_ones_own_code_is_a_self_entry_too(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """Reachable by putting one's own code on a second screen — and worth nothing.
+
+    The signature verifies, so without this the record would come out as
+    `staff_scan`/`high`: the strongest evidence in the system, produced alone. The
+    cryptography proves which device the code came from and no more; whoever holds
+    both ends of the scan has attested nothing to anybody.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    seed = await _seed_for(auth_client)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan",
+        json={"code": _current_code(seed["seed"], seed["member_ref"], test_tenant.id, _now())},
+    )
+
+    assert resp.status_code == 201, resp.text
+    record = resp.json()["data"]
+    assert record["member_id"] == str(member.id)
+    assert record["method"] == "self"
+    assert record["assurance"] == "low"
+
+
+async def test_ticking_somebody_else_off_stays_a_manual_check_in(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    # The marker has to be specific, or it says nothing. A board member ticking
+    # off a member is somebody vouching for somebody else, however weakly.
+    await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    other = await _add_member(db_session, test_tenant.id, member_number="002")
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(other.id)},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["method"] == "manual"
+
+
+async def test_a_member_with_their_own_account_is_not_a_self_entry(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """The discriminating case: an app-using member, ticked off by the supervisor.
+
+    Two accounts are involved, which is what makes this the test that can tell
+    "the subject is the author" apart from "an account exists somewhere". Both
+    neighbouring tests use members without accounts and would pass even if every
+    check-in were marked as a self-entry.
+    """
+    await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    other_account = User(
+        id=uuid.uuid4(),
+        email="erika@example.org",
+        name="Erika Beispiel",
+        image=None,
+        email_verified=True,
+    )
+    db_session.add(other_account)
+    await db_session.flush()
+    other = await _add_member(
+        db_session, test_tenant.id, member_number="004", user_id=other_account.id
+    )
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(other.id)},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["method"] == "manual"
+
+
+async def test_a_member_without_an_account_is_never_a_self_entry(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    # Nothing to compare the caller against. The guard matters because an
+    # unlinked member is the common case, not the exception.
+    member = await _add_member(db_session, test_tenant.id, member_number="003")
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+
+    assert resp.json()["data"]["method"] == "manual"
+
+
+# --- The member's own device ---
+
+
+async def test_a_check_in_is_announced_to_the_members_own_device(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """The hole two devices revealed: the check-in happens on somebody else's phone.
+
+    The scanner learns the outcome from its own response. The member's phone is
+    holding up a code and has no way to find out that the code was taken, so it is
+    told — addressed to that member's account, because one stream serves the whole
+    club and who was present is nobody else's business.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    seed = await _seed_for(auth_client)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan",
+        json={"code": _current_code(seed["seed"], seed["member_ref"], test_tenant.id, _now())},
+    )
+    assert resp.status_code == 201, resp.text
+
+    hint = next(e for e in take_pending(db_session) if e.entity == CHECK_IN_SIGNAL)
+    assert str(hint.entity_id) == resp.json()["data"]["id"]
+    assert hint.audience_user_id == test_user.id
+    assert hint.op == "upsert"
+    assert member.user_id == test_user.id
+
+
+async def test_a_removal_is_announced_too(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """Otherwise a confirmed screen would outlive the record behind it.
+
+    A supervisor who takes a check-in back leaves the member looking at a green
+    tick the server no longer stands behind.
+    """
+    await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    seed = await _seed_for(auth_client)
+    created = await _create_session(auth_client)
+    scan = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan",
+        json={"code": _current_code(seed["seed"], seed["member_ref"], test_tenant.id, _now())},
+    )
+    record_id = scan.json()["data"]["id"]
+    take_pending(db_session)
+
+    resp = await auth_client.delete(f"/api/v1/attendance/records/{record_id}")
+    assert resp.status_code == 204, resp.text
+
+    hint = next(e for e in take_pending(db_session) if e.entity == CHECK_IN_SIGNAL)
+    assert str(hint.entity_id) == record_id
+    assert hint.audience_user_id == test_user.id
+    assert hint.op == "delete"
+
+
+async def test_the_announcement_goes_to_the_member_not_to_the_supervisor(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """The distinction the other tests cannot make.
+
+    Everywhere else here the signed-in account happens to be the member's own, so
+    "addressed to the member" and "addressed to the caller" look identical. In
+    reality they are never the same person: the supervisor ticks somebody else off
+    a list, and a frame addressed to the supervisor would confirm a check-in on the
+    wrong phone while leaving the right one waiting.
+    """
+    other = User(
+        id=uuid.uuid4(),
+        email="erika@example.org",
+        name="Erika Beispiel",
+        image=None,
+        email_verified=True,
+    )
+    db_session.add(other)
+    await db_session.flush()
+    member = await _add_member(db_session, test_tenant.id, member_number="003", user_id=other.id)
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+    assert resp.status_code == 201, resp.text
+
+    hint = next(e for e in take_pending(db_session) if e.entity == CHECK_IN_SIGNAL)
+    assert hint.audience_user_id == other.id
+
+
+async def test_a_member_without_an_account_is_not_announced_to(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """There is no device to tell.
+
+    Most members of most clubs will never install the app, and their check-ins
+    must not put frames on the stream addressed to nobody.
+    """
+    member = await _add_member(db_session, test_tenant.id, member_number="002")
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+    assert resp.status_code == 201, resp.text
+
+    assert [e for e in take_pending(db_session) if e.entity == CHECK_IN_SIGNAL] == []
+
+
+async def test_a_guest_is_not_announced_to(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    # A guest has no member row at all, so there is nothing to resolve an
+    # account from — and the code path must not try.
+    created = await _create_session(auth_client)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/check-in",
+        json={"guest_name": "Jonas Gast"},
+    )
+    assert resp.status_code == 201, resp.text
+
+    assert [e for e in take_pending(db_session) if e.entity == CHECK_IN_SIGNAL] == []
+
+
 # --- Scanned check-in ---
 
 
 async def test_scan_creates_a_high_assurance_record(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
 ) -> None:
-    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
-    seed = await _seed_for(auth_client)
+    """A supervisor scanning *somebody else* — the only scan that attests anything.
+
+    The member is deliberately not the signed-in account: a scan of one's own code
+    is a self-entry and recorded as one, see the test below.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    seed = await _seed_of(db_session, test_tenant.id, member)
     created = await _create_session(auth_client)
 
     resp = await auth_client.post(
@@ -407,16 +685,15 @@ async def test_buffered_scan_is_verified_against_the_moment_it_claims(
     and synced afterwards still verifies — while the claim itself stays bounded
     by the session window.
     """
-    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
-    seed_data = await _seed_for(auth_client)
+    member = await _add_member(db_session, test_tenant.id)
     created = await _create_session(auth_client)
 
     # An hour into the session, which was weeks ago — far outside the drift a
     # live scan is allowed.
     scanned_at = datetime(2026, 7, 7, 18, 0, tzinfo=UTC)
     at = int(scanned_at.timestamp())
-    seed = derive_seed(get_settings().ATTENDANCE_SECRET, test_tenant.id, member.id, seed_period(at))
-    code = build_code(seed, seed_data["member_ref"], test_tenant.id, counter_for(at))
+    seed_data = await _seed_of(db_session, test_tenant.id, member, at)
+    code = build_code(seed_data["seed"], seed_data["member_ref"], test_tenant.id, counter_for(at))
 
     resp = await auth_client.post(
         f"/api/v1/attendance/sessions/{created['id']}/scan",

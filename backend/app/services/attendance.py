@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.dependencies import AuthContext
+from app.events.outbox import queue_change
 from app.models.attendance import (
     ASSURANCE_BY_METHOD,
     AttendanceCheckinContext,
@@ -57,6 +58,15 @@ logger = structlog.get_logger()
 SESSION_TARGET = "attendance_session"
 RECORD_TARGET = "attendance_record"
 
+#: Entity name of the addressed hint a member's own device listens for.
+#:
+#: Deliberately not one of the collections in `app/sync/registry.py`: there is no
+#: `/sync/check-ins` to drain, and there must not be one — a member may know about
+#: their own attendance, not about everyone else's. The client hears the hint and
+#: re-reads `GET /attendance/me/records`, which is scoped to the caller.
+#: The same string is in `MemberCodeViewModel` on Android; it is the contract.
+CHECK_IN_SIGNAL = "check-ins"
+
 # How far a device clock may run ahead of the server before its claim about
 # when a check-in happened is refused. Generous enough for an unsynced phone,
 # far short of letting anyone book into the future.
@@ -95,9 +105,10 @@ class AttendanceService:
 
     Two rules run through everything here:
 
-    1. A closed session is frozen. No check-ins, no corrections, no reopening.
-       That is the whole point of closing: a late entry must be impossible, not
-       merely visible.
+    1. A closed session takes no new check-ins and cannot be reopened. Existing
+       records can still be corrected, but only with a reason and under their own
+       audit action — see [_amendment]. Nobody can be *added* afterwards; that is
+       what closing still guarantees.
     2. Every change to an existing record leaves an audit entry with a human
        reason. The record answers "who was there"; the audit trail answers
        "how do you know".
@@ -363,6 +374,11 @@ class AttendanceService:
 
         occurred_at, synced_at = self._resolve_occurred_at(row, claimed_at)
 
+        # Resolved once, for two decisions: what this record is worth, and which
+        # device to tell about it.
+        member = await self.members.get_by_id(member_id) if member_id is not None else None
+        method = self._method_for(method, member)
+
         # Guests are not deduplicated: nothing about a guest identifies them
         # well enough to tell a second visitor of the same name from the same
         # person twice, and refusing the second one would lose a real
@@ -414,7 +430,72 @@ class AttendanceService:
                     return replayed
             raise
         await self.session.refresh(record)
+        await self._signal_member(record, "upsert", member=member)
         return record
+
+    def _method_for(self, method: str, member: Member | None) -> str:
+        """Marks a check-in whose subject is also its author.
+
+        Only the board may create check-ins, and a supervisor standing alone at
+        the range has no other way to record their own attendance: a QR needs two
+        devices and theirs is the reader. So the self-entry is allowed — but it
+        must not look like a record somebody else vouched for, because the people
+        who can create records at will are exactly the people this would flatter.
+
+        Applies to a *scanned* self-check-in too, which is reachable by putting
+        one's own code on a second screen. The cryptography proves the device it
+        came from and nothing else: whoever holds both ends of the scan has
+        attested nothing to anybody, and calling that `high` would be a lie the
+        rest of the evidence layer then rests on.
+
+        Deliberately decided at write time rather than derived later from
+        `verified_by_user_id == members.user_id`. That link is mutable — unlink the
+        account and a self-entry silently becomes third-party evidence — and a
+        record of what happened must not change when something else does.
+        """
+        # Both halves of the guard earn their keep. Without the `user_id is None`
+        # half, a member with no account and a caller with no user id would
+        # compare `None == None` and produce a self-entry for a person who has no
+        # account to enter it from.
+        if member is None or member.user_id is None:
+            return method
+        return "self" if member.user_id == self.auth.user_id else method
+
+    async def _signal_member(
+        self, record: AttendanceRecord, op: str, *, member: Member | None = None
+    ) -> None:
+        """Tell the member's own device that this happened to them.
+
+        The reason this exists at all: a check-in is performed on somebody else's
+        phone. The scanner sees the outcome immediately, the member's phone sees
+        nothing — it is holding up a code and has no way to learn that the code was
+        accepted. NFC solved that for one transport by answering over the same tap;
+        for a camera scan there is no channel back, so until now the member's phone
+        polled every two seconds and the confirmation arrived when it arrived.
+
+        Published through the outbox, so it goes out **after** the commit. Sending
+        it from here directly would be the classic version of this bug: the phone
+        is told, asks immediately, reads the state from before the transaction, and
+        never hears again.
+
+        Silent when the member has no account (a guest, or a member nobody has
+        invited yet) — there is no device to tell. A failure to publish costs
+        latency only; the poll behind it still finds the record.
+        """
+        if record.member_id is None:
+            return
+        if member is None:
+            member = await self.members.get_by_id(record.member_id)
+        if member is None or member.user_id is None:
+            return
+        queue_change(
+            self.session,
+            tenant_id=self.tenant_id,
+            entity=CHECK_IN_SIGNAL,
+            entity_id=record.id,
+            op=op,
+            audience_user_id=member.user_id,
+        )
 
     # --- Rotating code ---
 
@@ -671,6 +752,7 @@ class AttendanceService:
             "checked_in_at": jsonable(record.checked_in_at),
         } | (amendment or {})
         await self.records.soft_delete(record_id)
+        await self._signal_member(record, "delete")
         await record_tenant_action(
             self.session,
             self.auth,

@@ -24,13 +24,17 @@ from app.models.base import (
 
 # Every check-in proves two things: *who* was there and *where/when*. The
 # methods differ only in which of the two is technically secured rather than
-# asserted by a human.
+# asserted by a human — except `self`, where the two collapse: the person
+# asserting and the person asserted about are the same, so nothing is secured.
 ATTENDANCE_METHODS = ("manual", "staff_scan", "venue_scan", "self", "nfc_tap")
 
-# What the API actually accepts today. The remaining methods exist in the model
-# so that `assurance` can be reasoned about as one scale, but they are rejected
-# by validation until they are built.
-IMPLEMENTED_METHODS = ("manual",)
+# What a check-in can actually be recorded as today. `venue_scan` and `nfc_tap`
+# exist in the taxonomy above so `assurance` can be reasoned about as one scale,
+# and are rejected until they are built.
+#
+# `self` is never *accepted* — a client cannot claim it any more than it can claim
+# an assurance level. It is derived: see `AttendanceService._method_for`.
+IMPLEMENTED_METHODS = ("manual", "staff_scan", "self")
 
 ASSURANCE_LEVELS = ("low", "medium", "high")
 
@@ -39,6 +43,11 @@ ASSURANCE_LEVELS = ("low", "medium", "high")
 ASSURANCE_BY_METHOD = {
     "manual": "low",
     "staff_scan": "high",
+    # The record whose subject is also its author. Weakest of the built methods,
+    # and the honest level for it: nobody but the person themselves says they
+    # were there. It exists because the supervisor's own attendance has no other
+    # route — a QR needs two devices and they are holding the reader.
+    "self": "low",
 }
 
 

@@ -55,6 +55,8 @@ async def _add_attendance(
     division_id: uuid.UUID | None = None,
     guest_name: str | None = None,
     deleted: bool = False,
+    method: str = "manual",
+    verified_by_user_id: uuid.UUID | None = None,
 ) -> AttendanceRecord:
     session = AttendanceSession(
         tenant_id=tenant_id,
@@ -73,8 +75,9 @@ async def _add_attendance(
         guest_name=guest_name,
         occurred_on=occurred_on,
         checked_in_at=session.opens_at,
-        method="manual",
+        method=method,
         assurance="low",
+        verified_by_user_id=verified_by_user_id,
         deleted_at=datetime.now(UTC) if deleted else None,
     )
     db_session.add(record)
@@ -295,6 +298,155 @@ async def test_proof_passes_on_the_monthly_criterion_alone(
     assert data["passed"] is True
 
 
+async def test_self_entered_days_are_counted_and_reported_separately(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant, test_user: User
+) -> None:
+    """A day the member entered for themselves counts, and says so.
+
+    The decision behind this: the supervisor has no other route to their own
+    attendance, so refusing the entry would punish the people who run the range.
+    Deducting it silently would be worse — it would make the system's arithmetic
+    disagree with the record without saying why. So it counts, and the count is
+    qualified.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _create_rule(auth_client, min_total_days=2)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+    await _add_attendance(
+        db_session, shooting_tenant.id, member.id, date(2026, 6, 1), method="self"
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{member.id}", params={"rule_key": "dsb-standard", "as_of": "2026-08-04"}
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["session_count"] == 2
+    assert data["passed"] is True
+    assert data["self_certified_days"] == 1
+
+
+async def test_a_day_with_somebody_elses_record_is_not_self_certified(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """One attested record is enough to carry the evening.
+
+    The supervisor who ticks themselves off at seven and is scanned by a colleague
+    at eight has an attested day; the weaker record beside it changes nothing. Per
+    *day*, not per record, because a day is what §14 counts.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _create_rule(auth_client, min_total_days=1)
+    await _add_attendance(
+        db_session, shooting_tenant.id, member.id, date(2026, 7, 1), method="self"
+    )
+    await _add_attendance(
+        db_session, shooting_tenant.id, member.id, date(2026, 7, 1), method="staff_scan"
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{member.id}", params={"rule_key": "dsb-standard", "as_of": "2026-08-04"}
+    )
+
+    data = response.json()["data"]
+    assert data["session_count"] == 1
+    assert data["self_certified_days"] == 0
+
+
+async def test_a_supervisor_who_checked_others_in_is_corroborated(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant, test_user: User
+) -> None:
+    """The number that saves the honest case.
+
+    Somebody who ticked other people off that evening was demonstrably at the
+    range, and those records exist because *other* people were there. That is
+    better evidence for the supervisor's presence than their own tick, and it
+    costs no extra bookkeeping — it is already in the data.
+    """
+    supervisor = await _add_member(db_session, shooting_tenant.id)
+    supervisor.user_id = test_user.id
+    other = await _add_member(db_session, shooting_tenant.id)
+    await db_session.flush()
+    await _create_rule(auth_client, min_total_days=1)
+
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        supervisor.id,
+        date(2026, 7, 1),
+        method="self",
+        # As the real path writes it: the author of a self-entry is its subject.
+        # It must not be allowed to corroborate itself.
+        verified_by_user_id=test_user.id,
+    )
+    # The same evening, from the same phone: somebody else, ticked off by them.
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        other.id,
+        date(2026, 7, 1),
+        verified_by_user_id=test_user.id,
+    )
+    # And an evening with nothing but their own word.
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        supervisor.id,
+        date(2026, 6, 1),
+        method="self",
+        verified_by_user_id=test_user.id,
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{supervisor.id}",
+        params={"rule_key": "dsb-standard", "as_of": "2026-08-04"},
+    )
+
+    data = response.json()["data"]
+    assert data["self_certified_days"] == 2
+    assert data["corroborated_self_days"] == 1
+
+
+async def test_checking_a_guest_in_corroborates_too(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant, test_user: User
+) -> None:
+    """The NULL trap, pinned.
+
+    A guest row has `member_id IS NULL`, and `member_id != <uuid>` is NULL rather
+    than true in SQL — so a supervisor whose evening consisted of checking guests
+    in would have come out uncorroborated.
+    """
+    supervisor = await _add_member(db_session, shooting_tenant.id)
+    supervisor.user_id = test_user.id
+    await db_session.flush()
+    await _create_rule(auth_client, min_total_days=1)
+
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        supervisor.id,
+        date(2026, 7, 1),
+        method="self",
+        verified_by_user_id=test_user.id,
+    )
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        None,
+        date(2026, 7, 1),
+        guest_name="Jonas Gast",
+        verified_by_user_id=test_user.id,
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{supervisor.id}",
+        params={"rule_key": "dsb-standard", "as_of": "2026-08-04"},
+    )
+
+    assert response.json()["data"]["corroborated_self_days"] == 1
+
+
 # --- Certificates & verify ---
 
 
@@ -317,6 +469,10 @@ async def test_certificate_freezes_what_was_counted(
     assert data["session_count"] == 2
     assert data["member_name"] == "Erika Musterfrau"
     assert len(data["verification_code"]) == 12
+    # Both days were entered by somebody else, so nothing here rests on the
+    # member's own word.
+    assert data["self_certified_days"] == 0
+    assert data["corroborated_self_days"] == 0
 
     # The hash is recomputable from the frozen fields — that is its whole claim.
     canonical = json.dumps(
@@ -328,6 +484,10 @@ async def test_certificate_freezes_what_was_counted(
             "period_end": data["period_end"],
             "session_count": data["session_count"],
             "months_covered": data["months_covered"],
+            # Part of the hashed set on purpose: a qualification that can be
+            # edited away afterwards qualifies nothing.
+            "self_certified_days": data["self_certified_days"],
+            "corroborated_self_days": data["corroborated_self_days"],
             "result": data["result"],
             "record_ids": sorted([str(first.id), str(second.id)]),
         },

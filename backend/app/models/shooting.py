@@ -125,6 +125,14 @@ class ShootingProofCertificate(TenantModel, AuditMixin):
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
 
     session_count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Of those days, the ones resting on nothing but the member's own word, and —
+    # of those — the ones on which they checked other people in. Frozen here and
+    # part of `content_hash` because a qualification that can be edited away
+    # afterwards is not a qualification. Reported, never deducted: what a
+    # self-certified day is worth is the authority's call, not this system's.
+    self_certified_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    corroborated_self_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     months_covered: Mapped[int] = mapped_column(Integer, nullable=False)
 
     result: Mapped[str] = mapped_column(String(10), nullable=False)

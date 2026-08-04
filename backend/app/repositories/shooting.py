@@ -96,7 +96,7 @@ class ShootingProofRepository:
 
     def _countable(
         self, member_id: uuid.UUID, start: date, end: date
-    ) -> Select[tuple[uuid.UUID, date]]:
+    ) -> Select[tuple[uuid.UUID, date, str]]:
         """Live records of the member in the window, shooting sessions only.
 
         Guests fall out by construction (`member_id` is the join key). Sessions
@@ -114,7 +114,7 @@ class ShootingProofRepository:
             .where(~Sport.modules.any("shooting"))  # type: ignore[arg-type]
         )
         return (
-            select(AttendanceRecord.id, AttendanceRecord.occurred_on)
+            select(AttendanceRecord.id, AttendanceRecord.occurred_on, AttendanceRecord.method)
             .join(AttendanceSession, AttendanceRecord.session_id == AttendanceSession.id)
             .where(AttendanceRecord.tenant_id == self.tenant_id)
             .where(AttendanceRecord.member_id == member_id)
@@ -126,9 +126,47 @@ class ShootingProofRepository:
 
     async def countable_records(
         self, member_id: uuid.UUID, start: date, end: date
-    ) -> list[tuple[uuid.UUID, date]]:
+    ) -> list[tuple[uuid.UUID, date, str]]:
+        """(id, day, method) per countable record.
+
+        The method rides along because a day resting only on the member's own word
+        counts the same as any other but must not *read* the same — see
+        `ShootingService.evaluate`.
+        """
         result = await self.session.execute(self._countable(member_id, start, end))
-        return [(row[0], row[1]) for row in result.all()]
+        return [(row[0], row[1], row[2]) for row in result.all()]
+
+    async def days_confirming_others(
+        self, user_id: uuid.UUID, member_id: uuid.UUID, start: date, end: date
+    ) -> set[date]:
+        """Days on which this account checked *other* people in.
+
+        The corroboration a supervisor's self-entry can actually offer. Somebody
+        who ticked fourteen other people off that evening was demonstrably at the
+        range, and those fourteen records were made by other people's presence —
+        which is a stronger statement than any tick they could make about
+        themselves.
+
+        Not restricted to shooting sessions: what is in question here is whether
+        the person was *there*, and running the check-in desk at the club's
+        gymnastics evening proves that just as well. Whether the day counts as a
+        shooting day is decided separately, by [countable_records].
+        """
+        result = await self.session.execute(
+            select(AttendanceRecord.occurred_on)
+            .where(AttendanceRecord.tenant_id == self.tenant_id)
+            .where(AttendanceRecord.verified_by_user_id == user_id)
+            # `IS DISTINCT FROM`, not `!=`: a guest row has `member_id IS NULL`,
+            # and `NULL != <uuid>` is NULL rather than true — so a supervisor whose
+            # evening consisted of checking guests in would have come out
+            # uncorroborated.
+            .where(AttendanceRecord.member_id.is_distinct_from(member_id))
+            .where(AttendanceRecord.deleted_at.is_(None))
+            .where(AttendanceRecord.occurred_on >= start)
+            .where(AttendanceRecord.occurred_on <= end)
+            .distinct()
+        )
+        return {row[0] for row in result.all()}
 
     async def range_book_rows(self, start: date, end: date) -> list[tuple[object, ...]]:
         """Everything the range book prints, one query, oldest first.
