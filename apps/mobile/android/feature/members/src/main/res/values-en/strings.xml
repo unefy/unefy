@@ -18,7 +18,6 @@
     <string name="error_forbidden_body">Your role in the club does not allow access to the member list.</string>
     <string name="error_generic_title">Something went wrong</string>
     <string name="error_generic_body">The members could not be loaded.</string>
-    <string name="detail_back">Back</string>
     <string name="detail_member_number">Member number</string>
     <string name="detail_status">Status</string>
     <string name="detail_email">Email</string>

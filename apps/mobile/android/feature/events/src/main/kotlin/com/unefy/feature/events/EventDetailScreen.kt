@@ -4,17 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,13 +20,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.LocalGlassBarHeight
+import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.component.UnefyPill
 import com.unefy.core.designsystem.component.UnefyRowDivider
@@ -91,7 +83,6 @@ fun EventDetailRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(
     state: EventDetailUiState,
@@ -106,13 +97,6 @@ fun EventDetailScreen(
     onRemoveRegistration: (String) -> Unit = {},
     onActionFailedShown: () -> Unit = {},
 ) {
-    val scrollState = rememberScrollState()
-    // Only when there is something to scroll: enterAlways otherwise collapses
-    // the bar on any drag, and on a short screen that leaves the back button
-    // gone and a hole where the bar was — a view whose height looks wrong.
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
-        canScroll = { scrollState.maxValue > 0 },
-    )
     val content = state as? EventDetailUiState.Content
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,51 +118,34 @@ fun EventDetailScreen(
         )
     }
 
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                scrollBehavior = scrollBehavior,
-                // No title: the event names itself in the header below, and the
-                // same word twice on one screen reads as a stutter.
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(DesignR.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.event_detail_back),
-                        )
-                    }
-                },
+    UnefyDetailScaffold(
+        collapsedTitle = content?.event?.title,
+        onBack = onBack,
+        overlay = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                // Above the floating glass bar, not behind it.
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = LocalGlassBarHeight.current),
             )
         },
-    ) { insets ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(insets)
-                .verticalScroll(scrollState),
-        ) {
-            when (state) {
-                EventDetailUiState.Loading -> Unit
-                is EventDetailUiState.Failure -> Text(
-                    text = stringResource(R.string.event_detail_error_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(UnefySpacing.screen),
-                )
+    ) {
+        when (state) {
+            EventDetailUiState.Loading -> Unit
+            is EventDetailUiState.Failure -> Text(
+                text = stringResource(R.string.event_detail_error_body),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(UnefySpacing.screen),
+            )
 
-                is EventDetailUiState.Content -> EventDetailContent(
-                    state = state,
-                    canManage = canManage,
-                    onToggleRegistration = onToggleRegistration,
-                    onOpenPicker = onOpenPicker,
-                    onRemoveRegistration = onRemoveRegistration,
-                )
-            }
-            // The glass bar floats over the content; the last row must be able
-            // to scroll clear of it.
-            Spacer(modifier = Modifier.height(LocalGlassBarHeight.current + UnefySpacing.lg))
+            is EventDetailUiState.Content -> EventDetailContent(
+                state = state,
+                canManage = canManage,
+                onToggleRegistration = onToggleRegistration,
+                onOpenPicker = onOpenPicker,
+                onRemoveRegistration = onRemoveRegistration,
+            )
         }
     }
 }

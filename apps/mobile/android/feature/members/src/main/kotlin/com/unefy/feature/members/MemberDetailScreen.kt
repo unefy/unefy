@@ -7,33 +7,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -41,9 +29,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.Field
-import com.unefy.core.designsystem.component.LocalGlassBarHeight
+import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.component.UnefyPill
 import com.unefy.core.designsystem.theme.LocalUnefyColors
@@ -144,7 +131,6 @@ fun MemberDetailRoute(
     MemberDetailScreen(state = state, onBack = onBack)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemberDetailScreen(
     state: MemberDetailUiState,
@@ -155,57 +141,23 @@ fun MemberDetailScreen(
     title: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    val scrollState = rememberScrollState()
-    // Only when there is something to scroll: enterAlways otherwise collapses
-    // the bar on any drag, and on a short screen that leaves the back button
-    // gone and a hole where the bar was — a view whose height looks wrong.
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
-        canScroll = { scrollState.maxValue > 0 },
-    )
-
-    Scaffold(
-        // The detail view scrolls too, so its bar follows the same rule as the
-        // list screens: it gets out of the way and comes back on scroll up.
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                scrollBehavior = scrollBehavior,
-                // Null on the pushed view: the name lives in the header below,
-                // and repeating it would be the same word twice on one screen.
-                title = { title?.let { Text(it) } },
-                navigationIcon = {
-                    if (showBack) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                painter = painterResource(DesignR.drawable.ic_arrow_back),
-                                contentDescription = stringResource(R.string.detail_back),
-                            )
-                        }
-                    }
-                },
-                actions = actions,
+    UnefyDetailScaffold(
+        // The name lives in the header below and slides up beside the arrow
+        // once it scrolls out — never the same word twice on one screen.
+        collapsedTitle = (state as? MemberDetailUiState.Content)?.member?.displayName,
+        title = title,
+        onBack = if (showBack) onBack else null,
+        actions = actions,
+    ) {
+        when (state) {
+            MemberDetailUiState.Loading -> Unit
+            is MemberDetailUiState.Failure -> Text(
+                text = stringResource(R.string.error_generic_body),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(UnefySpacing.screen),
             )
-        },
-    ) { insets ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(insets)
-                .verticalScroll(scrollState),
-        ) {
-            when (state) {
-                MemberDetailUiState.Loading -> Unit
-                is MemberDetailUiState.Failure -> Text(
-                    text = stringResource(R.string.error_generic_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(UnefySpacing.screen),
-                )
 
-                is MemberDetailUiState.Content -> MemberDetailContent(state.member)
-            }
-            // The glass bar floats over the content; the last row must be able
-            // to scroll clear of it.
-            Spacer(modifier = Modifier.height(LocalGlassBarHeight.current + UnefySpacing.lg))
+            is MemberDetailUiState.Content -> MemberDetailContent(state.member)
         }
     }
 }

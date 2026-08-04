@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="search_clear">Clear search</string>
+    <string name="detail_back">Back</string>
     <string name="refresh_failed">Refresh failed</string>
     <string name="stale_offline">No connection — showing the last sync</string>
     <string name="stale_generic">Out of date — sync failed</string>

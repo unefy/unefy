@@ -13,7 +13,6 @@
     <string name="events_register">Register</string>
     <string name="events_unregister">Cancel</string>
     <string name="events_registration_closed">Registration closed</string>
-    <string name="event_detail_back">Back</string>
     <string name="event_detail_error_body">The event could not be loaded.</string>
     <string name="event_detail_cancelled">Cancelled</string>
     <string name="event_detail_section_description">Description</string>

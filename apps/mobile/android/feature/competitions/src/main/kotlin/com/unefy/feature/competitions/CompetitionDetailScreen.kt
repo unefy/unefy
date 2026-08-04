@@ -2,38 +2,24 @@ package com.unefy.feature.competitions
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.Field
-import com.unefy.core.designsystem.component.LocalGlassBarHeight
+import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
@@ -111,7 +97,6 @@ fun CompetitionDetailRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompetitionDetailScreen(
     state: CompetitionDetailUiState,
@@ -120,145 +105,113 @@ fun CompetitionDetailScreen(
     onBack: () -> Unit = {},
     onOpenScoreboard: () -> Unit = {},
 ) {
-    val scrollState = rememberScrollState()
-    // Only when there is something to scroll: enterAlways otherwise collapses
-    // the bar on any drag, and on a short screen that leaves the back button
-    // gone and a hole where the bar was — a view whose height looks wrong.
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
-        canScroll = { scrollState.maxValue > 0 },
-    )
+    UnefyDetailScaffold(
+        collapsedTitle = competitionName,
+        onBack = onBack,
+    ) {
+        val competition = (state as? CompetitionDetailUiState.Content)?.competition
 
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                scrollBehavior = scrollBehavior,
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(DesignR.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.scoreboard_back),
-                        )
-                    }
-                },
-            )
-        },
-    ) { insets ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(insets)
-                .verticalScroll(scrollState),
+                .fillMaxWidth()
+                .padding(
+                    start = UnefySpacing.screen,
+                    end = UnefySpacing.screen,
+                    top = UnefySpacing.sm,
+                    bottom = UnefySpacing.md,
+                ),
+            verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
         ) {
-            val competition = (state as? CompetitionDetailUiState.Content)?.competition
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = UnefySpacing.screen,
-                        end = UnefySpacing.screen,
-                        top = UnefySpacing.sm,
-                        bottom = UnefySpacing.md,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
-            ) {
-                competition?.let {
-                    Text(
-                        text = dateRange(it),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(text = competitionName, style = MaterialTheme.typography.headlineSmall)
-            }
-
-            // The one filled action on the screen: the ranking is what people
-            // open a competition for; everything below is reference.
-            Button(
-                onClick = onOpenScoreboard,
-                modifier = Modifier.padding(horizontal = UnefySpacing.screen),
-            ) { Text(stringResource(R.string.competition_detail_scoreboard)) }
-
-            competition ?: return@Column
-
-            competition.description?.takeIf { it.isNotBlank() }?.let { description ->
+            competition?.let {
                 Text(
-                    text = stringResource(R.string.competition_detail_section_description),
+                    text = dateRange(it),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(
-                        start = UnefySpacing.screen,
-                        end = UnefySpacing.screen,
-                        top = UnefySpacing.lg,
-                        bottom = UnefySpacing.sm,
-                    ),
                 )
+            }
+            Text(text = competitionName, style = MaterialTheme.typography.headlineSmall)
+        }
+
+        // The one filled action on the screen: the ranking is what people
+        // open a competition for; everything below is reference.
+        Button(
+            onClick = onOpenScoreboard,
+            modifier = Modifier.padding(horizontal = UnefySpacing.screen),
+        ) { Text(stringResource(R.string.competition_detail_scoreboard)) }
+
+        competition ?: return@UnefyDetailScaffold
+
+        competition.description?.takeIf { it.isNotBlank() }?.let { description ->
+            Text(
+                text = stringResource(R.string.competition_detail_section_description),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    start = UnefySpacing.screen,
+                    end = UnefySpacing.screen,
+                    top = UnefySpacing.lg,
+                    bottom = UnefySpacing.sm,
+                ),
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(
+                    horizontal = UnefySpacing.screen,
+                    vertical = UnefySpacing.sm,
+                ),
+            )
+        }
+
+        UnefyDetailSection(stringResource(R.string.competition_detail_section_scoring)) {
+            Field(
+                label = stringResource(R.string.competition_detail_unit),
+                value = competition.scoringUnit,
+            )
+            Field(
+                label = stringResource(R.string.competition_detail_mode),
+                value = stringResource(
+                    if (competition.highestWins) {
+                        R.string.competition_detail_mode_highest
+                    } else {
+                        R.string.competition_detail_mode_lowest
+                    },
+                ),
+            )
+            Field(
+                label = stringResource(R.string.competition_detail_type),
+                value = competitionTypeLabel(competition.type),
+            )
+        }
+
+        if (competition.disciplines.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    R.string.competition_detail_section_disciplines,
+                    competition.disciplines.size,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    start = UnefySpacing.screen,
+                    end = UnefySpacing.screen,
+                    top = UnefySpacing.lg,
+                    bottom = UnefySpacing.sm,
+                ),
+            )
+            competition.disciplines.forEach { discipline ->
                 Text(
-                    text = description,
+                    text = discipline,
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(
-                        horizontal = UnefySpacing.screen,
-                        vertical = UnefySpacing.sm,
-                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = UnefySpacing.screen,
+                            vertical = UnefySpacing.sm,
+                        ),
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-
-            UnefyDetailSection(stringResource(R.string.competition_detail_section_scoring)) {
-                Field(
-                    label = stringResource(R.string.competition_detail_unit),
-                    value = competition.scoringUnit,
-                )
-                Field(
-                    label = stringResource(R.string.competition_detail_mode),
-                    value = stringResource(
-                        if (competition.highestWins) {
-                            R.string.competition_detail_mode_highest
-                        } else {
-                            R.string.competition_detail_mode_lowest
-                        },
-                    ),
-                )
-                Field(
-                    label = stringResource(R.string.competition_detail_type),
-                    value = competitionTypeLabel(competition.type),
-                )
-            }
-
-            if (competition.disciplines.isNotEmpty()) {
-                Text(
-                    text = stringResource(
-                        R.string.competition_detail_section_disciplines,
-                        competition.disciplines.size,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(
-                        start = UnefySpacing.screen,
-                        end = UnefySpacing.screen,
-                        top = UnefySpacing.lg,
-                        bottom = UnefySpacing.sm,
-                    ),
-                )
-                competition.disciplines.forEach { discipline ->
-                    Text(
-                        text = discipline,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                horizontal = UnefySpacing.screen,
-                                vertical = UnefySpacing.sm,
-                            ),
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-
-            // The glass bar floats over the content; the last row must be able
-            // to scroll clear of it.
-            Spacer(modifier = Modifier.height(LocalGlassBarHeight.current + UnefySpacing.lg))
         }
     }
 }

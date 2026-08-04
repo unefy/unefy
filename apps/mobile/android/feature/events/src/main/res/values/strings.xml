@@ -13,7 +13,6 @@
     <string name="events_register">Anmelden</string>
     <string name="events_unregister">Abmelden</string>
     <string name="events_registration_closed">Anmeldung geschlossen</string>
-    <string name="event_detail_back">Zurück</string>
     <string name="event_detail_error_body">Der Termin konnte nicht geladen werden.</string>
     <string name="event_detail_cancelled">Abgesagt</string>
     <string name="event_detail_section_description">Beschreibung</string>
