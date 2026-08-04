@@ -459,3 +459,21 @@ async def member_records_payload(
 
 # The board's view of one member's history lives on the members router
 # (`GET /api/v1/members/{id}/attendance`), where callers will look for it.
+
+
+@router.get("/proof-chain/status")
+async def proof_chain_status(
+    auth: AuthContext = Depends(require_board),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Walk the chain and report whether the history still hangs together.
+
+    Core, not module: the chain covers every proof event, and a club that
+    never issues a certificate still closes sessions.
+    """
+    from dataclasses import asdict
+
+    from app.services.proof_chain import verify_chain
+
+    status = await verify_chain(session, auth.tenant)
+    return {"data": asdict(status)}

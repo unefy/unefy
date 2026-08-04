@@ -20,6 +20,7 @@ from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
 from app.models.invitation import Invitation
 from app.models.member import Member
+from app.models.proof_chain import ProofChainAnchor, ProofChainEntry
 from app.models.push_device import PushDevice
 from app.models.shooting import (
     ShootingProofCertificate,
@@ -53,6 +54,8 @@ __all__ = [
     "MeasurementUnit",
     "Member",
     "MemberFee",
+    "ProofChainAnchor",
+    "ProofChainEntry",
     "PushDevice",
     "Session",
     "ShootingProofCertificate",

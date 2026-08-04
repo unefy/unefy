@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     # can send push to every device in every club.
     FCM_CREDENTIALS_FILE: str = ""
 
+    # RFC-3161 time-stamping authority for proof-chain anchors. Empty by
+    # default: an unconfigured install has no anchors rather than fake ones —
+    # the chain still holds against outsiders, only the external witness for
+    # self-hosted operators is missing. (e.g. https://freetsa.org/tsr)
+    TSA_URL: str = ""
+
     @field_validator("INTERNAL_API_SECRET", "SESSION_SECRET", "JWT_SECRET", "ATTENDANCE_SECRET")
     @classmethod
     def _validate_secret_length(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]

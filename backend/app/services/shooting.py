@@ -41,6 +41,7 @@ from app.schemas.shooting import (
     ShootingRecordDetailUpdate,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
+from app.services.proof_chain import append_entry, canonical_hash
 
 logger = structlog.get_logger()
 
@@ -276,6 +277,16 @@ class ShootingService:
         self.session.add(certificate)
         await self.session.flush()
 
+        # Assurance level 1: the certificate's own hash becomes a chain link,
+        # so backdating one later would break every link after it.
+        await append_entry(
+            self.session,
+            self.tenant_id,
+            entry_type="certificate",
+            subject_id=certificate.id,
+            content_hash=certificate.content_hash,
+        )
+
         await record_tenant_action(
             self.session,
             self.auth,
@@ -308,6 +319,24 @@ class ShootingService:
         certificate.updated_by = self.auth.user_id
         certificate.revoke_reason = reason
         await self.session.flush()
+
+        # A revocation changes what the chain's certificate link stands for,
+        # so it gets its own link rather than silence.
+        await append_entry(
+            self.session,
+            self.tenant_id,
+            entry_type="certificate_revoked",
+            subject_id=certificate.id,
+            content_hash=canonical_hash(
+                {
+                    "certificate_id": str(certificate.id),
+                    "content_hash": certificate.content_hash,
+                    "revoked_at": certificate.revoked_at.isoformat(),
+                    "reason": reason,
+                    "actor_user_id": str(self.auth.user_id),
+                }
+            ),
+        )
 
         await record_tenant_action(
             self.session,

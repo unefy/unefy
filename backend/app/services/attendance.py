@@ -50,6 +50,7 @@ from app.services.attendance_code import (
     verify_code,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
+from app.services.proof_chain import append_entry, canonical_hash, session_close_hash
 
 logger = structlog.get_logger()
 
@@ -243,7 +244,22 @@ class AttendanceService:
         row.closed_at = datetime.now(UTC)
         row.closed_by = self.auth.user_id
         row.updated_by = self.auth.user_id
+
+        # Assurance level 1: hash the final record list and chain it. The
+        # close_hash means "this was the state at closing" — since amendments
+        # became possible it can no longer mean "nothing happened after", which
+        # is exactly why an amendment appends its own link instead of touching
+        # this one.
+        live_records = [r for r, *_ in await self.records.get_for_session(session_id)]
+        row.close_hash = session_close_hash(session_id, live_records)
         await self.session.flush()
+        await append_entry(
+            self.session,
+            self.tenant_id,
+            entry_type="session_close",
+            subject_id=row.id,
+            content_hash=row.close_hash,
+        )
 
         # The count is part of the entry so that a later dispute can be settled
         # against what was frozen, not only against what the table holds now.
@@ -591,8 +607,45 @@ class AttendanceService:
                 changes=applied | (amendment or {}),
                 reason=data.reason,
             )
+            if amendment is not None:
+                await self._chain_amendment(
+                    record, session_row, action="updated", changes=applied, reason=data.reason
+                )
         await self.session.refresh(record)
         return record
+
+    async def _chain_amendment(
+        self,
+        record: AttendanceRecord,
+        session_row: AttendanceSession,
+        *,
+        action: str,
+        changes: dict[str, Any],
+        reason: str | None,
+    ) -> None:
+        """Chain a correction made after the session was closed.
+
+        Its own link rather than a rewrite of the close link — the close_hash
+        stays what it was ("the state at closing"), and the amendment commits
+        to it, so the chain reads: closed at X, amended against X.
+        """
+        await append_entry(
+            self.session,
+            self.tenant_id,
+            entry_type="record_amendment",
+            subject_id=record.id,
+            content_hash=canonical_hash(
+                {
+                    "record_id": str(record.id),
+                    "session_id": str(session_row.id),
+                    "session_close_hash": session_row.close_hash,
+                    "action": action,
+                    "changes": changes,
+                    "reason": reason,
+                    "actor_user_id": str(self.auth.user_id),
+                }
+            ),
+        )
 
     async def delete_record(
         self, record_id: uuid.UUID, *, reason: str | None = None, request: Request | None = None
@@ -628,3 +681,7 @@ class AttendanceService:
             changes=removed,
             reason=reason,
         )
+        if amendment is not None:
+            await self._chain_amendment(
+                record, session_row, action="deleted", changes=removed, reason=reason
+            )

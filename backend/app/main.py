@@ -108,9 +108,19 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     retention_task = asyncio.create_task(run_retention_loop(get_redis()))
     logger.info("retention_loop_started")
 
+    # Proof-chain anchoring, only with a configured TSA: an anchor without a
+    # real external token would be a claim with nothing behind it.
+    anchor_task = None
+    if settings.TSA_URL:
+        from app.integrations.tsa import TsaClient
+        from app.tasks.proof_anchor import run_anchor_loop
+
+        anchor_task = asyncio.create_task(run_anchor_loop(get_redis(), TsaClient(settings.TSA_URL)))
+        logger.info("proof_anchor_loop_started", tsa=settings.TSA_URL)
+
     yield
 
-    for task in (push_task, retention_task):
+    for task in (push_task, retention_task, anchor_task):
         if task is not None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
