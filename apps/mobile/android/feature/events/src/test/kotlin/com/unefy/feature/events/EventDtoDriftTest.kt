@@ -40,6 +40,14 @@ class EventDtoDriftTest {
     }
 
     @Test
+    fun `MemberOptionDto mirrors MemberResponse`() {
+        MobileContract.assertMirrors(
+            MemberOptionDto.serializer().descriptor,
+            "MemberResponse",
+        )
+    }
+
+    @Test
     fun `RegistrationDto mirrors EventRegistrationResponse`() {
         MobileContract.assertMirrors(
             RegistrationDto.serializer().descriptor,

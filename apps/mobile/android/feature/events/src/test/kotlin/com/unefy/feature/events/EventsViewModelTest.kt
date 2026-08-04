@@ -357,4 +357,15 @@ private class FakeEventsRepository(
         registered -= eventId
         return ApiResult.Success(Unit)
     }
+
+    override suspend fun registerMember(eventId: String, memberId: String): ApiResult<String> =
+        ApiResult.Success("r-$memberId")
+
+    override suspend fun removeRegistration(
+        eventId: String,
+        registrationId: String,
+    ): ApiResult<Unit> = ApiResult.Success(Unit)
+
+    override suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>> =
+        ApiResult.Success(emptyList())
 }

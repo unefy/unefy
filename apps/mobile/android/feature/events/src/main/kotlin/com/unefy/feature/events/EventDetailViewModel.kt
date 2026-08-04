@@ -14,10 +14,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface EventDetailUiState {
@@ -39,10 +41,31 @@ sealed interface EventDetailUiState {
         val busy: Boolean,
         /** The instant the state was built, so the deadline can be judged. */
         val now: String,
+        /** Registration ids a board removal is in flight for — the row locks. */
+        val removing: Set<String> = emptySet(),
+        /** A board action failed; shown once as a snackbar, then handed back. */
+        val actionFailed: Boolean = false,
     ) : EventDetailUiState
 
     data class Failure(val error: ApiError) : EventDetailUiState
 }
+
+/**
+ * The board's add sheet: who could be put on the event.
+ *
+ * Its own state rather than part of [EventDetailUiState] because the sheet has
+ * a life of its own — it opens, searches and closes without the event
+ * underneath changing.
+ */
+data class MemberPickerState(
+    val visible: Boolean = false,
+    val query: String = "",
+    val options: List<MemberOption> = emptyList(),
+    val loading: Boolean = false,
+    /** The member a register call is in flight for — that row locks. */
+    val pendingMemberId: String? = null,
+    val failed: Boolean = false,
+)
 
 /**
  * One event, from the two sources the list also lives off.
@@ -69,12 +92,19 @@ class EventDetailViewModel @Inject constructor(
 
     private val busy = MutableStateFlow(false)
 
+    private val removing = MutableStateFlow<Set<String>>(emptySet())
+    private val actionFailed = MutableStateFlow(false)
+
+    private val _picker = MutableStateFlow(MemberPickerState())
+    val picker: StateFlow<MemberPickerState> = _picker.asStateFlow()
+
     val uiState: StateFlow<EventDetailUiState> = combine(
         eventId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
         remote,
         busy,
         connectivity.isOnline(),
-    ) { mirrored, result, isBusy, online ->
+        combine(removing, actionFailed) { r, f -> r to f },
+    ) { mirrored, result, isBusy, online, (removingIds, failed) ->
         val fetched = (result as? ApiResult.Success)?.data
         val event = mirrored?.let { base ->
             fetched?.event?.let { enriched ->
@@ -94,6 +124,8 @@ class EventDetailViewModel @Inject constructor(
                 online = online,
                 busy = isBusy,
                 now = clock.nowIso(),
+                removing = removingIds,
+                actionFailed = failed,
             )
             // Only a failure when there is nothing at all to show — replacing a
             // mirrored event with an error screen because the connection dropped
@@ -163,6 +195,119 @@ class EventDetailViewModel @Inject constructor(
                 busy.value = false
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Board actions — the add sheet and per-row removal.
+    // ------------------------------------------------------------------
+
+    fun openPicker() {
+        _picker.value = MemberPickerState(visible = true, loading = true)
+        viewModelScope.launch { loadOptions("") }
+    }
+
+    fun dismissPicker() {
+        _picker.value = MemberPickerState()
+    }
+
+    fun setPickerQuery(query: String) {
+        _picker.update { it.copy(query = query, loading = true) }
+        viewModelScope.launch { loadOptions(query) }
+    }
+
+    private suspend fun loadOptions(query: String) {
+        val result = repository.memberOptions(query.takeIf { it.isNotBlank() })
+        _picker.update { state ->
+            when {
+                // A newer query or a closed sheet — this answer is history.
+                !state.visible || state.query != query -> state
+                result is ApiResult.Success ->
+                    state.copy(options = result.data, loading = false, failed = false)
+                else -> state.copy(loading = false, failed = true)
+            }
+        }
+    }
+
+    /**
+     * Registers [option] on behalf of the board. The confirmed row is written
+     * locally first — with the id the server just returned and the status the
+     * capacity dictates — so the sheet and the list agree even if the
+     * follow-up re-fetch dies; the re-fetch then supplies the server's view.
+     */
+    fun pickMember(option: MemberOption) {
+        val id = eventId.value ?: return
+        if (_picker.value.pendingMemberId != null) return
+        _picker.update { it.copy(pendingMemberId = option.id) }
+
+        viewModelScope.launch {
+            when (val result = repository.registerMember(id, option.id)) {
+                is ApiResult.Success -> {
+                    (remote.value as? ApiResult.Success)?.data?.let { current ->
+                        val waitlisted = current.event.isFull
+                        remote.value = ApiResult.Success(
+                            current.copy(
+                                registrations = current.registrations + EventRegistration(
+                                    id = result.data,
+                                    memberId = option.id,
+                                    memberName = option.name,
+                                    status = if (waitlisted) "waitlist" else "registered",
+                                    note = null,
+                                ),
+                                event = current.event.copy(
+                                    registeredCount = current.event.registeredCount +
+                                        if (waitlisted) 0 else 1,
+                                ),
+                            ),
+                        )
+                    }
+                    (repository.detail(id) as? ApiResult.Success)?.let { remote.value = it }
+                }
+
+                is ApiResult.Failure -> actionFailed.value = true
+            }
+            _picker.update { it.copy(pendingMemberId = null) }
+        }
+    }
+
+    /**
+     * Removes one registration. Locally first for the same reason as
+     * [pickMember]; the re-fetch afterwards is what surfaces a promoted
+     * waitlist entry.
+     */
+    fun removeRegistration(registrationId: String) {
+        val id = eventId.value ?: return
+        if (registrationId in removing.value) return
+        removing.update { it + registrationId }
+
+        viewModelScope.launch {
+            when (repository.removeRegistration(id, registrationId)) {
+                is ApiResult.Success -> {
+                    (remote.value as? ApiResult.Success)?.data?.let { current ->
+                        val removed = current.registrations.find { it.id == registrationId }
+                        remote.value = ApiResult.Success(
+                            current.copy(
+                                registrations = current.registrations
+                                    .filterNot { it.id == registrationId },
+                                event = current.event.copy(
+                                    registeredCount = (
+                                        current.event.registeredCount -
+                                            if (removed?.isWaitlisted == false) 1 else 0
+                                        ).coerceAtLeast(0),
+                                ),
+                            ),
+                        )
+                    }
+                    (repository.detail(id) as? ApiResult.Success)?.let { remote.value = it }
+                }
+
+                is ApiResult.Failure -> actionFailed.value = true
+            }
+            removing.update { it - registrationId }
+        }
+    }
+
+    fun onActionFailedShown() {
+        actionFailed.value = false
     }
 
     private companion object {

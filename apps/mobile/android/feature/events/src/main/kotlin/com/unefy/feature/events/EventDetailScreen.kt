@@ -1,5 +1,6 @@
 package com.unefy.feature.events
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,29 +8,45 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -39,25 +56,38 @@ import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.LocalGlassBarHeight
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.component.UnefyPill
+import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.component.UnefySearchField
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
+import com.unefy.core.model.ClubRole
 import com.unefy.core.model.Event
 import com.unefy.core.model.EventRegistration
 
 @Composable
 fun EventDetailRoute(
     eventId: String,
+    role: ClubRole,
     onBack: () -> Unit,
     viewModel: EventDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val picker by viewModel.picker.collectAsStateWithLifecycle()
     LaunchedEffect(eventId) { viewModel.load(eventId) }
     EventDetailScreen(
         state = state,
+        canManage = role.canAdminister,
+        picker = picker,
         onBack = onBack,
         onToggleRegistration = viewModel::toggleRegistration,
+        onOpenPicker = viewModel::openPicker,
+        onDismissPicker = viewModel::dismissPicker,
+        onPickerQueryChange = viewModel::setPickerQuery,
+        onPickMember = viewModel::pickMember,
+        onRemoveRegistration = viewModel::removeRegistration,
+        onActionFailedShown = viewModel::onActionFailedShown,
     )
 }
 
@@ -65,13 +95,42 @@ fun EventDetailRoute(
 @Composable
 fun EventDetailScreen(
     state: EventDetailUiState,
+    canManage: Boolean = false,
+    picker: MemberPickerState = MemberPickerState(),
     onBack: () -> Unit = {},
     onToggleRegistration: () -> Unit = {},
+    onOpenPicker: () -> Unit = {},
+    onDismissPicker: () -> Unit = {},
+    onPickerQueryChange: (String) -> Unit = {},
+    onPickMember: (MemberOption) -> Unit = {},
+    onRemoveRegistration: (String) -> Unit = {},
+    onActionFailedShown: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val content = state as? EventDetailUiState.Content
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val actionFailedText = stringResource(R.string.event_detail_action_failed)
+    LaunchedEffect(content?.actionFailed) {
+        if (content?.actionFailed == true) {
+            snackbarHostState.showSnackbar(actionFailedText)
+            onActionFailedShown()
+        }
+    }
+
+    if (picker.visible) {
+        MemberPickerSheet(
+            state = picker,
+            registeredMemberIds = content?.registrations.orEmpty().map { it.memberId }.toSet(),
+            onQueryChange = onPickerQueryChange,
+            onPick = onPickMember,
+            onDismiss = onDismissPicker,
+        )
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 scrollBehavior = scrollBehavior,
@@ -105,7 +164,10 @@ fun EventDetailScreen(
 
                 is EventDetailUiState.Content -> EventDetailContent(
                     state = state,
+                    canManage = canManage,
                     onToggleRegistration = onToggleRegistration,
+                    onOpenPicker = onOpenPicker,
+                    onRemoveRegistration = onRemoveRegistration,
                 )
             }
             // The glass bar floats over the content; the last row must be able
@@ -118,7 +180,10 @@ fun EventDetailScreen(
 @Composable
 private fun EventDetailContent(
     state: EventDetailUiState.Content,
+    canManage: Boolean,
     onToggleRegistration: () -> Unit,
+    onOpenPicker: () -> Unit,
+    onRemoveRegistration: (String) -> Unit,
 ) {
     val event = state.event
 
@@ -168,16 +233,202 @@ private fun EventDetailContent(
         Field(stringResource(R.string.event_detail_competition), event.competitionName)
     }
 
-    if (state.detailLoaded && state.registrations.isNotEmpty()) {
-        SectionTitle(
-            stringResource(R.string.event_detail_section_participants, state.registrations.size),
-        )
+    // The board sees the section even when it is empty — it hosts the add
+    // button, and an empty list is exactly when adding people starts.
+    if (state.detailLoaded && (state.registrations.isNotEmpty() || canManage)) {
+        var confirmRemove by remember { mutableStateOf<EventRegistration?>(null) }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = UnefySpacing.screen, top = UnefySpacing.lg),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.event_detail_section_participants,
+                    state.registrations.size,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (canManage) {
+                TextButton(
+                    onClick = onOpenPicker,
+                    enabled = state.online,
+                    modifier = Modifier.padding(end = UnefySpacing.sm),
+                ) { Text(stringResource(R.string.event_detail_add_member)) }
+            }
+        }
+
         state.registrations.forEach { registration ->
-            ParticipantRow(registration)
+            ParticipantRow(
+                registration = registration,
+                canManage = canManage,
+                removing = registration.id in state.removing,
+                online = state.online,
+                onRemove = { confirmRemove = registration },
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+
+        confirmRemove?.let { registration ->
+            AlertDialog(
+                onDismissRequest = { confirmRemove = null },
+                title = { Text(stringResource(R.string.event_detail_remove_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.event_detail_remove_body,
+                            registration.memberName
+                                ?: stringResource(R.string.event_detail_participant_unknown),
+                        ),
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onRemoveRegistration(registration.id)
+                            confirmRemove = null
+                        },
+                    ) { Text(stringResource(R.string.event_detail_remove_confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmRemove = null }) {
+                        Text(stringResource(R.string.event_detail_remove_cancel))
+                    }
+                },
+            )
         }
     }
 }
+
+/**
+ * The board's add sheet, after the attendance pick list: search over the
+ * member mirror, rows already on the event marked and not tappable — a second
+ * registration can only 409.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MemberPickerSheet(
+    state: MemberPickerState,
+    registeredMemberIds: Set<String>,
+    onQueryChange: (String) -> Unit,
+    onPick: (MemberOption) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = UnefySpacing.screen),
+            verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+        ) {
+            Text(
+                text = stringResource(R.string.event_detail_add_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            UnefySearchField(
+                value = state.query,
+                onValueChange = onQueryChange,
+                placeholder = stringResource(R.string.event_detail_add_search),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            when {
+                state.failed -> SheetNotice(stringResource(R.string.event_detail_add_error))
+
+                state.options.isEmpty() && !state.loading ->
+                    SheetNotice(stringResource(R.string.event_detail_add_empty))
+
+                else -> LazyColumn(
+                    // Bounded, so the sheet does not grow past the keyboard on
+                    // a long list and swallow the search field.
+                    modifier = Modifier
+                        .heightIn(max = PICKER_MAX_HEIGHT)
+                        .padding(bottom = UnefySpacing.lg),
+                ) {
+                    items(state.options, key = { it.id }) { option ->
+                        PickerRow(
+                            option = option,
+                            registered = option.id in registeredMemberIds,
+                            pending = state.pendingMemberId == option.id,
+                            onPick = { onPick(option) },
+                        )
+                        UnefyRowDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerRow(
+    option: MemberOption,
+    registered: Boolean,
+    pending: Boolean,
+    onPick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !registered && !pending, onClick = onPick)
+            .padding(vertical = UnefySpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = option.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (registered) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+            Text(
+                text = option.memberNumber,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        when {
+            pending -> CircularProgressIndicator(
+                modifier = Modifier.size(PICKER_ICON),
+                strokeWidth = 2.dp,
+            )
+
+            registered -> Icon(
+                painter = painterResource(DesignR.drawable.ic_check),
+                contentDescription = stringResource(R.string.event_detail_add_registered),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(PICKER_ICON),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SheetNotice(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(UnefySpacing.lg),
+    )
+}
+
+private val PICKER_MAX_HEIGHT = 420.dp
+private val PICKER_ICON = 24.dp
 
 @Composable
 private fun Header(event: Event) {
@@ -300,12 +551,18 @@ private fun RegistrationBlock(
 }
 
 @Composable
-private fun ParticipantRow(registration: EventRegistration) {
+private fun ParticipantRow(
+    registration: EventRegistration,
+    canManage: Boolean = false,
+    removing: Boolean = false,
+    online: Boolean = false,
+    onRemove: () -> Unit = {},
+) {
     val extended = LocalUnefyColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.md),
+            .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
         horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -313,7 +570,9 @@ private fun ParticipantRow(registration: EventRegistration) {
             text = registration.memberName
                 ?: stringResource(R.string.event_detail_participant_unknown),
             style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = UnefySpacing.xs),
         )
         if (registration.isWaitlisted) {
             UnefyPill(
@@ -321,6 +580,22 @@ private fun ParticipantRow(registration: EventRegistration) {
                 container = extended.warningContainer,
                 content = extended.onWarningContainer,
             )
+        }
+        if (canManage) {
+            if (removing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(PICKER_ICON),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                IconButton(onClick = onRemove, enabled = online) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_close),
+                        contentDescription = stringResource(R.string.event_detail_remove_title),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
@@ -410,7 +685,7 @@ private fun EventDetailPreview() {
                 ),
                 registrations = listOf(
                     EventRegistration("r1", "m1", "Susanne Bauer", "registered", null),
-                    EventRegistration("r2", "m2", "Stefan Weber", "waitlisted", null),
+                    EventRegistration("r2", "m2", "Stefan Weber", "waitlist", null),
                 ),
                 detailLoaded = true,
                 online = true,

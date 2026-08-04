@@ -72,6 +72,12 @@ object ApiEndpoints {
 
     fun eventSelfRegistration(eventId: String): String = "$EVENTS/$eventId/registrations/me"
 
+    /** Board-level: registering someone else, as opposed to `…/me`. */
+    fun eventRegistrations(eventId: String): String = "$EVENTS/$eventId/registrations"
+
+    fun eventRegistration(eventId: String, registrationId: String): String =
+        "$EVENTS/$eventId/registrations/$registrationId"
+
     /** The live ranking — a server aggregate, not a synced collection. */
     fun competitionScoreboard(competitionId: String): String =
         "$COMPETITIONS/$competitionId/scoreboard"

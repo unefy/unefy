@@ -26,6 +26,17 @@
     <string name="event_detail_section_participants">Teilnehmende (%1$d)</string>
     <string name="event_detail_participant_unknown">Unbekanntes Mitglied</string>
     <string name="event_detail_waitlisted">Warteliste</string>
+    <string name="event_detail_action_failed">Aktion fehlgeschlagen. Bitte erneut versuchen.</string>
+    <string name="event_detail_add_member">Anmelden</string>
+    <string name="event_detail_add_title">Mitglied anmelden</string>
+    <string name="event_detail_add_search">Name oder Nummer suchen</string>
+    <string name="event_detail_add_empty">Keine Mitglieder gefunden.</string>
+    <string name="event_detail_add_error">Die Mitglieder konnten nicht geladen werden.</string>
+    <string name="event_detail_add_registered">Bereits angemeldet</string>
+    <string name="event_detail_remove_title">Teilnehmer entfernen</string>
+    <string name="event_detail_remove_body">%1$s von diesem Termin abmelden? Der erste Wartelistenplatz rückt nach.</string>
+    <string name="event_detail_remove_confirm">Abmelden</string>
+    <string name="event_detail_remove_cancel">Abbrechen</string>
     <string name="event_detail_offline_hint">Anmeldung und Teilnehmerliste sind offline nicht verfügbar.</string>
     <string name="event_type_training">Training</string>
     <string name="event_type_meeting">Versammlung</string>

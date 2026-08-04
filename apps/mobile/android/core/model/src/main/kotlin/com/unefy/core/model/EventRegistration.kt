@@ -10,11 +10,11 @@ data class EventRegistration(
     val memberId: String,
     /** Joined first and last name; null when the backend could not resolve it. */
     val memberName: String?,
-    /** `registered` or `waitlisted` — the backend's vocabulary, not ours. */
+    /** `registered` or `waitlist` — the backend's vocabulary, not ours. */
     val status: String,
     val note: String?,
 ) {
-    val isWaitlisted: Boolean get() = status == "waitlisted"
+    val isWaitlisted: Boolean get() = status == "waitlist"
 }
 
 /** The single event with everything the detail screen shows. */

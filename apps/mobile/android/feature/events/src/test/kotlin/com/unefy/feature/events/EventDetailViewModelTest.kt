@@ -233,6 +233,171 @@ class EventDetailViewModelTest {
         assertEquals("Neuer Titel", state.event.title)
     }
 
+    // ------------------------------------------------------------------
+    // Board actions
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `the picker loads options and registering adds the member`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 5),
+            emptyList(),
+        )
+        repository.options += MemberOption("m9", "TV-009", "Petra Meyer")
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        viewModel.openPicker()
+        advanceUntilIdle()
+        assertEquals(listOf("Petra Meyer"), viewModel.picker.value.options.map { it.name })
+
+        // The re-fetch dies, so the local confirmed row is what the screen keeps.
+        repository.detailFailure = ApiError.Network(IOException("gone"))
+        viewModel.pickMember(repository.options.single())
+        advanceUntilIdle()
+
+        assertTrue("m9" in repository.boardRegistered)
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertEquals(listOf("Petra Meyer"), state.registrations.map { it.memberName })
+        assertEquals(6, state.event.registeredCount)
+        assertEquals(null, viewModel.picker.value.pendingMemberId)
+    }
+
+    /** A full event waitlists the added member — locally too, count untouched. */
+    @Test
+    fun `registering into a full event waitlists the member locally`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 40),
+            emptyList(),
+        )
+        repository.options += MemberOption("m9", "TV-009", "Petra Meyer")
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        repository.detailFailure = ApiError.Network(IOException("gone"))
+        viewModel.pickMember(repository.options.single())
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertTrue(state.registrations.single().isWaitlisted)
+        assertEquals(40, state.event.registeredCount)
+    }
+
+    @Test
+    fun `a failed board registration flags the failure and adds nothing`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(event("e"), emptyList())
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        repository.actionFailure = ApiError.Forbidden
+        viewModel.pickMember(MemberOption("m9", "TV-009", "Petra Meyer"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertTrue(state.registrations.isEmpty())
+        assertTrue(state.actionFailed)
+        assertEquals(null, viewModel.picker.value.pendingMemberId)
+
+        viewModel.onActionFailedShown()
+        advanceUntilIdle()
+        assertFalse((viewModel.uiState.value as EventDetailUiState.Content).actionFailed)
+    }
+
+    @Test
+    fun `removing a registration drops the row and frees the spot`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 2),
+            listOf(
+                registration("r1", "Susanne Bauer"),
+                registration("r2", "Stefan Weber"),
+            ),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        repository.detailFailure = ApiError.Network(IOException("gone"))
+        viewModel.removeRegistration("r1")
+        advanceUntilIdle()
+
+        assertTrue("r1" in repository.boardRemoved)
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertEquals(listOf("Stefan Weber"), state.registrations.map { it.memberName })
+        assertEquals(1, state.event.registeredCount)
+        assertTrue(state.removing.isEmpty())
+    }
+
+    /** Removing a waitlisted name must not shrink the registered count. */
+    @Test
+    fun `removing a waitlisted registration keeps the count`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 40),
+            listOf(
+                EventRegistration("r1", "m1", "Petra Meyer", "waitlist", null),
+            ),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        repository.detailFailure = ApiError.Network(IOException("gone"))
+        viewModel.removeRegistration("r1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertTrue(state.registrations.isEmpty())
+        assertEquals(40, state.event.registeredCount)
+    }
+
+    @Test
+    fun `a failed removal flags the failure and keeps the row`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 1),
+            listOf(registration("r1", "Susanne Bauer")),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        repository.actionFailure = ApiError.Forbidden
+        viewModel.removeRegistration("r1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertEquals(listOf("Susanne Bauer"), state.registrations.map { it.memberName })
+        assertTrue(state.actionFailed)
+        assertTrue(state.removing.isEmpty())
+    }
+
+    /** An answer for an outdated query must not overwrite the newer list. */
+    @Test
+    fun `the picker filters by the query`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(event("e"), emptyList())
+        repository.options += MemberOption("m1", "TV-001", "Susanne Bauer")
+        repository.options += MemberOption("m2", "TV-002", "Stefan Weber")
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        viewModel.openPicker()
+        advanceUntilIdle()
+        assertEquals(2, viewModel.picker.value.options.size)
+
+        viewModel.setPickerQuery("Weber")
+        advanceUntilIdle()
+        assertEquals(listOf("Stefan Weber"), viewModel.picker.value.options.map { it.name })
+    }
+
     /** Subscribes on [TestScope.backgroundScope] — `WhileSubscribed` needs a collector. */
     private fun TestScope.viewModel(
         repository: EventsRepository,
@@ -274,8 +439,12 @@ private class FakeDetailRepository(
     val mirror = MutableStateFlow(mirror)
     val details = mutableMapOf<String, EventDetail>()
     val registered = mutableSetOf<String>()
+    val options = mutableListOf<MemberOption>()
+    val boardRegistered = mutableSetOf<String>()
+    val boardRemoved = mutableSetOf<String>()
     var detailFailure: ApiError? = null
     var actionFailure: ApiError? = null
+    var optionsFailure: ApiError? = null
 
     override fun stream(): Flow<List<Event>> = mirror
 
@@ -303,5 +472,27 @@ private class FakeDetailRepository(
         actionFailure?.let { return ApiResult.Failure(it) }
         registered -= eventId
         return ApiResult.Success(Unit)
+    }
+
+    override suspend fun registerMember(eventId: String, memberId: String): ApiResult<String> {
+        actionFailure?.let { return ApiResult.Failure(it) }
+        boardRegistered += memberId
+        return ApiResult.Success("r-$memberId")
+    }
+
+    override suspend fun removeRegistration(
+        eventId: String,
+        registrationId: String,
+    ): ApiResult<Unit> {
+        actionFailure?.let { return ApiResult.Failure(it) }
+        boardRemoved += registrationId
+        return ApiResult.Success(Unit)
+    }
+
+    override suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>> {
+        optionsFailure?.let { return ApiResult.Failure(it) }
+        return ApiResult.Success(
+            options.filter { search.isNullOrBlank() || it.name.contains(search, true) },
+        )
     }
 }

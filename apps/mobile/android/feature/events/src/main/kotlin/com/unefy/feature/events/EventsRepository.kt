@@ -3,6 +3,7 @@ package com.unefy.feature.events
 import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncedEvent
 import com.unefy.core.database.SyncedEventDao
+import com.unefy.core.database.SyncedMemberDao
 import com.unefy.core.model.Event
 import com.unefy.core.model.EventDetail
 import com.unefy.core.model.EventRegistration
@@ -18,6 +19,7 @@ import io.ktor.client.request.parameter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -189,12 +191,37 @@ interface EventsRepository {
     suspend fun register(eventId: String): ApiResult<Unit>
 
     suspend fun unregister(eventId: String): ApiResult<Unit>
+
+    /**
+     * Board-level: registers another member; a full event waitlists them.
+     * Returns the new registration's id, so the caller can show the row
+     * without waiting for a re-fetch.
+     */
+    suspend fun registerMember(eventId: String, memberId: String): ApiResult<String>
+
+    /** Board-level: removes a registration; the server promotes the waitlist. */
+    suspend fun removeRegistration(eventId: String, registrationId: String): ApiResult<Unit>
+
+    /**
+     * The pick list for the board's add sheet. The member mirror answers once
+     * its bootstrap is through — instant and offline; until then the list
+     * endpoint fills in, exactly like the attendance pick list.
+     */
+    suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>>
 }
+
+/** One row of the add sheet — who could be put on the event. */
+data class MemberOption(
+    val id: String,
+    val memberNumber: String,
+    val name: String,
+)
 
 @Singleton
 class DefaultEventsRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val events: SyncedEventDao,
+    private val members: SyncedMemberDao,
     private val cursors: SyncCursorDao,
 ) : EventsRepository {
 
@@ -230,14 +257,76 @@ class DefaultEventsRepository @Inject constructor(
     override suspend fun unregister(eventId: String): ApiResult<Unit> =
         apiClient.deleteNoContent(ApiEndpoints.eventSelfRegistration(eventId))
 
+    override suspend fun registerMember(eventId: String, memberId: String): ApiResult<String> =
+        apiClient
+            .post<RegistrationDto>(
+                ApiEndpoints.eventRegistrations(eventId),
+                RegistrationCreateDto(memberId),
+            )
+            .map { it.id }
+
+    override suspend fun removeRegistration(
+        eventId: String,
+        registrationId: String,
+    ): ApiResult<Unit> =
+        apiClient.deleteNoContent(ApiEndpoints.eventRegistration(eventId, registrationId))
+
+    override suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>> {
+        if (memberCursorComplete()) {
+            return ApiResult.Success(
+                members.search(search.orEmpty()).first()
+                    .take(PICK_PAGE_SIZE)
+                    .map { MemberOption(it.id, it.memberNumber, "${it.firstName} ${it.lastName}") },
+            )
+        }
+
+        return apiClient
+            .get<List<MemberOptionDto>>(ApiEndpoints.MEMBERS) {
+                parameter("page", 1)
+                parameter("per_page", PICK_PAGE_SIZE)
+                if (!search.isNullOrBlank()) parameter("search", search)
+            }
+            .map { dtos ->
+                dtos.map {
+                    MemberOption(it.id, it.memberNumber, "${it.firstName} ${it.lastName}")
+                }
+            }
+    }
+
+    private suspend fun memberCursorComplete(): Boolean =
+        cursors.bootstrapCompleteStream(MEMBERS_COLLECTION).first()
+
     private companion object {
         /** The server's `per_page` maximum (`le=100` on the list route). */
         const val OVERLAY_WINDOW = 100
+
+        /** More than a sheet shows anyway; search narrows, paging never pays. */
+        const val PICK_PAGE_SIZE = 100
+
+        /**
+         * Owned by feature:members, but features must not depend on each
+         * other — the collection name is part of the sync protocol, not of a
+         * module. Same trade-off as the attendance pick list.
+         */
+        const val MEMBERS_COLLECTION = "members"
     }
 }
 
 @Serializable
 internal data class RegistrationDto(val id: String)
+
+/** The body of the board-level register call — the member, nothing else. */
+@Serializable
+internal data class RegistrationCreateDto(@SerialName("member_id") val memberId: String)
+
+/** The slice of the member list the add sheet needs. */
+@Serializable
+internal data class MemberOptionDto(
+    val id: String,
+    @SerialName("member_number") val memberNumber: String = "",
+    @SerialName("first_name") val firstName: String = "",
+    @SerialName("last_name") val lastName: String = "",
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

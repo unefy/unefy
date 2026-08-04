@@ -400,7 +400,7 @@ internal fun unefyEntryProvider(
         )
     }
     entry<EventDetailKey> { key ->
-        EventDetailRoute(eventId = key.eventId, onBack = onBack)
+        EventDetailRoute(eventId = key.eventId, role = role, onBack = onBack)
     }
     entry<DuesKey> { DuesRoute(actions = accountActions) }
     entry<ProfileKey> { MyProfileRoute(actions = accountActions) }

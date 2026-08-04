@@ -26,6 +26,17 @@
     <string name="event_detail_section_participants">Participants (%1$d)</string>
     <string name="event_detail_participant_unknown">Unknown member</string>
     <string name="event_detail_waitlisted">Waitlist</string>
+    <string name="event_detail_action_failed">Action failed. Please try again.</string>
+    <string name="event_detail_add_member">Register</string>
+    <string name="event_detail_add_title">Register a member</string>
+    <string name="event_detail_add_search">Search name or number</string>
+    <string name="event_detail_add_empty">No members found.</string>
+    <string name="event_detail_add_error">The members could not be loaded.</string>
+    <string name="event_detail_add_registered">Already registered</string>
+    <string name="event_detail_remove_title">Remove participant</string>
+    <string name="event_detail_remove_body">Remove %1$s from this event? The first waitlist spot moves up.</string>
+    <string name="event_detail_remove_confirm">Remove</string>
+    <string name="event_detail_remove_cancel">Cancel</string>
     <string name="event_detail_offline_hint">Registration and the participant list are not available offline.</string>
     <string name="event_type_training">Training</string>
     <string name="event_type_meeting">Meeting</string>
