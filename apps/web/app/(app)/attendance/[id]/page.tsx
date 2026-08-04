@@ -15,6 +15,11 @@ import {
   getAttendanceSessionAudit,
   getClubTimeZone,
 } from "@/lib/attendance"
+import { getClub } from "@/lib/club"
+import {
+  listClubDisciplines,
+  listSessionShootingDetails,
+} from "@/lib/shooting"
 import { formatDate, formatTime } from "@/lib/time"
 import { deleteSessionAction } from "@/actions/attendance"
 import { ArrowLeftIcon, LockIcon, Trash2Icon } from "lucide-react"
@@ -52,6 +57,19 @@ export default async function AttendanceSessionPage({
   if (!session) notFound()
 
   const audit = await getAttendanceSessionAudit(id).catch(() => [])
+
+  // Only for a club whose sports carry the shooting module. Two requests rather
+  // than one enriched attendance response, because the discipline somebody shot
+  // belongs to the module and the attendance record belongs to the core that
+  // every club has — see `listSessionShootingDetails`. Both tolerate failure: a
+  // module read that breaks must cost the extra column, not the whole list.
+  const club = await getClub().catch(() => null)
+  const shooting = club?.modules.includes("shooting")
+    ? {
+        details: await listSessionShootingDetails(id).catch(() => []),
+        disciplines: await listClubDisciplines().catch(() => []),
+      }
+    : undefined
 
   const closed = session.status === "closed"
 
@@ -139,7 +157,11 @@ export default async function AttendanceSessionPage({
         <h2 className="text-sm font-medium text-muted-foreground">
           {t("detail.present", { count: session.record_count })}
         </h2>
-        <AttendanceList session={session} timeZone={timeZone} />
+        <AttendanceList
+          session={session}
+          timeZone={timeZone}
+          shooting={shooting}
+        />
       </section>
 
       <section className="space-y-3">

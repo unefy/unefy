@@ -13,6 +13,7 @@ import {
 import { CorrectionDialog } from "@/components/attendance/correction-dialog"
 import { MemberSearch } from "@/components/attendance/member-search"
 import { ReasonDialog } from "@/components/attendance/reason-dialog"
+import { RecordDetailDialog } from "@/components/shooting/record-detail-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,15 +29,25 @@ import type {
   AttendanceRecord,
   AttendanceSessionDetail,
 } from "@/lib/types/attendance"
+import type { ClubDiscipline, ShootingRecordDetail } from "@/lib/types/shooting"
 import { LogOutIcon, Trash2Icon } from "lucide-react"
 
 export function AttendanceList({
   session,
   timeZone,
+  shooting,
 }: {
   session: AttendanceSessionDetail
   /** The club's zone — see `lib/time`. */
   timeZone: string
+  /**
+   * Present only for a club whose sports carry the shooting module. Undefined
+   * means the column and its dialog do not exist here — not that they are empty.
+   */
+  shooting?: {
+    details: ShootingRecordDetail[]
+    disciplines: ClubDiscipline[]
+  }
 }) {
   const t = useTranslations("attendance")
   const tf = useTranslations("attendance.form")
@@ -46,6 +57,13 @@ export function AttendanceList({
 
   const closed = session.status === "closed"
   const records = session.records
+
+  const detailByRecord = new Map(
+    (shooting?.details ?? []).map((detail) => [
+      detail.attendance_record_id,
+      detail,
+    ])
+  )
 
   const time = (value: string | null) =>
     value ? formatTime(value, locale, timeZone) : "—"
@@ -103,6 +121,7 @@ export function AttendanceList({
                   {t("columns.checkedOut")}
                 </TableHead>
                 <TableHead className="w-28">{t("columns.assurance")}</TableHead>
+                {shooting && <TableHead>{t("shooting.column")}</TableHead>}
                 <TableHead>{t("columns.note")}</TableHead>
                 <TableHead className="w-px text-end">
                   {t("columns.actions")}
@@ -132,6 +151,14 @@ export function AttendanceList({
                       {t(`methods.${record.method}`)}
                     </Badge>
                   </TableCell>
+                  {shooting && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      <ShootingSummary
+                        detail={detailByRecord.get(record.id)}
+                        disciplines={shooting.disciplines}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm text-muted-foreground">
                     {record.note ?? "—"}
                   </TableCell>
@@ -152,6 +179,19 @@ export function AttendanceList({
                         >
                           <LogOutIcon />
                         </Button>
+                      )}
+                      {/* Guests excluded: the server refuses a detail on a
+                          guest row (GUEST_RECORD), because a guest counts
+                          towards no §14 proof. Offering the button would be a
+                          promise the API breaks. */}
+                      {shooting && record.member_id !== null && (
+                        <RecordDetailDialog
+                          sessionId={session.id}
+                          recordId={record.id}
+                          memberName={record.member_name ?? ""}
+                          detail={detailByRecord.get(record.id)}
+                          disciplines={shooting.disciplines}
+                        />
                       )}
                       <CorrectionDialog
                         sessionId={session.id}
@@ -192,4 +232,35 @@ export function AttendanceList({
       )}
     </div>
   )
+}
+
+/**
+ * The three shooting fields in one cell.
+ *
+ * Compact because the row already carries six columns, and because most evenings
+ * fill in one or two of the three — a table with three sparse columns reads worse
+ * than one dense cell. An entry nobody made shows a dash, so a missing detail is
+ * visibly missing rather than indistinguishable from a zero.
+ */
+function ShootingSummary({
+  detail,
+  disciplines,
+}: {
+  detail: ShootingRecordDetail | undefined
+  disciplines: ClubDiscipline[]
+}) {
+  const t = useTranslations("attendance.shooting")
+
+  if (!detail) return <>—</>
+
+  const discipline = disciplines.find((d) => d.id === detail.club_discipline_id)
+  const parts = [
+    discipline?.short_name ?? discipline?.name,
+    detail.weapon_category ? t(`weapons.${detail.weapon_category}`) : undefined,
+    detail.rounds_fired === null
+      ? undefined
+      : t("roundsShort", { count: detail.rounds_fired }),
+  ].filter(Boolean)
+
+  return <>{parts.length > 0 ? parts.join(" · ") : "—"}</>
 }

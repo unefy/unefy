@@ -569,6 +569,25 @@
       "present": "{count, plural, =0 {Anwesenheitsliste} one {Anwesenheitsliste – # Person} other {Anwesenheitsliste – # Personen}}",
       "trail": "Protokoll"
     },
+    "shooting": {
+      "column": "Schießen",
+      "edit": "Schießdetails",
+      "dialogTitle": "Schießdetails – {name}",
+      "dialogDescription": "Disziplin, Waffenart und Schusszahl für diesen Abend. Steht danach im Standbuch und in der Bescheinigung.",
+      "discipline": "Disziplin",
+      "weapon": "Waffenart",
+      "rounds": "Schüsse",
+      "roundsPlaceholder": "z. B. 40",
+      "roundsShort": "{count, plural, one {# Schuss} other {# Schüsse}}",
+      "none": "Keine Angabe",
+      "noDisciplines": "Der Verein hat noch keine Disziplinen angelegt — das geht in den Einstellungen.",
+      "saved": "Schießdetails gespeichert.",
+      "weapons": {
+        "kurzwaffe": "Kurzwaffe",
+        "langwaffe": "Langwaffe",
+        "luftdruck": "Luftdruck"
+      }
+    },
     "frozen": {
       "title": "Termin ist abgeschlossen",
       "description": "{count, plural, =0 {Es wurde niemand erfasst} one {# Person wurde erfasst} other {# Personen wurden erfasst}}. Nachträglich kann niemand mehr hinzugefügt werden. Korrekturen an einzelnen Einträgen sind noch möglich — nur mit Begründung und getrennt protokolliert."
@@ -614,6 +633,9 @@
           "updated": "Termin geändert",
           "closed": "Termin abgeschlossen",
           "deleted": "Termin gelöscht"
+        },
+        "shooting_record_detail": {
+          "updated": "Schießdetails geändert"
         },
         "attendance_record": {
           "updated": "Eintrag korrigiert",

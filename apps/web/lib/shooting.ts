@@ -1,7 +1,9 @@
 import { apiCall, apiList } from "@/lib/api"
 import type {
+  ClubDiscipline,
   ProofChainStatus,
   ShootingCertificate,
+  ShootingRecordDetail,
   ShootingRule,
 } from "@/lib/types/shooting"
 
@@ -28,4 +30,22 @@ export async function listShootingCertificates(
 
 export async function getProofChainStatus() {
   return apiCall<ProofChainStatus>("/api/v1/attendance/proof-chain/status")
+}
+
+/**
+ * What was shot at one evening, keyed by attendance record.
+ *
+ * One request for the whole list rather than one per row. Read from the module
+ * rather than folded into the attendance response: `AttendanceRecord` belongs to
+ * the core that every club has, a discipline to a module most clubs do not.
+ */
+export async function listSessionShootingDetails(sessionId: string) {
+  return apiCall<ShootingRecordDetail[]>(
+    `/api/v1/modules/shooting/records?session_id=${sessionId}`
+  )
+}
+
+/** The disciplines the club offers, for the entry form's select. */
+export async function listClubDisciplines() {
+  return apiCall<ClubDiscipline[]>("/api/v1/club-disciplines")
 }

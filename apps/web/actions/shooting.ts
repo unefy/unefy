@@ -8,6 +8,7 @@ import { parseRuleForm, revokeReasonSchema } from "@/lib/shooting-schema"
 import type {
   ProofEvaluation,
   ShootingCertificate,
+  ShootingRecordDetail,
   ShootingRule,
 } from "@/lib/types/shooting"
 
@@ -158,4 +159,41 @@ export async function revokeCertificateAction(
   }
   refresh()
   return { success: true }
+}
+
+// --- Record details ---
+
+/**
+ * What somebody shot, written onto one attendance record.
+ *
+ * Upsert: the first save creates the row. Fields left empty are sent as null
+ * rather than omitted, so clearing a wrong entry is possible — an entry form
+ * whose values can only ever be added to is a trap.
+ *
+ * Guest rows are refused by the server (`GUEST_RECORD`): a guest counts towards
+ * no §14 proof, so a discipline on one would be decoration. The UI does not
+ * offer it, and this maps the refusal to a message anyway — the two must not
+ * drift apart silently.
+ */
+export async function saveRecordDetailAction(
+  sessionId: string,
+  recordId: string,
+  input: {
+    club_discipline_id: string | null
+    weapon_category: string | null
+    rounds_fired: number | null
+  }
+): Promise<ActionResult<ShootingRecordDetail>> {
+  if (!uuid.safeParse(recordId).success) return { success: false, error: "validation" }
+
+  try {
+    const saved = await apiCall<ShootingRecordDetail>(
+      `/api/v1/modules/shooting/records/${recordId}`,
+      { method: "PATCH", body: JSON.stringify(input) }
+    )
+    revalidatePath(`/attendance/${sessionId}`)
+    return { success: true, data: saved }
+  } catch (error) {
+    return toError(error)
+  }
 }

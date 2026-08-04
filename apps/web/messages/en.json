@@ -569,6 +569,25 @@
       "present": "{count, plural, =0 {Attendance list} one {Attendance list – # person} other {Attendance list – # people}}",
       "trail": "Audit trail"
     },
+    "shooting": {
+      "column": "Shooting",
+      "edit": "Shooting details",
+      "dialogTitle": "Shooting details – {name}",
+      "dialogDescription": "Discipline, weapon category and rounds for this evening. Ends up in the range book and on the certificate.",
+      "discipline": "Discipline",
+      "weapon": "Weapon category",
+      "rounds": "Rounds",
+      "roundsPlaceholder": "e.g. 40",
+      "roundsShort": "{count, plural, one {# round} other {# rounds}}",
+      "none": "Not specified",
+      "noDisciplines": "The club has no disciplines yet — add them in settings.",
+      "saved": "Shooting details saved.",
+      "weapons": {
+        "kurzwaffe": "Handgun",
+        "langwaffe": "Long gun",
+        "luftdruck": "Air"
+      }
+    },
     "frozen": {
       "title": "Session is closed",
       "description": "{count, plural, =0 {Nobody was recorded} one {# person was recorded} other {# people were recorded}}. Nobody can be added any more. Individual entries can still be corrected — only with a reason, and logged separately."
@@ -614,6 +633,9 @@
           "updated": "Session changed",
           "closed": "Session closed",
           "deleted": "Session deleted"
+        },
+        "shooting_record_detail": {
+          "updated": "Shooting details changed"
         },
         "attendance_record": {
           "updated": "Entry corrected",

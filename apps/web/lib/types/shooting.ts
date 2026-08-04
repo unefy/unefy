@@ -59,3 +59,30 @@ export type ProofChainStatus = {
   anchored_to_seq: number | null
   anchored_at: string | null
 }
+
+/** What somebody shot at one attendance. Every field optional — the board fills
+ *  in what it knows, and an evening with only a round count is still useful. */
+export type ShootingRecordDetail = {
+  id: string
+  attendance_record_id: string
+  club_discipline_id: string | null
+  weapon_category: WeaponCategory | null
+  rounds_fired: number | null
+}
+
+/** The backend's `WEAPON_CATEGORY_PATTERN`, as a type. */
+export type WeaponCategory = "kurzwaffe" | "langwaffe" | "luftdruck"
+
+export const WEAPON_CATEGORIES: WeaponCategory[] = [
+  "kurzwaffe",
+  "langwaffe",
+  "luftdruck",
+]
+
+/** A discipline the club actually offers, from `/api/v1/club-disciplines`. */
+export type ClubDiscipline = {
+  id: string
+  name: string
+  short_name: string | null
+  is_active: boolean
+}
