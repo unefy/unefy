@@ -170,20 +170,17 @@ fun MainNavigation(
     val selected = destinations.firstOrNull { it.key == currentSectionKey }
     val onMoreTab = currentSectionKey == MoreKey
 
-    // A section sits on top of the start destination instead of replacing it:
-    // back from any section returns to the start tab, and only from there does
-    // it leave the app — the platform convention (see the navigation-bar
-    // guidance), not a history of every tab ever visited.
+    // Chronological history, by explicit decision: switching sections pushes,
+    // and back walks the tabs in the order they were visited — from Members
+    // back to the Termine you came from, not to a fixed start tab. The stack
+    // can hold the same section twice (T → M → T); that is the price of back
+    // always meaning "where I just was".
     val select: (TopLevel) -> Unit = { destination ->
-        backStack.clear()
-        backStack.add(start.key)
-        if (destination.key != start.key) backStack.add(destination.key)
+        if (backStack.lastOrNull() != destination.key) backStack.add(destination.key)
     }
 
     val selectMore: () -> Unit = {
-        backStack.clear()
-        backStack.add(start.key)
-        backStack.add(MoreKey)
+        if (backStack.lastOrNull() != MoreKey) backStack.add(MoreKey)
     }
 
     // Hand-rolled instead of NavigationSuiteScaffold, for one reason: that
@@ -217,7 +214,7 @@ fun MainNavigation(
     ) {
         if (onBottomBar) {
             Box(modifier = Modifier.fillMaxSize()) {
-                NavHost(backStack, start.key, clubName, role, accountActions)
+                NavHost(backStack, clubName, role, accountActions)
 
                 ShortNavigationBar(
                     modifier = Modifier
@@ -226,7 +223,12 @@ fun MainNavigation(
                         // Root coordinates: the grid lives in another subtree and
                         // this is the only frame both sides share.
                         .onGloballyPositioned { dragState.barBounds = it.boundsInRoot() }
-                        .hazeEffect(state = hazeState, style = unefyGlassStyle()),
+                        .hazeEffect(state = hazeState, style = unefyGlassStyle()) {
+                            // Keep redrawing while screens animate underneath —
+                            // without it the blur shows a stale, lighter band
+                            // during predictive back.
+                            forceInvalidateOnPreDraw = true
+                        },
                     // Transparent: the glass underneath is the surface now.
                     containerColor = Color.Transparent,
                 ) {
@@ -339,7 +341,7 @@ fun MainNavigation(
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
-                    NavHost(backStack, start.key, clubName, role, accountActions)
+                    NavHost(backStack, clubName, role, accountActions)
                 }
             }
         }
@@ -350,7 +352,6 @@ fun MainNavigation(
 @Composable
 private fun NavHost(
     backStack: NavBackStack<NavKey>,
-    startKey: NavKey,
     clubName: String?,
     role: ClubRole,
     accountActions: @Composable RowScope.() -> Unit,
@@ -368,13 +369,10 @@ private fun NavHost(
             role = role,
             accountActions = accountActions,
             onOpen = { key -> backStack.add(key) },
-            // Same layering as the bar's select: the section over the start
-            // destination, so back behaves identically no matter how a
-            // section was reached.
+            // Same semantics as the bar's select: push, so back returns to
+            // wherever the person actually was.
             onSwitchSection = { key ->
-                backStack.clear()
-                backStack.add(startKey)
-                if (key != startKey) backStack.add(key)
+                if (backStack.lastOrNull() != key) backStack.add(key)
             },
             onBack = { backStack.removeLastOrNull() },
         ),

@@ -126,9 +126,15 @@ fun UnefyListScaffold(
     banner: @Composable () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
-    // The shell's state when there is one, so the navigation bar blurs the same
-    // list this screen is showing; a local one otherwise, for previews.
-    val hazeState = LocalHazeState.current ?: remember { HazeState() }
+    // Two blur scopes on purpose. The header blurs through a state local to
+    // this screen: during a navigation transition two screens are haze
+    // sources at once, and a header on the shared state samples the *other*
+    // screen too — Check-in's white QR flashed through as a light band. The
+    // shell's state still gets the list as a source, so the floating
+    // navigation bar (which overlays whichever screens are animating) keeps
+    // its frost.
+    val headerHaze = remember { HazeState() }
+    val shellHaze = LocalHazeState.current
     val density = LocalDensity.current
 
     // Measured, not fixed: the header's height depends on the status bar inset
@@ -195,7 +201,10 @@ fun UnefyListScaffold(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource(hazeState),
+                    .hazeSource(headerHaze)
+                    .then(
+                        if (shellHaze != null) Modifier.hazeSource(shellHaze) else Modifier,
+                    ),
                 contentPadding = PaddingValues(
                     top = headerHeight,
                     // The floating bar overlays the list, so its height is not in
@@ -227,11 +236,15 @@ fun UnefyListScaffold(
                     // either cover the first row or leave a gap when it goes.
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
                     .hazeEffect(
-                        state = hazeState,
+                        state = headerHaze,
                         // Thin, not thick: the point is to keep a hint of the
                         // list visible underneath, not to hide it.
                         style = unefyGlassStyle(),
-                    )
+                    ) {
+                        // Redraw while screens animate underneath — a stale
+                        // blur shows as a lighter band during predictive back.
+                        forceInvalidateOnPreDraw = true
+                    }
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
             ) {
                 Row(

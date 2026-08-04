@@ -67,9 +67,10 @@ fun UnefyDetailScaffold(
     overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    // The shell's state when there is one, so the navigation bar blurs this
-    // screen's content; a local one otherwise, for previews.
-    val hazeState = LocalHazeState.current ?: remember { HazeState() }
+    // Two blur scopes — see UnefyListScaffold: the header must not sample
+    // the other screen mid-transition, the shell's navigation bar must.
+    val headerHaze = remember { HazeState() }
+    val shellHaze = LocalHazeState.current
     val density = LocalDensity.current
     val scrollState = rememberScrollState()
 
@@ -92,7 +93,10 @@ fun UnefyDetailScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource(hazeState)
+                    .hazeSource(headerHaze)
+                    .then(
+                        if (shellHaze != null) Modifier.hazeSource(shellHaze) else Modifier,
+                    )
                     .verticalScroll(scrollState),
             ) {
                 // The glass header overlays the content, so the content clears it
@@ -116,7 +120,11 @@ fun UnefyDetailScaffold(
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
-                    .hazeEffect(state = hazeState, style = unefyGlassStyle())
+                    .hazeEffect(state = headerHaze, style = unefyGlassStyle()) {
+                        // Redraw while screens animate underneath — a stale
+                        // blur shows as a lighter band during predictive back.
+                        forceInvalidateOnPreDraw = true
+                    }
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
