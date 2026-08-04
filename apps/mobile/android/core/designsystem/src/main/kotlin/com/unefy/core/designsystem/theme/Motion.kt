@@ -25,9 +25,14 @@ object UnefyMotion {
     private const val SPATIAL_DAMPING = 0.8f
     private const val SPATIAL_STIFFNESS = 380f
 
-    /** Expressive's fast-spatial values — snappier, a touch more bounce. */
-    private const val SPATIAL_FAST_DAMPING = 0.6f
-    private const val SPATIAL_FAST_STIFFNESS = 800f
+    /**
+     * Deliberately stiffer and less bouncy than Expressive's fast-spatial
+     * (0.6/800): with those values the incoming screen visibly overshot and
+     * settled back, which on a 120 Hz panel reads as the transition dragging
+     * on. Navigation wants to arrive, not wobble.
+     */
+    private const val SPATIAL_FAST_DAMPING = 0.85f
+    private const val SPATIAL_FAST_STIFFNESS = 1200f
 
     /** No overshoot: colour and alpha should never bounce. */
     private const val EFFECTS_DAMPING = 1f
