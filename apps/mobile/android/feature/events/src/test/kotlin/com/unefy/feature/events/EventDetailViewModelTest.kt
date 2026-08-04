@@ -159,6 +159,28 @@ class EventDetailViewModelTest {
         assertEquals(6, state.event.registeredCount)
     }
 
+    /** Registering into a full event waitlists — the pill must not claim +1. */
+    @Test
+    fun `registering into a full event does not inflate the count`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(mirror = listOf(event("e")))
+        repository.details["e"] = EventDetail(
+            event("e").copy(registeredCount = 40),
+            emptyList(),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("e")
+        advanceUntilIdle()
+
+        // The re-fetch dies, so the optimistic value is what the screen keeps.
+        repository.detailFailure = ApiError.Network(IOException("gone mid-toggle"))
+        viewModel.toggleRegistration()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as EventDetailUiState.Content
+        assertTrue(state.event.isRegistered)
+        assertEquals(40, state.event.registeredCount)
+    }
+
     @Test
     fun `a failed toggle changes nothing and releases the lock`() = runTest(dispatcher) {
         val repository = FakeDetailRepository(mirror = listOf(event("e")))

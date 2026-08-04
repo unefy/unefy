@@ -137,14 +137,20 @@ class EventDetailViewModel @Inject constructor(
                     // below fails, the button must hold the state the server
                     // just acknowledged rather than invite a second, doomed tap.
                     val wasRegistered = current.event.isRegistered
+                    // Registering into a full event lands on the waitlist, and
+                    // waitlisted names do not count — the pill must not claim
+                    // one more than the server will report.
+                    val delta = when {
+                        wasRegistered -> -1
+                        current.event.isFull -> 0
+                        else -> 1
+                    }
                     remote.value = ApiResult.Success(
                         current.copy(
                             event = current.event.copy(
                                 isRegistered = !wasRegistered,
-                                registeredCount = (
-                                    current.event.registeredCount +
-                                        if (wasRegistered) -1 else 1
-                                    ).coerceAtLeast(0),
+                                registeredCount = (current.event.registeredCount + delta)
+                                    .coerceAtLeast(0),
                             ),
                         ),
                     )

@@ -24,9 +24,10 @@ class EventDtoDriftTest {
         MobileContract.assertMirrors(
             EventDetailDto.serializer().descriptor,
             "EventResponse",
-            // Same merge as the list plus `registrations`, which the detail
-            // route always writes as a list, never as an explicit null.
-            tolerateNonNullable = setOf("is_registered", "registered_count", "registrations"),
+            // Same merge as the list. `registrations` needs no tolerance: the
+            // contract already exports it non-nullable because the detail
+            // route always writes a list.
+            tolerateNonNullable = setOf("is_registered", "registered_count"),
         )
     }
 
