@@ -101,16 +101,16 @@ private const val SLIDE_DIVISOR = 5
 private const val BAR_DRAGGED_ALPHA = 0.3f
 
 private val forward: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-    slideInHorizontally(UnefyMotion.spatial()) { width -> width / SLIDE_DIVISOR } +
+    slideInHorizontally(UnefyMotion.spatialFast()) { width -> width / SLIDE_DIVISOR } +
         fadeIn(UnefyMotion.effects()) togetherWith
-        slideOutHorizontally(UnefyMotion.spatial()) { width -> -width / SLIDE_DIVISOR } +
+        slideOutHorizontally(UnefyMotion.spatialFast()) { width -> -width / SLIDE_DIVISOR } +
         fadeOut(UnefyMotion.effects())
 }
 
 private val backward: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-    slideInHorizontally(UnefyMotion.spatial()) { width -> -width / SLIDE_DIVISOR } +
+    slideInHorizontally(UnefyMotion.spatialFast()) { width -> -width / SLIDE_DIVISOR } +
         fadeIn(UnefyMotion.effects()) togetherWith
-        slideOutHorizontally(UnefyMotion.spatial()) { width -> width / SLIDE_DIVISOR } +
+        slideOutHorizontally(UnefyMotion.spatialFast()) { width -> width / SLIDE_DIVISOR } +
         fadeOut(UnefyMotion.effects())
 }
 

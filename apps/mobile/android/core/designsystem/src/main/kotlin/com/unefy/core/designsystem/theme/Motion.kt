@@ -25,6 +25,10 @@ object UnefyMotion {
     private const val SPATIAL_DAMPING = 0.8f
     private const val SPATIAL_STIFFNESS = 380f
 
+    /** Expressive's fast-spatial values — snappier, a touch more bounce. */
+    private const val SPATIAL_FAST_DAMPING = 0.6f
+    private const val SPATIAL_FAST_STIFFNESS = 800f
+
     /** No overshoot: colour and alpha should never bounce. */
     private const val EFFECTS_DAMPING = 1f
     private const val EFFECTS_STIFFNESS = 1600f
@@ -32,6 +36,16 @@ object UnefyMotion {
     fun <T> spatial(): SpringSpec<T> = spring(
         dampingRatio = SPATIAL_DAMPING,
         stiffness = SPATIAL_STIFFNESS,
+    )
+
+    /**
+     * For motion the person is waiting on — screen transitions above all. The
+     * default spatial spring takes ~half a second to settle, which reads as
+     * character on a reordered row but as lag on a back gesture.
+     */
+    fun <T> spatialFast(): SpringSpec<T> = spring(
+        dampingRatio = SPATIAL_FAST_DAMPING,
+        stiffness = SPATIAL_FAST_STIFFNESS,
     )
 
     fun <T> effects(): SpringSpec<T> = spring(
