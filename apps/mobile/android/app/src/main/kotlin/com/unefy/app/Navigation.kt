@@ -223,12 +223,7 @@ fun MainNavigation(
                         // Root coordinates: the grid lives in another subtree and
                         // this is the only frame both sides share.
                         .onGloballyPositioned { dragState.barBounds = it.boundsInRoot() }
-                        .hazeEffect(state = hazeState, style = unefyGlassStyle()) {
-                            // Keep redrawing while screens animate underneath —
-                            // without it the blur shows a stale, lighter band
-                            // during predictive back.
-                            forceInvalidateOnPreDraw = true
-                        },
+                        .hazeEffect(state = hazeState, style = unefyGlassStyle()),
                     // Transparent: the glass underneath is the surface now.
                     containerColor = Color.Transparent,
                 ) {

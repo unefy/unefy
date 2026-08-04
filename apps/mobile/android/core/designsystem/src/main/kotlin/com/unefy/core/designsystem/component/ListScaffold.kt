@@ -240,11 +240,7 @@ fun UnefyListScaffold(
                         // Thin, not thick: the point is to keep a hint of the
                         // list visible underneath, not to hide it.
                         style = unefyGlassStyle(),
-                    ) {
-                        // Redraw while screens animate underneath — a stale
-                        // blur shows as a lighter band during predictive back.
-                        forceInvalidateOnPreDraw = true
-                    }
+                    )
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
             ) {
                 Row(

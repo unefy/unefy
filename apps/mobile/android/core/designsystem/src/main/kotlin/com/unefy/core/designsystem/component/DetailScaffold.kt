@@ -120,11 +120,7 @@ fun UnefyDetailScaffold(
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
-                    .hazeEffect(state = headerHaze, style = unefyGlassStyle()) {
-                        // Redraw while screens animate underneath — a stale
-                        // blur shows as a lighter band during predictive back.
-                        forceInvalidateOnPreDraw = true
-                    }
+                    .hazeEffect(state = headerHaze, style = unefyGlassStyle())
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
