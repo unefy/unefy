@@ -719,7 +719,14 @@ ist die rechtlich geschuldete Seite.
 - PDF-Erzeugung (`document_ref` bleibt leer) und der QR mit Signatur gegen den
   Vereinsschlüssel für die Offline-Prüfung.
 - Anpassbare Verbands-Formulare (DSB/BDS) über den nackten CSV-Zeilen.
-- Web-UI (Regeln pflegen, Auswertung ansehen, Bescheinigung ausstellen) und
-  die Detailerfassung im Android-Scanner.
+- ~~Web-UI~~ — **umgesetzt am 2026-08-04**: `/shooting` (Nachweis prüfen und
+  ausstellen, Bescheinigungen mit begründetem Widerruf, Kettenstatus,
+  Standbuch-Download über eine Cookie-weiterreichende Proxy-Route) und
+  `/shooting/rules` (Regeln, owner/admin schreiben, board liest,
+  `rule_key` nach dem Anlegen eingefroren). Die Sidebar filtert jetzt nach
+  Modulen des Vereins (`Club.modules`, neu im Web-Typ) und Rollen — ein
+  Verein ohne Schießsportart sieht die Sektion nicht.
+- Die Detailerfassung (Disziplin, Waffenart, Schusszahl) im Android-Scanner
+  und im Web an der Anwesenheitsliste.
 - Die konkreten Schwellwerte sind weiterhin mit dem Verband gegenzuprüfen —
   die Regeltabelle macht das zur Konfiguration, nicht zur Codeänderung.
