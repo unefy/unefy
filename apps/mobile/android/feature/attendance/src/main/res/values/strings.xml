@@ -2,7 +2,6 @@
 <resources>
     <string name="attendance_code_title">Mein Check-in</string>
     <string name="attendance_code_hint">Zeig diesen Code der Aufsicht — oder leg dein Telefon mit der Rückseite an ihres. Der Code wechselt alle 30 Sekunden.</string>
-    <string name="attendance_antenna_caption">Hier sitzt deine Antenne — diese Stelle an das Gerät der Aufsicht halten</string>
     <string name="attendance_code_refresh_in">Neuer Code in %1$d s</string>
     <string name="attendance_code_read_title">Gelesen</string>
     <string name="attendance_code_read_body">Einen Moment, die Aufsicht bestätigt gerade.</string>
@@ -30,7 +29,6 @@
          member brings their phone to it, the way everybody already knows from
          paying. Saying nothing left both people waving phones at each other. -->
     <string name="scanner_nfc_hint">Halte dein Telefon ruhig — das Mitglied legt seines mit der Rückseite dagegen. Es vibriert auf beiden Geräten, sobald sich die Antennen finden.</string>
-    <string name="scanner_antenna_caption">Hier sitzt deine Antenne</string>
     <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>
