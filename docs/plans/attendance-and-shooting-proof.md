@@ -420,7 +420,9 @@ sie fällt hier aus dem konkreten Fall ab, statt vorher geraten zu werden.
 
 1. **Kern ohne Kryptografie** — Sessions, Records, `manual`-Check-in, Anwesenheitsliste
    im Web, Audit-Trail (Stufe 0). Sofort für jeden Verein nutzbar, keine App nötig.
-2. **Retention** — beide Löschjobs, Tenant-Konfiguration, `context_digest`-Pfad.
+2. ~~**Retention**~~ — **umgesetzt am 2026-08-04**: beide Löschjobs
+   (`app/tasks/retention.py`), Tenant-Konfiguration und `context_digest`-Pfad
+   existierten bereits aus Schritt 3.
 3. ~~**Rotierender QR**~~ — **umgesetzt am 2026-08-02**, allerdings als
    Android-Scanner statt als PWA. Abweichungen und Entscheidungen unten.
 4. **Hash-Kette (Stufe 1)** — Session-Abschluss, Kettenglieder, Zeitstempel-Job.
@@ -652,10 +654,13 @@ die scannen darf, ist noch nicht entschieden.
 mit zwei Geräten funktioniert. Damit ist auch `QrAnalyzer` auf echter Hardware
 gelaufen — die Kette hat keinen ungetesteten Pfad mehr.
 
-**Offen aus diesem Schritt:** der Löschjob über
-`attendance_checkin_contexts.expires_at` fehlt weiterhin — die Spalte und
-`tenants.attendance_context_retention_days` existieren, aber nichts räumt auf.
-Das ist Schritt 2 des Plans und jetzt keine Theorie mehr, weil echte
-Kontextzeilen entstehen.
+**Erledigt (2026-08-04):** die beiden Löschjobs aus Schritt 2 laufen —
+`app/tasks/retention.py`, ein stündlicher In-Process-Sweep nach dem Muster des
+Push-Fanouts (Redis `SET NX`, ein Worker pro Intervall). Er löscht abgelaufene
+Kontextzeilen über `expires_at` hart und ist die einzige Stelle im Code, die
+`attendance_records` hart löscht — nach `tenants.attendance_retention_years`,
+gemessen in der Zeitzone des Vereins, einschließlich weich gelöschter Zeilen.
+Fällt Redis aus, läuft der Sweep unkoordiniert statt gar nicht: die Löschung
+ist die rechtlich geschuldete Seite.
 5. **Schießsport-Modul** — `require_module`, Detailtabelle, §14-Auswertung,
    Bescheinigung mit Prüfcode, öffentliche Prüfseite, Standbuch-Export.
