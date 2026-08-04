@@ -236,17 +236,60 @@ async def test_register_on_cancelled_event_conflict(
     assert resp.status_code == 409
 
 
-async def test_register_after_deadline_conflict(
+async def test_reregister_after_cancellation(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
 ) -> None:
-    event = await _create_event(auth_client, registration_deadline="2020-01-01T00:00:00+00:00")
+    """Unregistering soft-deletes the row; signing up again must revive it.
+
+    The unique constraint (tenant, event, member) covers soft-deleted rows,
+    so a naive re-insert was an IntegrityError — a 500 on the second sign-up.
+    """
+    event = await _create_event(auth_client)
     member = await _add_member(db_session, test_tenant.id, member_number="M-001")
 
     resp = await auth_client.post(
         f"/api/v1/events/{event['id']}/registrations",
         json={"member_id": str(member.id)},
     )
+    assert resp.status_code == 201
+    registration_id = resp.json()["data"]["id"]
+
+    resp = await auth_client.delete(f"/api/v1/events/{event['id']}/registrations/{registration_id}")
+    assert resp.status_code == 204
+
+    resp = await auth_client.post(
+        f"/api/v1/events/{event['id']}/registrations",
+        json={"member_id": str(member.id)},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["status"] == "registered"
+
+    resp = await auth_client.get(f"/api/v1/events/{event['id']}")
+    data = resp.json()["data"]
+    assert data["registered_count"] == 1
+    assert len(data["registrations"]) == 1
+
+
+async def test_register_after_deadline(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The deadline binds self-registration; the board adds people past it."""
+    event = await _create_event(auth_client, registration_deadline="2020-01-01T00:00:00+00:00")
+    member = await _add_member(db_session, test_tenant.id, member_number="M-001")
+    await _add_member(db_session, test_tenant.id, member_number="M-002", user_id=test_user.id)
+
+    resp = await auth_client.post(f"/api/v1/events/{event['id']}/registrations/me")
     assert resp.status_code == 409
+
+    resp = await auth_client.post(
+        f"/api/v1/events/{event['id']}/registrations",
+        json={"member_id": str(member.id)},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["status"] == "registered"
 
 
 async def test_register_unknown_member_not_found(auth_client: AsyncClient) -> None:

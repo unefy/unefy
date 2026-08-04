@@ -199,9 +199,15 @@ async def register_member(
     auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    """Register a member for an event (waitlist when full)."""
+    """Register a member for an event (waitlist when full).
+
+    Board-level, so the registration deadline does not apply: adding someone
+    after it closed is the normal favour, not a bypass.
+    """
     service = _get_service(session, auth)
-    registration = await service.register(event_id, data, created_by=auth.user_id)
+    registration = await service.register(
+        event_id, data, created_by=auth.user_id, enforce_deadline=False
+    )
     return {"data": EventRegistrationResponse.model_validate(registration).model_dump(mode="json")}
 
 

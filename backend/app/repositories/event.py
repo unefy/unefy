@@ -139,6 +139,25 @@ class EventRegistrationRepository(
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
+    async def get_any_by_event_and_member(
+        self, event_id: uuid.UUID, member_id: uuid.UUID
+    ) -> EventRegistration | None:
+        """Soft-deleted rows included.
+
+        The unique constraint (tenant, event, member) does not know about
+        soft deletion, so re-registering must find the buried row and revive
+        it — a fresh INSERT against it is an IntegrityError, not a conflict
+        the service can answer.
+        """
+        query = (
+            select(EventRegistration)
+            .where(EventRegistration.tenant_id == self.tenant_id)
+            .where(EventRegistration.event_id == event_id)
+            .where(EventRegistration.member_id == member_id)
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
     async def registered_event_ids_for_member(
         self, member_id: uuid.UUID, event_ids: list[uuid.UUID]
     ) -> set[uuid.UUID]:

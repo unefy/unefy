@@ -80,15 +80,23 @@ class EventService:
         event_id: uuid.UUID,
         data: EventRegistrationCreate,
         created_by: uuid.UUID,
+        enforce_deadline: bool = True,
     ) -> EventRegistration:
-        """Register a member. Goes to the waitlist when the event is full."""
+        """Register a member. Goes to the waitlist when the event is full.
+
+        ``enforce_deadline=False`` is for the board endpoints: the deadline
+        addresses members signing themselves up, and the board adding someone
+        after it ("put me down, I forgot") is the normal case, not a bypass.
+        A cancelled event refuses everyone either way.
+        """
         event = await self.events.get_by_id(event_id)
         if event is None:
             raise NotFoundError("Event not found")
         if event.status == "cancelled":
             raise ConflictError("Event is cancelled")
         if (
-            event.registration_deadline is not None
+            enforce_deadline
+            and event.registration_deadline is not None
             and datetime.now(UTC) > event.registration_deadline
         ):
             raise ConflictError("Registration deadline has passed")
@@ -97,8 +105,8 @@ class EventService:
         if member is None:
             raise NotFoundError("Member not found")
 
-        existing = await self.registrations.get_by_event_and_member(event_id, data.member_id)
-        if existing is not None:
+        existing = await self.registrations.get_any_by_event_and_member(event_id, data.member_id)
+        if existing is not None and existing.deleted_at is None:
             raise ConflictError("Member is already registered")
 
         status = "registered"
@@ -106,6 +114,19 @@ class EventService:
             registered = await self.registrations.count_registered(event_id)
             if registered >= event.max_participants:
                 status = "waitlist"
+
+        if existing is not None:
+            # A cancelled registration leaves a soft-deleted row, and the
+            # unique constraint (tenant, event, member) covers deleted rows
+            # too — inserting over it is a 500, not a second registration.
+            # Reviving keeps signing up again working and the history linear.
+            existing.deleted_at = None
+            existing.status = status
+            existing.note = data.note
+            existing.updated_by = created_by
+            await self.session.flush()
+            await self.session.refresh(existing)
+            return existing
 
         registration = EventRegistration(
             tenant_id=self.tenant_id,
