@@ -47,17 +47,28 @@ private fun sans(
 /**
  * Only 500 and 600 are used as bold weights. 700 is too heavy against Fira
  * Sans' already sturdy letterforms — see docs/design-system-android.md.
+ *
+ * **Every slot is filled**, including the ones no screen references directly.
+ * Material components reach for them internally — an `OutlinedTextField`'s
+ * floating label is `bodySmall`, a badge is `labelSmall` — and any slot left
+ * at its default renders Roboto in the middle of a Fira Sans app.
  */
 internal val UnefyTypography = Typography(
+    displayLarge = sans(57, 64, FontWeight.SemiBold),
+    displayMedium = sans(45, 52, FontWeight.SemiBold),
     displaySmall = sans(36, 44, FontWeight.SemiBold),
+    headlineLarge = sans(32, 40, FontWeight.SemiBold),
     headlineMedium = sans(28, 36, FontWeight.SemiBold),
     headlineSmall = sans(24, 32, FontWeight.SemiBold),
     titleLarge = sans(20, 28, FontWeight.Medium),
     titleMedium = sans(16, 24, FontWeight.Medium),
+    titleSmall = sans(14, 20, FontWeight.Medium),
     bodyLarge = sans(16, 24, FontWeight.Normal),
     bodyMedium = sans(14, 20, FontWeight.Normal),
+    bodySmall = sans(12, 16, FontWeight.Normal),
     labelLarge = sans(14, 20, FontWeight.Medium),
     labelMedium = sans(12, 16, FontWeight.Medium),
+    labelSmall = sans(11, 16, FontWeight.Medium),
 )
 
 /**
