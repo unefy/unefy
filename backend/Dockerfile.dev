@@ -11,4 +11,11 @@ RUN uv sync --frozen
 # Source code is mounted as volume — not copied
 EXPOSE 8000
 
-CMD ["uv", "run", "fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
+# uvicorn directly rather than `fastapi dev`, for one flag it does not expose:
+# `--timeout-graceful-shutdown`. Without it a reload waits for open responses to
+# end, and the change stream never ends — so saving a file while the web app was
+# open wedged the container permanently. It looked like a crash with no error:
+# "Reloading..." and then silence, no shutdown log, no new start log, and the
+# healthcheck going red on a process that was still running.
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--reload", "--timeout-graceful-shutdown", "5"]
