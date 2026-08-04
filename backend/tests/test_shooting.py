@@ -3,11 +3,13 @@
 import hashlib
 import json
 import uuid
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 
 import fakeredis.aioredis
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,7 @@ from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.audit import TenantAuditLog
 from app.models.division import Division
 from app.models.member import Member
+from app.models.shooting import ShootingRecordDetail
 from app.models.sport import Sport
 from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership, User
@@ -83,6 +86,49 @@ async def _add_attendance(
     db_session.add(record)
     await db_session.flush()
     return record
+
+
+@asynccontextmanager
+async def _client_as(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    role: str,
+) -> AsyncGenerator[AsyncClient]:
+    """A client whose session carries an explicit role.
+
+    The module router is gated twice — `require_module` on the club's sports and
+    a role on every endpoint — and only the second one can tell a plain member of
+    a *shooting* club apart from its board. That is what this is for.
+    """
+    import app.redis as redis_module
+    from app.database import get_db_session
+    from app.main import app
+
+    async def override_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_db
+    original_redis = redis_module._redis_client
+    redis_module._redis_client = fake_redis
+
+    token = uuid.uuid4().hex
+    await fake_redis.set(
+        f"session:{token}",
+        json.dumps({"user_id": str(user_id), "tenant_id": str(tenant_id), "role": role}),
+        ex=3600,
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            cookies={"unefy_session": token},
+        ) as client:
+            yield client
+    finally:
+        redis_module._redis_client = original_redis
+        app.dependency_overrides.clear()
 
 
 async def _create_rule(client: AsyncClient, **overrides: object) -> dict[str, object]:
@@ -191,6 +237,101 @@ async def test_detail_upsert_creates_then_updates_and_audits(
         .all()
     )
     assert len(entries) == 2
+
+
+@pytest.mark.asyncio
+async def test_details_of_a_session_are_read_in_one_request(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """The read path the entry form needs.
+
+    Without it the form would be blind — it could write the three fields but
+    never show what is already on a row, so every edit would overwrite values
+    nobody could see. One request per session, not per row: the caller is a list
+    of twenty people.
+    """
+    first = await _add_member(db_session, shooting_tenant.id)
+    second = await _add_member(db_session, shooting_tenant.id)
+    a = await _add_attendance(db_session, shooting_tenant.id, first.id, date(2026, 8, 1))
+    b = await _add_attendance(db_session, shooting_tenant.id, second.id, date(2026, 8, 1))
+    # Same evening for both, which is what makes this one query.
+    b.session_id = a.session_id
+    await db_session.flush()
+
+    await auth_client.patch(f"{BASE}/records/{a.id}", json={"rounds_fired": 40})
+    await auth_client.patch(f"{BASE}/records/{b.id}", json={"weapon_category": "langwaffe"})
+
+    response = await auth_client.get(f"{BASE}/records", params={"session_id": str(a.session_id)})
+
+    assert response.status_code == 200, response.text
+    by_record = {d["attendance_record_id"]: d for d in response.json()["data"]}
+    assert by_record[str(a.id)]["rounds_fired"] == 40
+    assert by_record[str(b.id)]["weapon_category"] == "langwaffe"
+
+
+@pytest.mark.asyncio
+async def test_details_of_another_evening_stay_out_of_it(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    # Otherwise the form would show last Tuesday's disciplines on tonight's list.
+    member = await _add_member(db_session, shooting_tenant.id)
+    tonight = await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 8, 1))
+    earlier = await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+    await auth_client.patch(f"{BASE}/records/{earlier.id}", json={"rounds_fired": 10})
+
+    response = await auth_client.get(
+        f"{BASE}/records", params={"session_id": str(tonight.session_id)}
+    )
+
+    assert response.json()["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_removed_record_takes_its_detail_out_of_the_list(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """A corrected-away check-in must not keep describing an evening.
+
+    The detail row survives on purpose — the audit trail is what answers what was
+    entered and taken back — but the list the form reads is about who is on it
+    now.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    record = await _add_attendance(
+        db_session, shooting_tenant.id, member.id, date(2026, 8, 1), deleted=True
+    )
+    detail = ShootingRecordDetail(
+        tenant_id=shooting_tenant.id, attendance_record_id=record.id, rounds_fired=25
+    )
+    db_session.add(detail)
+    await db_session.flush()
+
+    response = await auth_client.get(
+        f"{BASE}/records", params={"session_id": str(record.session_id)}
+    )
+
+    assert response.json()["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_reading_details_needs_the_board(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """A member of a shooting club passes the module gate — the role is the barrier.
+
+    What is behind it is everybody's disciplines and round counts for an evening,
+    which is board business.
+    """
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as client:
+        response = await client.get(f"{BASE}/records", params={"session_id": str(uuid.uuid4())})
+
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -611,11 +752,38 @@ async def test_range_book_exports_the_window_as_csv(
     lines = body.strip().splitlines()
     assert lines[0].startswith("Datum;Einheit;Ort;Name;")
     assert len(lines) == 3
+    # German labels, not stored keys: the header row is German and the file is
+    # read in Excel or handed to an authority, where "luftdruck" under
+    # "Waffenart" reads like a leaked database value.
     assert any(
-        "Erika Musterfrau" in line and "luftdruck" in line and "40" in line for line in lines
+        "Erika Musterfrau" in line and "Luftdruck" in line and "40" in line for line in lines
     )
+    assert "luftdruck" not in body
+    assert "manual" not in body
     # Guests stand in the book — it answers who was on the range.
     assert any("Tages Gast" in line for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_the_range_book_keeps_a_value_it_has_no_label_for(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """An unlabelled key must pass through, not vanish.
+
+    `venue_scan` and `nfc_tap` are in the model's taxonomy and not built. The day
+    one of them is, the book must still say what it was rather than showing an
+    empty cell — losing information is the worse failure of the two.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _add_attendance(
+        db_session, shooting_tenant.id, member.id, date(2026, 7, 2), method="venue_scan"
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/range-book", params={"from": "2026-07-01", "to": "2026-07-31"}
+    )
+
+    assert "venue_scan" in response.text
 
 
 # --- Roles ---
@@ -629,35 +797,9 @@ async def test_member_role_cannot_reach_the_module(
     test_user: User,
     test_membership: TenantMembership,
 ) -> None:
-    import app.redis as redis_module
-    from app.database import get_db_session
-    from app.main import app
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as client:
+        response = await client.get(f"{BASE}/rules")
 
-    async def override_db():  # type: ignore[no-untyped-def]
-        yield db_session
-
-    app.dependency_overrides[get_db_session] = override_db
-    original_redis = redis_module._redis_client
-    redis_module._redis_client = fake_redis
-
-    token = uuid.uuid4().hex
-    await fake_redis.set(
-        f"session:{token}",
-        json.dumps(
-            {"user_id": str(test_user.id), "tenant_id": str(shooting_tenant.id), "role": "member"}
-        ),
-        ex=3600,
-    )
-    try:
-        from httpx import ASGITransport
-
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-            cookies={"unefy_session": token},
-        ) as client:
-            response = await client.get(f"{BASE}/rules")
-            assert response.status_code == 403
-    finally:
-        redis_module._redis_client = original_redis
-        app.dependency_overrides.clear()
+    assert response.status_code == 403

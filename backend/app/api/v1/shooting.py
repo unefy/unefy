@@ -36,11 +36,60 @@ require_board = require_role("owner", "admin", "board")
 require_admin = require_role("owner", "admin")
 
 
+#: German labels for the keys that end up in the range book. Kept next to the
+#: export rather than on the model: these words are one file's presentation, and
+#: the API's values stay the stable keys that clients match on.
+CSV_LABELS = {
+    "kurzwaffe": "Kurzwaffe",
+    "langwaffe": "Langwaffe",
+    "luftdruck": "Luftdruck",
+    "manual": "Abgehakt",
+    "staff_scan": "Gescannt",
+    "self": "Selbst eingetragen",
+}
+
+
+def _label(value: object) -> str:
+    """One range-book cell, in German where a label exists.
+
+    Unknown values pass through unchanged rather than becoming empty: `venue_scan`
+    and `nfc_tap` are in the model's taxonomy and not built, and a row of the book
+    must not lose information because this table is a version behind.
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    return CSV_LABELS.get(text, text)
+
+
 def _service(session: AsyncSession, auth: AuthContext) -> ShootingService:
     return ShootingService(session, auth)
 
 
 # --- Record details ---
+
+
+@router.get("/records")
+async def list_record_details(
+    session_id: uuid.UUID,
+    auth: AuthContext = Depends(require_board),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, object]:
+    """The shooting details of one attendance session.
+
+    Read here rather than folded into the attendance list, although that would
+    save the caller a request. `AttendanceRecordResponse` belongs to the core,
+    which every club has; the discipline somebody shot belongs to a module most
+    clubs do not. Answering it from behind `require_module` is what keeps the
+    module boundary from being decorative — the price is one extra request on a
+    page that already makes several, and only for clubs that have the module.
+    """
+    details = await _service(session, auth).details_for_session(session_id)
+    return {
+        "data": [
+            ShootingRecordDetailResponse.model_validate(d).model_dump(mode="json") for d in details
+        ]
+    }
 
 
 @router.patch("/records/{record_id}")
@@ -206,6 +255,9 @@ async def range_book(
         ]
     )
     for occurred_on, title, location, name, discipline, weapon, rounds, supervisor, method in rows:
+        # Labels rather than stored keys: the header row is German and the file
+        # exists to be read in Excel or handed to an authority, where
+        # "kurzwaffe" under "Waffenart" reads like a leaked database value.
         writer.writerow(
             [
                 occurred_on.isoformat() if isinstance(occurred_on, date) else occurred_on,
@@ -213,10 +265,10 @@ async def range_book(
                 location or "",
                 name or "",
                 discipline or "",
-                weapon or "",
+                _label(weapon),
                 rounds if rounds is not None else "",
                 supervisor or "",
-                method,
+                _label(method),
             ]
         )
 

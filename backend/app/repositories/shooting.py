@@ -47,6 +47,28 @@ class ShootingDetailRepository(
 ):
     model_class = ShootingRecordDetail
 
+    async def list_for_session(self, session_id: uuid.UUID) -> list[ShootingRecordDetail]:
+        """Every detail belonging to one attendance session.
+
+        One request per session rather than per row: the caller is a list of
+        twenty people, and twenty round trips to fill in three fields each would
+        be the same answer twenty times over.
+
+        Joined through the record instead of storing the session on the detail —
+        the detail describes what somebody shot, and which evening that was is
+        already answered next door.
+        """
+        result = await self.session.execute(
+            self._base_query()
+            .join(
+                AttendanceRecord,
+                ShootingRecordDetail.attendance_record_id == AttendanceRecord.id,
+            )
+            .where(AttendanceRecord.session_id == session_id)
+            .where(AttendanceRecord.deleted_at.is_(None))
+        )
+        return list(result.scalars().all())
+
     async def get_by_record(self, attendance_record_id: uuid.UUID) -> ShootingRecordDetail | None:
         result = await self.session.execute(
             self._base_query().where(

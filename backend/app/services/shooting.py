@@ -106,6 +106,10 @@ class ShootingService:
 
     # --- Record details ---
 
+    async def details_for_session(self, session_id: uuid.UUID) -> list[ShootingRecordDetail]:
+        """What was shot at one evening, for the list that shows it."""
+        return await self.details.list_for_session(session_id)
+
     async def upsert_detail(
         self, attendance_record_id: uuid.UUID, data: ShootingRecordDetailUpdate
     ) -> ShootingRecordDetail:
