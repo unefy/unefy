@@ -26,11 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -155,23 +155,34 @@ fun MainNavigation(
 
     val start = destinations.first()
     val backStack = rememberNavBackStack(start.key)
-    var selected: TopLevel? by rememberSaveable(role) { mutableStateOf(start) }
 
-    var onMoreTab by rememberSaveable(role) { mutableStateOf(false) }
+    // The bar's selection is read off the back stack rather than tracked
+    // beside it: back (button or gesture) pops a section away, and a
+    // separately remembered selection would keep highlighting the tab the
+    // screen just left.
+    val currentSectionKey by remember(destinations) {
+        derivedStateOf {
+            backStack.lastOrNull { key ->
+                key == MoreKey || destinations.any { it.key == key }
+            }
+        }
+    }
+    val selected = destinations.firstOrNull { it.key == currentSectionKey }
+    val onMoreTab = currentSectionKey == MoreKey
 
+    // A section sits on top of the start destination instead of replacing it:
+    // back from any section returns to the start tab, and only from there does
+    // it leave the app — the platform convention (see the navigation-bar
+    // guidance), not a history of every tab ever visited.
     val select: (TopLevel) -> Unit = { destination ->
-        selected = destination
-        onMoreTab = false
-        // Switching sections resets the stack rather than piling sections on top
-        // of each other — back from a section root leaves the app, as Android
-        // expects.
         backStack.clear()
-        backStack.add(destination.key)
+        backStack.add(start.key)
+        if (destination.key != start.key) backStack.add(destination.key)
     }
 
     val selectMore: () -> Unit = {
-        onMoreTab = true
         backStack.clear()
+        backStack.add(start.key)
         backStack.add(MoreKey)
     }
 
@@ -206,7 +217,7 @@ fun MainNavigation(
     ) {
         if (onBottomBar) {
             Box(modifier = Modifier.fillMaxSize()) {
-                NavHost(backStack, clubName, role, accountActions)
+                NavHost(backStack, start.key, clubName, role, accountActions)
 
                 ShortNavigationBar(
                     modifier = Modifier
@@ -328,7 +339,7 @@ fun MainNavigation(
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
-                    NavHost(backStack, clubName, role, accountActions)
+                    NavHost(backStack, start.key, clubName, role, accountActions)
                 }
             }
         }
@@ -339,6 +350,7 @@ fun MainNavigation(
 @Composable
 private fun NavHost(
     backStack: NavBackStack<NavKey>,
+    startKey: NavKey,
     clubName: String?,
     role: ClubRole,
     accountActions: @Composable RowScope.() -> Unit,
@@ -356,9 +368,13 @@ private fun NavHost(
             role = role,
             accountActions = accountActions,
             onOpen = { key -> backStack.add(key) },
+            // Same layering as the bar's select: the section over the start
+            // destination, so back behaves identically no matter how a
+            // section was reached.
             onSwitchSection = { key ->
                 backStack.clear()
-                backStack.add(key)
+                backStack.add(startKey)
+                if (key != startKey) backStack.add(key)
             },
             onBack = { backStack.removeLastOrNull() },
         ),

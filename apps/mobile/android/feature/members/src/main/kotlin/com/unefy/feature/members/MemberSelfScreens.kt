@@ -37,6 +37,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.designsystem.R as DesignR
+import com.unefy.core.designsystem.component.UnefyCenteredState
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
@@ -113,53 +115,27 @@ fun MyProfileScreen(
             MemberDetailUiState.Loading -> Unit
 
             is MemberDetailUiState.Failure -> item {
-                Column(
-                    modifier = Modifier
-                        .fillParentMaxHeight(PROFILE_FILL)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(
-                        UnefySpacing.sm,
-                        Alignment.CenterVertically,
-                    ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    if (state.error is ApiError.NotFound) {
-                        NoMemberRecordBody()
-                    } else {
-                        Text(
-                            text = stringResource(R.string.error_generic_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                        )
-                        OutlinedButton(onClick = onRetry) {
-                            Text(stringResource(R.string.members_retry))
-                        }
-                    }
+                if (state.error is ApiError.NotFound) {
+                    UnefyCenteredState(
+                        title = stringResource(R.string.profile_none_title),
+                        body = stringResource(R.string.profile_none_body),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
+                    )
+                } else {
+                    UnefyCenteredState(
+                        title = stringResource(R.string.error_generic_title),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
+                        action = {
+                            OutlinedButton(onClick = onRetry) {
+                                Text(stringResource(R.string.members_retry))
+                            }
+                        },
+                    )
                 }
             }
 
             is MemberDetailUiState.Content -> item { MemberDetailContent(state.member) }
         }
-    }
-}
-
-private const val PROFILE_FILL = 0.7f
-
-@Composable
-private fun NoMemberRecordBody() {
-    Column(
-        modifier = Modifier.padding(UnefySpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.profile_none_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            text = stringResource(R.string.profile_none_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -306,25 +282,15 @@ fun DirectoryScreen(
             DirectoryUiState.Loading -> Unit
 
             is DirectoryUiState.Failure -> item {
-                Column(
-                    modifier = Modifier
-                        .fillParentMaxHeight(DIRECTORY_FILL)
-                        .fillMaxWidth()
-                        .padding(UnefySpacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(
-                        UnefySpacing.sm,
-                        Alignment.CenterVertically,
-                    ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource(R.string.error_generic_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
-                    OutlinedButton(onClick = onRetry) {
-                        Text(stringResource(R.string.members_retry))
-                    }
-                }
+                UnefyCenteredState(
+                    title = stringResource(R.string.error_generic_title),
+                    modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
+                    action = {
+                        OutlinedButton(onClick = onRetry) {
+                            Text(stringResource(R.string.members_retry))
+                        }
+                    },
+                )
             }
 
             is DirectoryUiState.Content -> {
@@ -337,8 +303,6 @@ fun DirectoryScreen(
         }
     }
 }
-
-private const val DIRECTORY_FILL = 0.7f
 
 @Composable
 private fun DirectoryRow(entry: DirectoryEntry) {

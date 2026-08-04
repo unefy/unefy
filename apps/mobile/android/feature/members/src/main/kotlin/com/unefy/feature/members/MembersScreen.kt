@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
+import com.unefy.core.designsystem.component.UnefyCenteredState
 import com.unefy.core.designsystem.component.ScreenSearch
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
@@ -134,14 +136,14 @@ fun MembersScreen(
             MembersUiState.Loading -> membersSkeleton()
 
             is MembersUiState.Failure -> item {
-                ErrorState(state.error, onRetry, Modifier.fillParentMaxHeight(FILL_BELOW_HEADING))
+                ErrorState(state.error, onRetry, Modifier.fillParentMaxHeight(UNEFY_STATE_FILL))
             }
 
             is MembersUiState.Content -> if (state.members.isEmpty()) {
                 item {
                     EmptyState(
                         hasQuery = state.query.isNotBlank(),
-                        modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADING),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     )
                 }
             } else {
@@ -300,7 +302,7 @@ private fun ErrorState(error: ApiError, onRetry: () -> Unit, modifier: Modifier 
         ApiError.Forbidden -> R.string.error_forbidden_title to R.string.error_forbidden_body
         else -> R.string.error_generic_title to R.string.error_generic_body
     }
-    CenteredMessage(
+    UnefyCenteredState(
         title = stringResource(title),
         body = stringResource(body),
         modifier = modifier,
@@ -310,7 +312,7 @@ private fun ErrorState(error: ApiError, onRetry: () -> Unit, modifier: Modifier 
 
 @Composable
 private fun EmptyState(hasQuery: Boolean, modifier: Modifier = Modifier) {
-    CenteredMessage(
+    UnefyCenteredState(
         title = stringResource(
             if (hasQuery) R.string.members_no_matches_title else R.string.members_empty_title,
         ),
@@ -321,35 +323,12 @@ private fun EmptyState(hasQuery: Boolean, modifier: Modifier = Modifier) {
     )
 }
 
-@Composable
-private fun CenteredMessage(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(UnefySpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = title, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        action?.invoke()
-    }
-}
-
 private val SkeletonShape = RoundedCornerShape(6.dp)
 private val AVATAR_SIZE = 44.dp
 
 private const val SKELETON_ROWS = 8
 
 /** Empty and error states fill what is left below the heading, not the window. */
-private const val FILL_BELOW_HEADING = 0.7f
 
 @Preview
 @Composable

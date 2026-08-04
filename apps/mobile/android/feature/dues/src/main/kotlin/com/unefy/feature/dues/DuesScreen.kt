@@ -29,6 +29,8 @@ import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefyMoneyTextStyle
+import com.unefy.core.designsystem.component.UnefyCenteredState
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyLoadMoreFooter
 import com.unefy.core.designsystem.component.UnefyRowDivider
@@ -98,25 +100,15 @@ fun DuesScreen(
             DuesUiState.Loading -> Unit
 
             is DuesUiState.Failure -> item {
-                Column(
-                    modifier = Modifier
-                        .fillParentMaxHeight(FILL_BELOW_HEADING)
-                        .fillMaxWidth()
-                        .padding(UnefySpacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(
-                        UnefySpacing.sm,
-                        Alignment.CenterVertically,
-                    ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource(R.string.dues_error_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
-                    OutlinedButton(onClick = onRetry) {
-                        Text(stringResource(R.string.dues_retry))
-                    }
-                }
+                UnefyCenteredState(
+                    title = stringResource(R.string.dues_error_title),
+                    modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
+                    action = {
+                        OutlinedButton(onClick = onRetry) {
+                            Text(stringResource(R.string.dues_retry))
+                        }
+                    },
+                )
             }
 
             is DuesUiState.Content -> {
@@ -153,7 +145,6 @@ fun DuesScreen(
 }
 
 /** Empty and error states fill what is left below the heading, not the window. */
-private const val FILL_BELOW_HEADING = 0.7f
 
 /**
  * Two figures, not a chart. The question this screen answers first is "how much

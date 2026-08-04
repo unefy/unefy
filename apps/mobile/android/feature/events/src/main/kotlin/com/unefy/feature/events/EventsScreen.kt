@@ -29,6 +29,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
+import com.unefy.core.designsystem.component.UnefyCenteredState
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.theme.UnefySpacing
@@ -89,10 +91,10 @@ fun EventsScreen(
             EventsUiState.Loading -> Unit
 
             is EventsUiState.Failure -> item {
-                Centered(
+                UnefyCenteredState(
                     title = stringResource(R.string.events_error_title),
                     body = stringResource(R.string.events_error_body),
-                    modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADING),
+                    modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     action = {
                         OutlinedButton(onClick = onRetry) {
                             Text(stringResource(R.string.events_retry))
@@ -103,10 +105,10 @@ fun EventsScreen(
 
             is EventsUiState.Content -> if (state.upcoming.isEmpty() && state.past.isEmpty()) {
                 item {
-                    Centered(
+                    UnefyCenteredState(
                         title = stringResource(R.string.events_empty_title),
                         body = stringResource(R.string.events_empty_body),
-                        modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADING),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     )
                 }
             } else {
@@ -273,28 +275,6 @@ private fun RegistrationPill(event: Event) {
     }
 }
 
-@Composable
-private fun Centered(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(UnefySpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        action?.invoke()
-    }
-}
-
 @Preview
 @Composable
 private fun EventsPreview() {
@@ -363,4 +343,3 @@ private fun EventsOfflinePreview() {
 }
 
 /** Empty and error states fill what is left below the heading, not the window. */
-private const val FILL_BELOW_HEADING = 0.7f

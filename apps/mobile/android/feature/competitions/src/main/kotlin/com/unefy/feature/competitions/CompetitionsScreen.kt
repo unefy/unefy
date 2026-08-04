@@ -21,6 +21,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
+import com.unefy.core.designsystem.component.UnefyCenteredState
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.component.UnefyStaleBanner
@@ -81,10 +83,10 @@ fun CompetitionsScreen(
             CompetitionsUiState.Loading -> Unit
 
             is CompetitionsUiState.Failure -> item {
-                Centered(
+                UnefyCenteredState(
                     title = stringResource(R.string.competitions_error_title),
                     body = stringResource(R.string.competitions_error_body),
-                    modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADER),
+                    modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     action = {
                         OutlinedButton(onClick = onRetry) {
                             Text(stringResource(R.string.competitions_retry))
@@ -95,10 +97,10 @@ fun CompetitionsScreen(
 
             is CompetitionsUiState.Content -> if (state.competitions.isEmpty()) {
                 item {
-                    Centered(
+                    UnefyCenteredState(
                         title = stringResource(R.string.competitions_empty_title),
                         body = stringResource(R.string.competitions_empty_body),
-                        modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADER),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     )
                 }
             } else {
@@ -154,30 +156,6 @@ internal fun dateRange(competition: Competition): String {
     val end = competition.endDate?.let(UnefyFormat::date)
     return if (end.isNullOrBlank() || end == start) start else "$start – $end"
 }
-
-@Composable
-internal fun Centered(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(UnefySpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        action?.invoke()
-    }
-}
-
-internal const val FILL_BELOW_HEADER = 0.7f
 
 @Preview
 @Composable

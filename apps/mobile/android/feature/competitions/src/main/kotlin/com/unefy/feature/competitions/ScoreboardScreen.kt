@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
+import com.unefy.core.designsystem.component.UnefyCenteredState
+import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.UnefyNumericTextStyle
@@ -125,19 +127,19 @@ fun ScoreboardScreen(
             ScoreboardUiState.Loading -> Unit
 
             is ScoreboardUiState.Failure -> item {
-                Centered(
+                UnefyCenteredState(
                     title = stringResource(R.string.competitions_error_title),
                     body = stringResource(R.string.scoreboard_error_body),
-                    modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADER),
+                    modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                 )
             }
 
             is ScoreboardUiState.Content -> if (state.scoreboard.rows.isEmpty()) {
                 item {
-                    Centered(
+                    UnefyCenteredState(
                         title = stringResource(R.string.scoreboard_empty_title),
                         body = stringResource(R.string.scoreboard_empty_body),
-                        modifier = Modifier.fillParentMaxHeight(FILL_BELOW_HEADER),
+                        modifier = Modifier.fillParentMaxHeight(UNEFY_STATE_FILL),
                     )
                 }
             } else {
