@@ -67,6 +67,23 @@ class MemberCodeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<MemberCodeUiState>(MemberCodeUiState.Loading)
     val uiState: StateFlow<MemberCodeUiState> = _uiState.asStateFlow()
 
+    /**
+     * A tap said yes. Kept apart from [seenOnServer] because a QUEUED outcome
+     * is a confirmation the server has never heard of — the scanner was
+     * offline — and the poll must not read its absence as a retraction.
+     */
+    private var tapConfirmed = false
+
+    /**
+     * The poll has seen this check-in on the server at least once. Only then
+     * does its disappearance mean somebody took it back, rather than that the
+     * scanner's queue has not drained yet.
+     */
+    private var seenOnServer = false
+
+    /** When the code last left over NFC, so [start]'s loop can hold Read briefly. */
+    private var readAtEpochSeconds = 0L
+
     init {
         start()
 
@@ -75,20 +92,29 @@ class MemberCodeViewModel @Inject constructor(
         // works in a basement, where the poll below cannot reach anything.
         viewModelScope.launch {
             nfcSignals.events.collect { event ->
-                _uiState.value = when (event) {
+                when (event) {
                     // Not a confirmation, but not nothing either: the code left
                     // this phone and the answer is a moment away.
-                    CardEvent.Read -> MemberCodeUiState.Read
+                    CardEvent.Read -> {
+                        readAtEpochSeconds = clock.epochSeconds()
+                        _uiState.value = MemberCodeUiState.Read
+                    }
 
                     is CardEvent.Result -> when (event.outcome) {
                         CheckInApdu.Outcome.RECORDED, CheckInApdu.Outcome.QUEUED,
                         CheckInApdu.Outcome.ALREADY_PRESENT,
-                        -> MemberCodeUiState.Confirmed(sessionTitle = null)
+                        -> {
+                            tapConfirmed = true
+                            _uiState.value = MemberCodeUiState.Confirmed(sessionTitle = null)
+                        }
 
                         // Back to the code: a refusal means the supervisor will
                         // ask for another go, and there is nothing to hold out
                         // if the screen has moved on.
-                        CheckInApdu.Outcome.REJECTED -> MemberCodeUiState.Loading
+                        CheckInApdu.Outcome.REJECTED -> {
+                            tapConfirmed = false
+                            _uiState.value = MemberCodeUiState.Loading
+                        }
                     }
                 }
             }
@@ -98,6 +124,9 @@ class MemberCodeViewModel @Inject constructor(
     fun retry() = start()
 
     private fun start() {
+        tapConfirmed = false
+        seenOnServer = false
+        readAtEpochSeconds = 0L
         _uiState.value = MemberCodeUiState.Loading
         viewModelScope.launch {
             val seed = obtainSeed() ?: return@launch
@@ -109,7 +138,9 @@ class MemberCodeViewModel @Inject constructor(
             // Ticks once a second rather than once per window: the countdown is
             // what tells a member the code is live rather than a frozen image,
             // and a stuck screen is indistinguishable from a working one
-            // without it.
+            // without it. The loop never ends on its own — even a confirmed
+            // check-in can be taken back at the scanner or in the web app, and
+            // this loop is the only place the phone would hear about it.
             while (isActive) {
                 val now = clock.epochSeconds()
 
@@ -117,24 +148,50 @@ class MemberCodeViewModel @Inject constructor(
                 // rather than pushed because FCM is not built; offline it
                 // simply fails and the code stays up. A tap does not wait for
                 // this — it arrives through nfcSignals immediately.
-                if (tick++ % POLL_EVERY_TICKS == 0) {
-                    val own = (repository.latestOwnCheckIn() as? ApiResult.Success)?.data
-                    if (own != null && own.checkedInAtEpochSeconds >= openedAt) {
-                        _uiState.value = MemberCodeUiState.Confirmed(own.sessionTitle)
-                        return@launch
+                val cadence = if (tapConfirmed || seenOnServer) {
+                    CONFIRMED_POLL_EVERY_TICKS
+                } else {
+                    POLL_EVERY_TICKS
+                }
+                if (tick++ % cadence == 0) {
+                    val result = repository.latestOwnCheckIn()
+                    // Only a definite answer moves anything. A failed poll is a
+                    // dead network, not a missing check-in.
+                    if (result is ApiResult.Success) {
+                        val own = result.data
+                        if (own != null && own.checkedInAtEpochSeconds >= openedAt) {
+                            seenOnServer = true
+                            _uiState.value = MemberCodeUiState.Confirmed(own.sessionTitle)
+                        } else if (seenOnServer) {
+                            // It was on the server and now it is not: the
+                            // supervisor took it back. Back to the code, so the
+                            // member is not left trusting a green screen the
+                            // server no longer stands behind.
+                            seenOnServer = false
+                            tapConfirmed = false
+                        }
                     }
                 }
 
-                _uiState.value = MemberCodeUiState.Content(
-                    code = AttendanceCode.build(
-                        seed = seed.seed,
-                        memberRef = seed.memberRef,
-                        tenantId = seed.tenantId,
-                        counter = AttendanceCode.counterFor(now),
-                    ),
-                    secondsRemaining = AttendanceCode.secondsUntilNextCode(now),
-                    seedStale = now >= seed.expiresAtEpochSeconds,
-                )
+                // The loop owns the screen only while nothing eventful is on
+                // it: a confirmation stays up (a QUEUED tap may never appear on
+                // the server), and a just-read code gets a moment for its
+                // outcome before the rotation takes over again.
+                val confirmed = tapConfirmed || seenOnServer
+                val awaitingTapResult = _uiState.value is MemberCodeUiState.Read &&
+                    now - readAtEpochSeconds < READ_PATIENCE_SECONDS
+                if (!confirmed && !awaitingTapResult) {
+                    _uiState.value = MemberCodeUiState.Content(
+                        code = AttendanceCode.build(
+                            seed = seed.seed,
+                            memberRef = seed.memberRef,
+                            tenantId = seed.tenantId,
+                            counter = AttendanceCode.counterFor(now),
+                        ),
+                        secondsRemaining = AttendanceCode.secondsUntilNextCode(now),
+                        seedStale = now >= seed.expiresAtEpochSeconds,
+                    )
+                }
                 delay(TICK_MILLIS)
             }
         }
@@ -185,6 +242,20 @@ class MemberCodeViewModel @Inject constructor(
          * moment, so the extra requests cost little.
          */
         const val POLL_EVERY_TICKS = 2
+
+        /**
+         * Every ten seconds once confirmed. The only thing left to learn is a
+         * retraction, which is rare and not urgent — but a screen that can
+         * never unlearn its green tick would lie for as long as it stays open.
+         */
+        const val CONFIRMED_POLL_EVERY_TICKS = 10
+
+        /**
+         * How long "Gelesen" may hold the screen while the tap's outcome is on
+         * its way. Past that the phones have separated without an answer and
+         * the rotating code is the only useful thing to show.
+         */
+        const val READ_PATIENCE_SECONDS = 5L
     }
 }
 

@@ -454,4 +454,7 @@ class DefaultAttendanceRepository @Inject constructor(
 abstract class AttendanceModule {
     @Binds
     abstract fun bindAttendanceRepository(impl: DefaultAttendanceRepository): AttendanceRepository
+
+    @Binds
+    abstract fun bindSeedStore(impl: EncryptedSeedStore): SeedStore
 }

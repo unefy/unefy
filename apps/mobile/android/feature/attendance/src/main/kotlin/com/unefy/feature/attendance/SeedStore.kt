@@ -26,8 +26,28 @@ private data class StoredSeed(
     val expiresAt: Long,
 )
 
+/** Keeps the check-in seed across restarts. An interface so tests can fake it. */
+interface SeedStore {
+    /**
+     * Last seed read or written, for callers that cannot suspend.
+     *
+     * The NFC card service is one: `processCommandApdu` runs on the main thread
+     * and has milliseconds before the reader gives up, which is not enough to
+     * open DataStore and decrypt. Populated by [read] and [write], both of
+     * which run long before a tap.
+     */
+    val cached: AttendanceSeed?
+
+    suspend fun read(): AttendanceSeed?
+
+    suspend fun write(seed: AttendanceSeed)
+
+    /** On sign-out. The next account must not inherit the last one's code. */
+    suspend fun clear()
+}
+
 /**
- * Keeps the check-in seed across restarts, encrypted.
+ * The real store, encrypted.
  *
  * It has to be stored at all because the whole point is offline operation: a
  * member arriving at a basement range with no signal must still be able to show
@@ -37,25 +57,17 @@ private data class StoredSeed(
  * from `core:auth` rather than minting a second one.
  */
 @Singleton
-class SeedStore @Inject constructor(
+class EncryptedSeedStore @Inject constructor(
     @ApplicationContext private val context: Context,
     private val crypto: TokenCrypto,
-) {
+) : SeedStore {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Last seed read or written, for callers that cannot suspend.
-     *
-     * The NFC card service is one: `processCommandApdu` runs on the main thread
-     * and has milliseconds before the reader gives up, which is not enough to
-     * open DataStore and decrypt. Populated by [read] and [write], both of
-     * which run long before a tap.
-     */
     @Volatile
-    var cached: AttendanceSeed? = null
+    override var cached: AttendanceSeed? = null
         private set
 
-    suspend fun read(): AttendanceSeed? {
+    override suspend fun read(): AttendanceSeed? {
         val encrypted = context.seedDataStore.data.first()[KEY] ?: return null
         val plaintext = crypto.decrypt(encrypted) ?: return null
         // A stored seed that no longer parses is a format change, not a crash:
@@ -70,7 +82,7 @@ class SeedStore @Inject constructor(
         ).also { cached = it }
     }
 
-    suspend fun write(seed: AttendanceSeed) {
+    override suspend fun write(seed: AttendanceSeed) {
         val payload = json.encodeToString(
             StoredSeed(
                 memberRef = seed.memberRef,
@@ -83,8 +95,7 @@ class SeedStore @Inject constructor(
         cached = seed
     }
 
-    /** On sign-out. The next account must not inherit the last one's code. */
-    suspend fun clear() {
+    override suspend fun clear() {
         context.seedDataStore.edit { it.remove(KEY) }
         cached = null
     }
