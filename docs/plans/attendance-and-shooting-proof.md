@@ -48,9 +48,60 @@ Grenzen, bewusst in Kauf genommen:
 - Ein unbekanntes Statusbyte gilt als Ablehnung, damit eine künftige Version
   auf einem alten Gerät nicht fälschlich „eingecheckt" meldet.
 
-WebSocket als serverseitige Bestätigung für alle übrigen Fälle ist der
-vereinbarte nächste Schritt und noch nicht gebaut; bis dahin bleibt das Polling
-alle fünf Sekunden der Rückfall.
+### Serverseitige Bestätigung: umgesetzt am 2026-08-04
+
+Der vereinbarte nächste Schritt war „WebSocket"; gebaut ist er über **SSE**, weil
+inzwischen genau dafür ein Kanal existiert (`GET /api/v1/stream`, siehe
+`app/events/stream.py` — SSE statt WebSocket, weil ein fremder Reverse Proxy vor
+jeder selbst gehosteten Installation steht und `Upgrade`-Durchlass dort oft
+fehlt). Ein zweiter Kanal wäre reine Duplizierung gewesen.
+
+Der Weg ist bewusst **nicht** die Sync-Collection, obwohl die Maschinerie
+danebenliegt. Zwei Gründe, beide harte:
+
+1. **Sie wäre langsamer als das Polling, das sie ersetzt.** Ein Drain liest
+   nichts, was jünger ist als `CURSOR_SAFETY_LAG` (5 s), weshalb ein Hint auf der
+   Client-Seite einen zweiten Drain nach 6,5 s einplant (`SETTLE_DELAY_MS`). Für
+   eine Bestätigung, auf die jemand mit ausgestrecktem Arm wartet, ist das
+   unbrauchbar.
+2. **Sie wäre ein Datenleck.** Eine vereinsweite `attendance-records`-Collection,
+   die Mitglieder lesen dürfen, erzählt jedem Mitglied, wer sonst da war.
+
+Stattdessen ein **adressierter Hinweis**: `ChangeEvent.audience_user_id` trägt das
+Benutzerkonto, für das der Frame gedacht ist, und `event_stream` liefert ihn nur
+an eine Verbindung, die sich als dieses Konto ausweist. Adressierte Frames
+umgehen dabei den Rollenfilter — Adressat zu sein ist die engere Erlaubnis und
+ersetzt die Rollenprüfung, statt von ihr überstimmt zu werden. Ohne das würde ein
+Mitglied vom eigenen Check-in nie erfahren, weil `check-ins` in keiner
+Collection-Liste steht und dort auch nichts zu suchen hat.
+
+Gesendet wird bei Check-in (`upsert`) und bei Rücknahme (`delete`) — letzteres,
+damit ein grüner Haken nicht den Datensatz überlebt, auf den er sich beruft.
+Nichts gesendet wird für Gäste und für Mitglieder ohne Konto: es gibt kein Gerät.
+
+Auf der App-Seite hört der Mitglieds-Bildschirm über
+`SyncCoordinator.signals("check-ins")` mit — über den Koordinator, weil der den
+einen offenen Stream hält und eine zweite Subskription ein zweiter Socket gegen
+ein serverseitiges Limit wäre. Der Frame wird nie geglaubt: er weckt nur die
+Schleife, die ohnehin `GET /attendance/me/records` liest, also den Endpunkt, der
+auf das eigene Konto begrenzt ist. Korrektheit im Pull, Geschwindigkeit im Push.
+
+**Betriebsfalle, dabei gefunden:** Ein offener Stream blockierte den Graceful
+Shutdown unbegrenzt. Uvicorn wartet beim Beenden auf laufende Antworten, und
+`GET /api/v1/stream` endet konstruktionsgemäß nie — also hing jeder Neustart und
+jedes Deploy, solange *ein* Telefon oder Browser den Stream hielt. Das Bild ist
+kein Fehler, sondern Stille: „Reloading…", danach kein Shutdown-Log, kein
+Start-Log, ein laufender Prozess, der nichts mehr beantwortet, und ein
+Healthcheck, der rot wird. Belegt: mit angehängtem Client kam der Container nicht
+zurück, ohne Client in Sekunden. Behoben mit `--timeout-graceful-shutdown` in
+beiden Dockerfiles (5 s dev, 10 s prod). Den Stream abzuschneiden ist harmlos —
+der Client verbindet sich mit `Last-Event-ID` neu und setzt genau dort fort.
+
+**Das Polling bleibt** — alle zwei Sekunden, unverändert. Es ist der einzige Weg,
+der nichts als eine Anfrage braucht, und deckt genau die Fälle, für die der
+Stream nicht da ist: Verbindung weg, Frame in einer Reconnect-Lücke verloren,
+Telefon mitten im Tap weggezogen. Der Stream macht den guten Fall sofort, nicht
+den schlechten Fall besser.
 
 ### Warum kein NFC
 
@@ -599,6 +650,13 @@ es sonst nirgends gibt. Sie werden unter dem nächsten angemeldeten Konto
 sauber wäre, die Queue vor dem Abmelden zu leeren oder das Abmelden zu
 verweigern, solange etwas wartet.
 
+Seit der Kennzeichnung von Selbsteinträgen (2026-08-04) hängt daran mehr als die
+Zuschreibung: das Verfahren wird beim Leeren aus dem *dann* angemeldeten Konto
+abgeleitet. Ein Selbsteintrag, der unter einem anderen Konto synchronisiert wird,
+kommt als `manual` an — aus einer Selbstbestätigung wird Fremdevidenz, ohne dass
+jemand etwas gefälscht hätte. Das verschärft dasselbe offene Problem und hat
+dieselbe Lösung; ein zweiter Mechanismus wäre der falsche Weg.
+
 **Korrigieren während der Einheit** (2026-08-03). Eine Zeile in der
 Anwesenheitsliste lässt sich wegwischen. Weiterhin Soft-Delete mit
 Audit-Eintrag, weiterhin nur solange die Einheit offen ist — geändert hat sich
@@ -656,6 +714,58 @@ oder nachträglich verändert — und damit wertlos.
 **Noch offen:** Die Zahl der wartenden Check-ins steht im Scanner, *warum* eine
 Zeile abgelehnt wurde, ist nicht sichtbar. Und ein Gerät, das den Scanner noch
 nie mit Verbindung offen hatte, hat weder Einheiten- noch Mitgliederliste.
+
+### Wer checkt die Aufsicht ein? (2026-08-04)
+
+Sie selbst — und das steht jetzt am Datensatz. Vorher war das die weichste Stelle
+im ganzen Modell: Check-ins darf nur `board`+ anlegen, also kann sich die Aufsicht
+selbst abhaken, und in den Daten war dieser Eintrag von einem fremdbestätigten
+nicht zu unterscheiden. Die einzigen Personen, die Datensätze aus dem Nichts
+erzeugen können, bestätigten sich selbst, unsichtbar. Genau der Angriff, gegen den
+Stufe 0 gebaut ist, nur ohne „nachträglich".
+
+Physikalisch ist daran nichts zu ändern: QR braucht zwei Geräte, die Aufsicht hat
+eins und das ist der Leser. Sind zwei Vorstandsmitglieder da, ist gegenseitiges
+Scannen der beste Weg und funktionierte schon immer (beidseitig `staff_scan`,
+`high`). Allein bleibt nur der Selbsteintrag. Deshalb wird er nicht verboten,
+sondern **gekennzeichnet**:
+
+- **`method = "self"`, `assurance = "low"`**, abgeleitet vom Server, sobald das
+  eingecheckte Mitglied das Konto des Aufrufers ist. Der Client kann das so wenig
+  behaupten wie eine Beweisgüte.
+- Gilt **auch für einen gescannten** Selbst-Check-in, erreichbar über den eigenen
+  Code auf einem zweiten Bildschirm. Die Signatur beweist das Gerät und sonst
+  nichts; wer beide Enden hält, hat niemandem etwas bezeugt. Ohne diese Regel wäre
+  der stärkste Datensatz des Systems allein herstellbar.
+- **Beim Schreiben** entschieden, nicht später aus
+  `verified_by_user_id == members.user_id` abgeleitet. Diese Verknüpfung ist
+  veränderlich — Konto entkoppeln und ein Selbsteintrag würde stillschweigend zu
+  Fremdevidenz — und ein Datensatz über das Geschehene darf sich nicht ändern,
+  wenn sich etwas anderes ändert.
+
+**Gewertet wird er trotzdem.** Die Auswertung zählt ihn wie jeden Termin und weist
+zwei Zahlen zusätzlich aus: `self_certified_days` (Tage, die auf nichts als dem
+eigenen Wort ruhen — ein Tag zählt nicht dazu, sobald *ein* Datensatz von jemand
+anderem kommt) und `corroborated_self_days` (von diesen die Tage, an denen die
+Person **andere** eingecheckt hat). Die zweite Zahl ist die, die den ehrlichen
+Fall rettet: wer den Abend über vierzehn andere abgehakt hat, ist durch deren
+Anwesenheit belegt, und das ist stärker als jeder Haken über sich selbst. Es
+kostet keine zusätzliche Erfassung, die Daten enthalten es schon. Gäste zählen
+dabei mit — `member_id != x` wäre für Gastzeilen NULL statt wahr, deshalb
+`IS DISTINCT FROM`.
+
+Ob ein selbstbestätigter Tag für §14 zählen *darf*, ist damit nicht entschieden,
+sondern sichtbar gemacht — die Frage gehört zum Verband, wie die Schwellwerte
+selbst. Falls die Antwort „nur begrenzt" lautet, ist der Platz dafür die
+Regeltabelle, nicht der Code.
+
+**Formatänderung:** Beide Zahlen stehen auf der Bescheinigung und **im
+`content_hash`** — eine Qualifizierung, die man nachträglich wegeditieren kann,
+qualifiziert nichts. Das erweitert das gehashte Feldset, wodurch vor dieser
+Änderung ausgestellte Bescheinigungen nicht mehr nachrechenbar wären. Kostet
+nichts: es existierte keine (`select count(*) from shooting_proof_certificates` →
+0, ebenso die Kette). Nach der ersten echten Ausstellung wäre dieselbe Änderung
+nur noch mit Versionierung des Payloads machbar.
 
 **Wer darf scannen:** `owner`, `admin`, `board` — der Endpunkt hängt an
 `require_board`. **Achtung:** `attendance_sessions.supervisor_member_id` wird
