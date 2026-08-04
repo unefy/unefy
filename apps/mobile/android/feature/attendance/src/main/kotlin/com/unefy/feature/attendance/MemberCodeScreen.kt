@@ -74,6 +74,12 @@ fun MemberCodeScreen(
 ) {
     UnefyListScaffold(
         title = stringResource(R.string.attendance_code_title),
+        // The code page is a fixed arrangement that always fits; a page that
+        // moves a few pixels under the finger reads as broken.
+        userScrollEnabled = false,
+        // Mid-screen, not pinned under the header: this page is held out at
+        // arm's length, and the code belongs where the thumb and the eye meet.
+        centerContent = true,
         actions = {
             // Ahead of the account actions: on a training evening this is the
             // button a supervisor reaches for, and it belongs next to the
@@ -165,7 +171,10 @@ private fun CodeCard(state: MemberCodeUiState.Content) {
                     foreground = QR_FOREGROUND,
                     background = QR_BACKGROUND,
                     modifier = Modifier
-                        .padding(UnefySpacing.lg)
+                        // md, not lg: the quiet zone a scanner needs is four
+                        // modules, and this is comfortably more — anything
+                        // beyond it just shrinks the code.
+                        .padding(UnefySpacing.md)
                         .aspectRatio(1f),
                 )
             }

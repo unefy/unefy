@@ -109,6 +109,19 @@ fun UnefyListScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
+    /**
+     * False on screens whose content always fits — the check-in code is a
+     * fixed arrangement, and a page that gives a few pixels under the finger
+     * feels broken rather than scrollable.
+     */
+    userScrollEnabled: Boolean = true,
+    /**
+     * Centers the items in the leftover space when they are shorter than the
+     * viewport. For fixed screens like the check-in code, where content pinned
+     * under the header leaves a void below; on an actual list it would make
+     * three rows float mid-screen, so it stays off by default.
+     */
+    centerContent: Boolean = false,
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
     onLoadMore: (() -> Unit)? = null,
@@ -211,6 +224,8 @@ fun UnefyListScaffold(
                     // the Scaffold insets — the list has to clear it itself.
                     bottom = insets.calculateBottomPadding() + glassBarClearance,
                 ),
+                userScrollEnabled = userScrollEnabled,
+                verticalArrangement = if (centerContent) Arrangement.Center else Arrangement.Top,
                 content = content,
             )
 
