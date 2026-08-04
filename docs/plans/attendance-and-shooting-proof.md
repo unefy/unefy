@@ -662,5 +662,50 @@ Kontextzeilen über `expires_at` hart und ist die einzige Stelle im Code, die
 gemessen in der Zeitzone des Vereins, einschließlich weich gelöschter Zeilen.
 Fällt Redis aus, läuft der Sweep unkoordiniert statt gar nicht: die Löschung
 ist die rechtlich geschuldete Seite.
-5. **Schießsport-Modul** — `require_module`, Detailtabelle, §14-Auswertung,
-   Bescheinigung mit Prüfcode, öffentliche Prüfseite, Standbuch-Export.
+5. **Schießsport-Modul** — Backend **umgesetzt am 2026-08-04**: `require_module`,
+   Detailtabelle, §14-Auswertung, Bescheinigung mit Prüfcode, öffentliche
+   Prüfseite, Standbuch-Export. Details und Restposten unten.
+
+### Was in Schritt 5 tatsächlich gebaut wurde (2026-08-04, Backend)
+
+- **`require_module("shooting")`** (`app/dependencies.py`) löst die Module als
+  Vereinigung über `tenant_sports` → `sports.modules` auf — die erste wirksame
+  Verdrahtung des Modulkonzepts. Der Router `/api/v1/modules/shooting` hängt
+  komplett dahinter; die Rollenprüfung sitzt pro Endpunkt darüber.
+- **`shooting_record_details`** wie geplant (typisierte `weapon_category`,
+  Disziplin, Schusszahl), per PATCH-Upsert vom Vorstand gepflegt, auditiert.
+  Gastzeilen werden abgelehnt (`GUEST_RECORD`): ein Gast zählt für keinen
+  §14-Nachweis, ein Detail daran wäre Dekoration.
+- **Regeltabelle `shooting_proof_rules`** statt Zahlen im Code: `rule_key`,
+  Fenster in Monaten, zwei alternative Kriterien (`min_total_days`,
+  `min_distinct_months` — „18 Termine *oder* monatlich"). Keine Zahl in der
+  Migration; Vereine legen ihre Regeln selbst an (owner/admin).
+- **Auswertung** (`GET /proof/{member_id}?rule_key&as_of`): zählt **distinkte
+  Schießtage** im rollierenden Fenster (zwei Besuche an einem Abend sind ein
+  Termin), weich gelöschte Zeilen zählen nicht, Gäste fallen per Join heraus.
+  Einheiten einer Sparte, deren Sportart das Schießmodul **nicht** trägt,
+  zählen nicht — der Turnabend eines Turnvereins mit Schießsparte wird kein
+  Schießtermin. Spartenlose Einheiten zählen.
+- **Bescheinigung**: friert `record_ids` und `content_hash` (SHA-256 über
+  kanonisches JSON, nachrechenbar) ein, `verification_code` 12 Zeichen aus
+  verwechslungsfreiem Alphabet (~57 Bit). Widerruf nur mit Begründung,
+  auditiert (`shooting_certificate.issued`/`.revoked`). Der Nachweis überlebt
+  Korrektur und Retention-Job, weil `record_ids` bewusst keine Fremdschlüssel
+  sind.
+- **`GET /verify/{code}`** außerhalb von `/api/v1` (ein gedruckter QR muss
+  API-Versionierung überleben), unauthentifiziert, rate-limited, bewusst
+  minimal: gültig/widerrufen, Zeitraum, Anzahl, Ausstellungsdatum, Verein,
+  Name **abgekürzt** („Erika M.").
+- **Standbuch-Export** `GET /range-book?from&to` als CSV (Semikolon + BOM für
+  deutsches Excel), Gäste stehen drin — das Buch beantwortet, wer am Stand
+  war, nicht wer Disziplinen eingetragen hat.
+
+**Noch offen aus Schritt 5:**
+
+- PDF-Erzeugung (`document_ref` bleibt leer) und der QR mit Signatur gegen den
+  Vereinsschlüssel für die Offline-Prüfung.
+- Anpassbare Verbands-Formulare (DSB/BDS) über den nackten CSV-Zeilen.
+- Web-UI (Regeln pflegen, Auswertung ansehen, Bescheinigung ausstellen) und
+  die Detailerfassung im Android-Scanner.
+- Die konkreten Schwellwerte sind weiterhin mit dem Verband gegenzuprüfen —
+  die Regeltabelle macht das zur Konfiguration, nicht zur Codeänderung.
