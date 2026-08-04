@@ -186,6 +186,28 @@ class CompetitionsViewModelTest {
         assertEquals(listOf(null, "Luftgewehr", null), repository.scoreboardRequests)
     }
 
+    /** A chip over rows it did not filter would be a lie — selection rolls back. */
+    @Test
+    fun `a failed discipline load rolls the selection back`() = runTest(dispatcher) {
+        val repository = FakeCompetitionsRepository(
+            competitions = listOf(
+                competition("c-1").copy(disciplines = listOf("Luftgewehr", "KK-Pistole")),
+            ),
+            scoreboard = Scoreboard(unit = "Ringe", highestWins = true, rows = emptyList()),
+        )
+        val viewModel = scoreboardViewModel(repository)
+        viewModel.load("c-1")
+        advanceUntilIdle()
+
+        repository.scoreboardFailure = ApiError.Network(IOException("offline"))
+        viewModel.selectDiscipline("Luftgewehr")
+        advanceUntilIdle()
+
+        assertNull(viewModel.selectedDiscipline.value)
+        val state = viewModel.uiState.value as ScoreboardUiState.Content
+        assertTrue(state.refreshFailed)
+    }
+
     @Test
     fun `reselecting the current discipline does not reload`() = runTest(dispatcher) {
         val repository = FakeCompetitionsRepository(
@@ -245,7 +267,7 @@ private class FakeCompetitionsRepository(
     competitions: List<Competition> = emptyList(),
     private val hasSynced: Boolean = true,
     private val scoreboard: Scoreboard? = null,
-    private val scoreboardFailure: ApiError? = null,
+    var scoreboardFailure: ApiError? = null,
 ) : CompetitionsRepository {
 
     val rows = MutableStateFlow(competitions)

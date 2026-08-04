@@ -165,18 +165,26 @@ class ScoreboardViewModel @Inject constructor(
      * Switches the board to one discipline (null: all). Loaded as a refresh,
      * not a reload — the old ranking stays visible under the spinner instead
      * of blinking to a blank screen for every chip tap.
+     *
+     * On failure the selection rolls back: the rows still show the previous
+     * board, and a chip claiming a discipline over rows that are not filtered
+     * by it would be a lie the snackbar alone cannot repair.
      */
     fun selectDiscipline(discipline: String?) {
         if (_selectedDiscipline.value == discipline) return
+        val previous = _selectedDiscipline.value
         _selectedDiscipline.value = discipline
-        load(refreshing = true)
+        load(
+            refreshing = true,
+            onFailure = { _selectedDiscipline.compareAndSet(discipline, previous) },
+        )
     }
 
     fun onMessageShown() = _uiState.update { state ->
         (state as? ScoreboardUiState.Content)?.copy(refreshFailed = false) ?: state
     }
 
-    private fun load(refreshing: Boolean) {
+    private fun load(refreshing: Boolean, onFailure: () -> Unit = {}) {
         val id = competitionId ?: return
         val current = _uiState.value
         if (refreshing && current is ScoreboardUiState.Content) {
@@ -194,9 +202,12 @@ class ScoreboardViewModel @Inject constructor(
             _uiState.value = when (result) {
                 is ApiResult.Success -> ScoreboardUiState.Content(result.data)
 
-                is ApiResult.Failure -> (_uiState.value as? ScoreboardUiState.Content)
-                    ?.copy(isRefreshing = false, refreshFailed = true)
-                    ?: ScoreboardUiState.Failure(result.error)
+                is ApiResult.Failure -> {
+                    onFailure()
+                    (_uiState.value as? ScoreboardUiState.Content)
+                        ?.copy(isRefreshing = false, refreshFailed = true)
+                        ?: ScoreboardUiState.Failure(result.error)
+                }
             }
         }
     }
