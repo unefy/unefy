@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,6 +110,9 @@ fun ScannerRoute(
         onNfcState = viewModel::onNfcState,
         onRefresh = viewModel::refresh,
         onUndo = viewModel::undo,
+        onEditShootingDetail = viewModel::editShootingDetail,
+        onDismissShootingDetail = viewModel::dismissShootingDetail,
+        onSaveShootingDetail = viewModel::saveShootingDetail,
     )
 }
 
@@ -136,6 +140,9 @@ fun ScannerScreen(
     onNfcState: (NfcState) -> Unit = {},
     onRefresh: () -> Unit = {},
     onUndo: (CheckedInEntry) -> Unit = {},
+    onEditShootingDetail: (CheckedInEntry) -> Unit = {},
+    onDismissShootingDetail: () -> Unit = {},
+    onSaveShootingDetail: (String?, String?, Int?) -> Unit = { _, _, _ -> },
 ) {
     // The scanner is only a reader while it is on screen, so letting the phone
     // lock during an evening silently ends check-in.
@@ -163,6 +170,18 @@ fun ScannerScreen(
             TapResult.NotReady -> onTapNotReady()
             TapResult.Foreign -> Unit
         }
+    }
+
+    val editing = state.shooting?.editing
+    if (editing != null && state.shooting != null) {
+        ShootingDetailSheet(
+            entry = editing,
+            detail = state.shooting.details[editing.key],
+            disciplines = state.shooting.disciplines,
+            saving = state.shooting.saving,
+            onSave = onSaveShootingDetail,
+            onDismiss = onDismissShootingDetail,
+        )
     }
 
     if (state.manual.open) {
@@ -228,6 +247,7 @@ fun ScannerScreen(
                 onSelectSession = onSelectSession,
                 bindCamera = bindCamera,
                 onUndo = onUndo,
+                onEditShootingDetail = onEditShootingDetail,
             )
         }
     }
@@ -240,6 +260,7 @@ private fun LazyListScope.scannerContent(
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
     onUndo: (CheckedInEntry) -> Unit,
+    onEditShootingDetail: (CheckedInEntry) -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -368,7 +389,20 @@ private fun LazyListScope.scannerContent(
                 }
             },
         ) {
-            AttendanceRow(entry)
+            AttendanceRow(
+                entry = entry,
+                detail = state.shooting?.details?.get(entry.key),
+                disciplines = state.shooting?.disciplines.orEmpty(),
+                // A guest has no member record, so the server refuses a detail
+                // on it; a pending row has no record id yet to hang one on.
+                onEdit = if (
+                    state.shooting != null && !entry.pending && entry.memberId != null
+                ) {
+                    { onEditShootingDetail(entry) }
+                } else {
+                    null
+                },
+            )
         }
         UnefyRowDivider()
     }
@@ -462,10 +496,26 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
 }
 
 @Composable
-private fun AttendanceRow(entry: CheckedInEntry) {
+private fun AttendanceRow(
+    entry: CheckedInEntry,
+    detail: ShootingDetail?,
+    disciplines: List<ClubDiscipline>,
+    /** Null when this row cannot carry a shooting detail — see the call site. */
+    onEdit: (() -> Unit)?,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (onEdit != null) {
+                    Modifier.clickable(
+                        onClickLabel = stringResource(R.string.shooting_edit),
+                        onClick = onEdit,
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
         horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
@@ -480,8 +530,43 @@ private fun AttendanceRow(entry: CheckedInEntry) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // Only when something was entered. An empty line under every row
+            // would make the list twice as tall to say nothing.
+            val summary = shootingSummary(detail, disciplines)
+            if (summary != null) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
+}
+
+/**
+ * The three shooting fields on one line, or null when there is nothing to say.
+ *
+ * Short names where the club set one: "LG 10m" is what the range book prints and
+ * what the supervisor recognises, and the full name would push the round count off
+ * a phone screen.
+ */
+@Composable
+private fun shootingSummary(
+    detail: ShootingDetail?,
+    disciplines: List<ClubDiscipline>,
+): String? {
+    if (detail == null) return null
+    val discipline = disciplines.firstOrNull { it.id == detail.clubDisciplineId }
+    val parts = listOfNotNull(
+        discipline?.shortName ?: discipline?.name,
+        detail.weaponCategory?.let { weaponLabel(it) },
+        detail.roundsFired?.let { count ->
+            pluralStringResource(R.plurals.shooting_rounds_short, count, count)
+        },
+    )
+    return parts.joinToString(" · ").ifBlank { null }
 }
 
 /**

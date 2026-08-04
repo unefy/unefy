@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -40,6 +41,26 @@ class ApiClient @Inject constructor(
         crossinline block: HttpRequestBuilder.() -> Unit = {},
     ): ApiResult<T> = execute {
         httpClient.post(path) {
+            contentType(ContentType.Application.Json)
+            if (body != null) setBody(body)
+            block()
+        }
+    }
+
+    /**
+     * The first PATCH in the app, for a partial update.
+     *
+     * Separate from [post] rather than a verb parameter: the two differ in what
+     * they mean, not only in a string. A POST creates and repeating it creates
+     * again; a PATCH sets the fields it names and repeating it is harmless. Only
+     * one of them may be retried without asking.
+     */
+    suspend inline fun <reified T> patch(
+        path: String,
+        body: Any? = null,
+        crossinline block: HttpRequestBuilder.() -> Unit = {},
+    ): ApiResult<T> = execute {
+        httpClient.patch(path) {
             contentType(ContentType.Application.Json)
             if (body != null) setBody(body)
             block()

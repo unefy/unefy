@@ -55,6 +55,23 @@
          two devices and this one is the reader — so the row says so rather than
          reading like a record somebody else made. -->
     <string name="scanner_row_self">Selbst eingetragen</string>
+    <!-- Shooting details: only reachable for a club whose sports carry the
+         shooting module. -->
+    <string name="shooting_sheet_hint">Disziplin, Waffenart und Schusszahl für diesen Abend. Steht danach im Standbuch.</string>
+    <string name="shooting_discipline">Disziplin</string>
+    <string name="shooting_weapon">Waffenart</string>
+    <string name="shooting_rounds">Schüsse</string>
+    <string name="shooting_none">Keine Angabe</string>
+    <string name="shooting_save">Speichern</string>
+    <string name="shooting_saving">Speichert …</string>
+    <string name="shooting_weapon_kurzwaffe">Kurzwaffe</string>
+    <string name="shooting_weapon_langwaffe">Langwaffe</string>
+    <string name="shooting_weapon_luftdruck">Luftdruck</string>
+    <string name="shooting_edit">Schießdetails eintragen</string>
+    <plurals name="shooting_rounds_short">
+        <item quantity="one">%1$d Schuss</item>
+        <item quantity="other">%1$d Schüsse</item>
+    </plurals>
     <string name="scanner_row_pending">Wartet auf Verbindung</string>
     <string name="scanner_permission_title">Kamera nötig</string>
     <string name="scanner_permission_body">Zum Scannen der Mitglieds-Codes braucht die App Zugriff auf die Kamera.</string>
