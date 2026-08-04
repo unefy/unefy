@@ -98,12 +98,22 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             push_task = asyncio.create_task(run_push_fanout(get_redis(), sender, consumer))
             logger.info("push_fanout_started", consumer=consumer)
 
+    # Retention runs unconditionally — unlike push it needs no external account,
+    # and a deployment that never deletes expired context rows is violating its
+    # own privacy policy from day one.
+    from app.redis import get_redis
+    from app.tasks.retention import run_retention_loop
+
+    retention_task = asyncio.create_task(run_retention_loop(get_redis()))
+    logger.info("retention_loop_started")
+
     yield
 
-    if push_task is not None:
-        push_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await push_task
+    for task in (push_task, retention_task):
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     await close_redis()
     logger.info("redis_disconnected")
