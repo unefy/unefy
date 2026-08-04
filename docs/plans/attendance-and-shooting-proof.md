@@ -836,7 +836,42 @@ ist die rechtlich geschuldete Seite.
   `rule_key` nach dem Anlegen eingefroren). Die Sidebar filtert jetzt nach
   Modulen des Vereins (`Club.modules`, neu im Web-Typ) und Rollen — ein
   Verein ohne Schießsportart sieht die Sektion nicht.
-- Die Detailerfassung (Disziplin, Waffenart, Schusszahl) im Android-Scanner
-  und im Web an der Anwesenheitsliste.
+- ~~Die Detailerfassung (Disziplin, Waffenart, Schusszahl)~~ — **umgesetzt am
+  2026-08-05**, im Web an der Anwesenheitsliste und im Android-Scanner.
+
+  Vorher fehlte der **Lesepfad**: es gab nur PATCH, also hätte jedes Formular
+  blind geschrieben — Werte setzen, aber nie zeigen, was schon auf einer Zeile
+  steht, und jede Bearbeitung hätte Unsichtbares überschrieben. Neu
+  `GET /modules/shooting/records?session_id=…`, eine Anfrage je Einheit statt
+  je Zeile. Bewusst **am Modul** und nicht in die Anwesenheitsantwort gefaltet,
+  obwohl das dem Aufrufer eine Anfrage sparen würde: `AttendanceRecordResponse`
+  gehört zum Kern, den jeder Verein hat, die Disziplin zu einem Modul, das die
+  meisten nicht haben. Genau das hält die Modulgrenze davon ab, Dekoration zu
+  sein. Weich gelöschte Datensätze fallen heraus — der Trail beantwortet, was
+  eingetragen und zurückgenommen wurde, die Liste beantwortet, wer jetzt
+  draufsteht.
+
+  Gastzeilen bieten beide Oberflächen nicht an: der Server lehnt sie ab
+  (`GUEST_RECORD`), und ein Knopf, der immer scheitert, ist schlechter als
+  keiner. Im Web eine kompakte Zelle plus Dialog (drei dünne Spalten lesen sich
+  schlechter als eine dichte), in der App eine Sheet an der Eingecheckt-Liste,
+  aus demselben Grund wie beim Handzettel: die Aufsicht steht am Tisch und ein
+  eigenes Ziel würde „Erika hat vierzig Schuss Luftgewehr" durch die Navigation
+  schicken.
+
+  **In der App bewusst nur online.** Ein Check-in wird an der Tür genommen und
+  kann nicht auf Verbindung warten — dafür gibt es die Queue. Was jemand
+  geschossen hat, wird danach am Standtisch eingetragen; eine zweite
+  Schreib-Queue mit eigenen Konfliktregeln würde mehr kosten als sie bringt.
+
+  Nebenbei zwei Dinge, die erst dadurch erreichbar wurden und deshalb falsch
+  waren: die Audit-Aktion `shooting_record_detail.updated` hatte kein Label
+  (Rohschlüssel im Protokoll), und das Standbuch druckte `kurzwaffe` und
+  `manual` als Rohschlüssel unter deutschen Spaltenköpfen. Unbekannte Schlüssel
+  gehen unverändert durch, statt zu leeren Zellen zu werden.
+
+  **Noch nicht auf dem Gerät gesehen:** die App-Sheet ist kompiliert,
+  Vertragsschicht getestet und mutationsgeprüft, die APK md5-verifiziert auf
+  SM-S936B installiert — angetippt hat sie noch niemand.
 - Die konkreten Schwellwerte sind weiterhin mit dem Verband gegenzuprüfen —
   die Regeltabelle macht das zur Konfiguration, nicht zur Codeänderung.
