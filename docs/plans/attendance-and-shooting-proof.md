@@ -648,9 +648,9 @@ jede offene Einheit scannen; wer bestätigt hat, steht in
 `verified_by_user_id`. Ob die eingetragene Standaufsicht die einzige sein soll,
 die scannen darf, ist noch nicht entschieden.
 
-**Noch nicht verifiziert:** ein echter Kamerascan eines echten Mitglieds-QR.
-Beide Seiten liefen auf demselben Telefon; dafür braucht es zwei Geräte.
-`QrAnalyzer` ist damit der einzige ungetestete Pfad der Kette.
+**Verifiziert (2026-08-04):** ein echter Kamerascan eines echten Mitglieds-QR
+mit zwei Geräten funktioniert. Damit ist auch `QrAnalyzer` auf echter Hardware
+gelaufen — die Kette hat keinen ungetesteten Pfad mehr.
 
 **Offen aus diesem Schritt:** der Löschjob über
 `attendance_checkin_contexts.expires_at` fehlt weiterhin — die Spalte und
