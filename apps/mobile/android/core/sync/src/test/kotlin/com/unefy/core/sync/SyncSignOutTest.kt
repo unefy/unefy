@@ -4,6 +4,7 @@ import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncCursorEntity
 import com.unefy.core.database.SyncTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonElement
@@ -155,6 +156,8 @@ private class FakeCursors(
 }
 
 private class RecordingCoordinator : SyncCoordinator {
+    override fun signals(entity: String): Flow<ChangeHint> = emptyFlow()
+
     var forgotten = false
 
     override fun status(collection: String): Flow<SyncStatus> = flowOf(SyncStatus.Idle)

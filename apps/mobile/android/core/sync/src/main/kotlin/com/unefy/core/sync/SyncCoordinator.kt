@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -45,6 +46,26 @@ interface SyncCoordinator {
 
     /** What a screen can say about one collection's freshness. */
     fun status(collection: String): Flow<SyncStatus>
+
+    /**
+     * The doorbell itself, for the hints that are not about a mirrored collection.
+     *
+     * The check-in confirmation is the reason this exists. It cannot go through
+     * [request]: a drain is deliberately served after the server's cursor watermark
+     * has moved past the change (see [SETTLE_DELAY_MS], six and a half seconds),
+     * which is slower than the two-second poll it is meant to replace. What that
+     * screen needs is the *news*, immediately, and it re-reads its own endpoint
+     * itself.
+     *
+     * Routed through here rather than by collecting [ChangeStream] directly so the
+     * app keeps **one** stream. A second subscription would be a second socket
+     * against a server that caps them per user, and would double the reconnect
+     * traffic to learn the same thing twice.
+     *
+     * Hot: hints that arrive while nobody collects are gone, which is correct for a
+     * doorbell — a missed one costs the latency of the next poll, never data.
+     */
+    fun signals(entity: String): Flow<ChangeHint>
 
     /**
      * Asks for a drain of one collection, to happen shortly. Returns immediately.
@@ -130,9 +151,22 @@ class DefaultSyncCoordinator @Inject constructor(
      */
     private val wakeup = Channel<Unit>(Channel.CONFLATED)
 
+    /**
+     * Re-emits what the single stream delivers, so more than one thing can listen.
+     *
+     * No replay and a small buffer: a doorbell is only interesting while somebody
+     * is at the door. `tryEmit` from the collector means a listener that has
+     * stopped reading cannot slow the stream down — it just misses hints, and the
+     * poll behind it covers that.
+     */
+    private val doorbell = MutableSharedFlow<ChangeHint>(extraBufferCapacity = 16)
+
     override fun status(collection: String): Flow<SyncStatus> = statuses
         .map { it[collection] ?: SyncStatus.Idle }
         .distinctUntilChanged()
+
+    override fun signals(entity: String): Flow<ChangeHint> =
+        doorbell.filter { it.entity == entity }
 
     /**
      * Asks for a drain of one collection, to happen shortly. Returns immediately.
@@ -172,6 +206,11 @@ class DefaultSyncCoordinator @Inject constructor(
             // entirely, the app is still correct — just no longer instant.
             runCatching {
                 changeStream.hints().collect { hint ->
+                    // Both, and in this order. A hint may be a mirrored
+                    // collection, an addressed signal, or a collection this app
+                    // does not mirror yet; `request` ignores what it does not
+                    // know and `doorbell` ignores what nobody listens for.
+                    doorbell.tryEmit(hint)
                     request(listOf(hint.entity), settle = true)
                 }
             }

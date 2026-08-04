@@ -2,6 +2,8 @@ package com.unefy.feature.attendance
 
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.core.sync.ChangeHint
+import com.unefy.core.testing.FakeCoordinator
 import androidx.lifecycle.viewModelScope
 import com.unefy.feature.attendance.nfc.CardEvent
 import com.unefy.feature.attendance.nfc.CheckInApdu
@@ -51,6 +53,7 @@ class MemberCodeViewModelTest {
      */
     private inline fun withViewModel(
         repository: FakeAttendanceRepository,
+        coordinator: FakeCoordinator = FakeCoordinator(),
         block: (MemberCodeViewModel) -> Unit,
     ) {
         val viewModel = MemberCodeViewModel(
@@ -58,6 +61,7 @@ class MemberCodeViewModelTest {
             seedStore = FakeSeedStore(),
             clock = clock(),
             nfcSignals = signals,
+            coordinator = coordinator,
         )
         try {
             block(viewModel)
@@ -147,6 +151,80 @@ class MemberCodeViewModelTest {
         }
     }
 
+    /**
+     * The server-side instant path, for the case NFC cannot serve: a camera scan.
+     *
+     * What makes this worth the machinery is the timing. The poll reads again two
+     * seconds after the last one, so a scan just after a read left the member
+     * holding a code that had already been accepted — long enough to look broken
+     * and to make the supervisor scan again. Here the news arrives 900 ms in, well
+     * before the next scheduled read, and the screen turns over at once.
+     */
+    @Test
+    fun `a signal confirms the screen before the next poll would`() = runTest(dispatcher) {
+        val repository = FakeAttendanceRepository(ownCheckIn = ApiResult.Success(null))
+        val coordinator = FakeCoordinator()
+        withViewModel(repository, coordinator) { viewModel ->
+            runCurrent()
+            assertTrue(viewModel.uiState.value is MemberCodeUiState.Content)
+
+            // The supervisor scans the code on their own phone…
+            repository.ownCheckIn =
+                ApiResult.Success(OwnCheckIn("Training", checkedInAtEpochSeconds = 0))
+            advanceTimeBy(900)
+            runCurrent()
+            // …not yet: 900 ms in, the poll's next read is still 1.1 s away.
+            assertTrue(viewModel.uiState.value is MemberCodeUiState.Content)
+
+            coordinator.hints.tryEmit(
+                ChangeHint(entity = CHECK_IN_SIGNAL, id = "record-1", op = "upsert"),
+            )
+            runCurrent()
+
+            assertEquals(MemberCodeUiState.Confirmed("Training"), viewModel.uiState.value)
+        }
+    }
+
+    /**
+     * The frame is a doorbell, not evidence.
+     *
+     * It carries no authorisation and this app never checks who it was addressed
+     * to — the server did that. So a hint may only ever cause a re-read of the
+     * endpoint scoped to this account. If the answer is "no check-in", the screen
+     * keeps showing the code, however loudly the stream rang.
+     */
+    @Test
+    fun `a signal alone confirms nothing`() = runTest(dispatcher) {
+        val repository = FakeAttendanceRepository(ownCheckIn = ApiResult.Success(null))
+        val coordinator = FakeCoordinator()
+        withViewModel(repository, coordinator) { viewModel ->
+            runCurrent()
+
+            coordinator.hints.tryEmit(
+                ChangeHint(entity = CHECK_IN_SIGNAL, id = "record-1", op = "upsert"),
+            )
+            runCurrent()
+
+            assertTrue(viewModel.uiState.value is MemberCodeUiState.Content)
+        }
+    }
+
+    /** Hints about everything else in the club are none of this screen's business. */
+    @Test
+    fun `a hint about another collection is ignored`() = runTest(dispatcher) {
+        val repository = FakeAttendanceRepository(ownCheckIn = ApiResult.Success(null))
+        val coordinator = FakeCoordinator()
+        withViewModel(repository, coordinator) { viewModel ->
+            runCurrent()
+            repository.reads = 0
+
+            coordinator.hints.tryEmit(ChangeHint(entity = "members", id = "m1", op = "upsert"))
+            runCurrent()
+
+            assertEquals(0, repository.reads)
+        }
+    }
+
     @Test
     fun `a rejected tap returns the screen to the code`() = runTest(dispatcher) {
         val repository = FakeAttendanceRepository(ownCheckIn = ApiResult.Success(null))
@@ -183,7 +261,13 @@ private class FakeSeedStore : SeedStore {
 private class FakeAttendanceRepository(
     var ownCheckIn: ApiResult<OwnCheckIn?>,
 ) : AttendanceRepository {
-    override suspend fun latestOwnCheckIn() = ownCheckIn
+    /** Counted, so a test can assert that nothing was read at all. */
+    var reads = 0
+
+    override suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?> {
+        reads++
+        return ownCheckIn
+    }
 
     override suspend fun seed(): ApiResult<AttendanceSeed> =
         error("the stored seed should have answered")

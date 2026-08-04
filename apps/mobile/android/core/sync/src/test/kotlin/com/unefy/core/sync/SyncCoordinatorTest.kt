@@ -43,6 +43,69 @@ class SyncCoordinatorTest {
         connectivity = ConnectivityMonitor { online },
     )
 
+    /**
+     * The doorbell, re-emitted for listeners that are not mirrors.
+     *
+     * The member's check-in screen needs the news itself, not a drain: a drain is
+     * held back until the server's cursor watermark has moved, which is slower than
+     * the poll it replaces. Routed through here so the app keeps one stream instead
+     * of opening a second socket to hear the same frames.
+     */
+    @Test
+    fun `an addressed hint reaches a listener`() = runTest {
+        val job = launch { coordinator.run() }
+        advanceUntilIdle()
+
+        val heard = mutableListOf<ChangeHint>()
+        val listener = launch { coordinator.signals("check-ins").collect { heard += it } }
+        advanceUntilIdle()
+
+        hints.emit(ChangeHint(entity = "check-ins", id = "record-1", op = "upsert"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("record-1"), heard.map { it.id })
+        listener.cancelAndJoin()
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a listener hears only its own entity`() = runTest {
+        val job = launch { coordinator.run() }
+        advanceUntilIdle()
+
+        val heard = mutableListOf<ChangeHint>()
+        val listener = launch { coordinator.signals("check-ins").collect { heard += it } }
+        advanceUntilIdle()
+
+        hints.emit(ChangeHint(entity = "members", id = "m1", op = "upsert"))
+        advanceUntilIdle()
+
+        assertTrue(heard.isEmpty())
+        listener.cancelAndJoin()
+        job.cancelAndJoin()
+    }
+
+    /**
+     * An addressed hint is not a collection, and must not be treated as one.
+     *
+     * `check-ins` has no `/sync/check-ins` to drain and must never get one — a
+     * member may know about their own attendance, not about everybody else's. The
+     * coordinator's existing "unknown names are ordinary" rule is what makes that
+     * safe, and this pins it.
+     */
+    @Test
+    fun `an addressed hint drains nothing`() = runTest {
+        val job = launch { coordinator.run() }
+        advanceUntilIdle()
+        val baseline = engine.syncs
+
+        hints.emit(ChangeHint(entity = "check-ins", id = "record-1", op = "upsert"))
+        advanceTimeBy(10_000)
+
+        assertEquals(baseline, engine.syncs)
+        job.cancelAndJoin()
+    }
+
     @Test
     fun `a burst of hints about one collection produces one sync`() = runTest {
         val job = launch { coordinator.run() }

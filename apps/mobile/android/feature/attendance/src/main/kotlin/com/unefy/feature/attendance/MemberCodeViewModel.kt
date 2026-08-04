@@ -4,17 +4,30 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.core.sync.SyncCoordinator
 import com.unefy.feature.attendance.nfc.CardEvent
 import com.unefy.feature.attendance.nfc.CheckInApdu
 import com.unefy.feature.attendance.nfc.NfcCheckInSignals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * Entity name of the addressed hint this screen listens for.
+ *
+ * The contract with `CHECK_IN_SIGNAL` in backend/app/services/attendance.py. Not a
+ * sync collection and deliberately not one: there is no `/sync/check-ins` to drain,
+ * because a member may know about their own attendance and not about anyone else's.
+ * The frame is addressed to one account on the server side; this app never has to
+ * check that it was meant for it.
+ */
+internal const val CHECK_IN_SIGNAL = "check-ins"
 
 sealed interface MemberCodeUiState {
     data object Loading : MemberCodeUiState
@@ -62,6 +75,7 @@ class MemberCodeViewModel @Inject constructor(
     private val seedStore: SeedStore,
     private val clock: AttendanceClock,
     private val nfcSignals: NfcCheckInSignals,
+    private val coordinator: SyncCoordinator,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<MemberCodeUiState>(MemberCodeUiState.Loading)
@@ -84,8 +98,33 @@ class MemberCodeViewModel @Inject constructor(
     /** When the code last left over NFC, so [start]'s loop can hold Read briefly. */
     private var readAtEpochSeconds = 0L
 
+    /**
+     * Cuts the current tick short, so the loop polls now instead of on schedule.
+     *
+     * Conflated: it says "there is news", and two of those mean what one means.
+     *
+     * A channel rather than a second coroutine that polls by itself. The state here
+     * — has a tap confirmed, has the server ever admitted the record, is the screen
+     * holding [MemberCodeUiState.Read] — is a small state machine, and two
+     * coroutines writing it would interleave on the two suspension points inside a
+     * poll. Waking the one owner keeps it a state machine.
+     */
+    private val wake = Channel<Unit>(Channel.CONFLATED)
+
     init {
         start()
+
+        // The server-side half of the same idea as the tap: the check-in happens on
+        // the supervisor's phone, so this one is told about it. Only the news, not
+        // the record — the poll below re-reads the endpoint that is scoped to this
+        // account, so nothing is ever believed on the strength of a stream frame.
+        //
+        // Not a replacement for the poll. The stream needs a connection, and the
+        // range in the basement is exactly where it will not be there; the poll is
+        // what still works, and this is what makes the good case instant.
+        viewModelScope.launch {
+            coordinator.signals(CHECK_IN_SIGNAL).collect { wake.trySend(Unit) }
+        }
 
         // The instant path. A tap tells this phone directly, in the same
         // second and without a server — which is the only way the confirmation
@@ -134,6 +173,7 @@ class MemberCodeViewModel @Inject constructor(
             // not the confirmation of what is about to happen.
             val openedAt = clock.epochSeconds()
             var tick = 0
+            var woken = false
 
             // Ticks once a second rather than once per window: the countdown is
             // what tells a member the code is live rather than a frozen image,
@@ -144,16 +184,19 @@ class MemberCodeViewModel @Inject constructor(
             while (isActive) {
                 val now = clock.epochSeconds()
 
-                // The fallback, for a QR scan or a phone without NFC. Polled
-                // rather than pushed because FCM is not built; offline it
-                // simply fails and the code stays up. A tap does not wait for
-                // this — it arrives through nfcSignals immediately.
+                // The fallback under both instant paths, and still the only one
+                // that needs nothing but a request: a tap answers through
+                // nfcSignals, a camera scan through the change stream, and this
+                // catches the case where neither arrived — a stream that is down,
+                // a frame lost in a reconnect gap, a phone pulled away mid-tap.
+                // Offline it simply fails and the code stays up.
                 val cadence = if (tapConfirmed || seenOnServer) {
                     CONFIRMED_POLL_EVERY_TICKS
                 } else {
                     POLL_EVERY_TICKS
                 }
-                if (tick++ % cadence == 0) {
+                val due = tick++ % cadence == 0
+                if (due || woken) {
                     val result = repository.latestOwnCheckIn()
                     // Only a definite answer moves anything. A failed poll is a
                     // dead network, not a missing check-in.
@@ -192,7 +235,9 @@ class MemberCodeViewModel @Inject constructor(
                         seedStale = now >= seed.expiresAtEpochSeconds,
                     )
                 }
-                delay(TICK_MILLIS)
+                // A tick, unless the doorbell rings first. That is the whole
+                // difference between "within two seconds" and "now".
+                woken = withTimeoutOrNull(TICK_MILLIS) { wake.receive() } != null
             }
         }
     }

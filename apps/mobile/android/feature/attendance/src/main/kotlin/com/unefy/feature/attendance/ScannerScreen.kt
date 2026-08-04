@@ -2,6 +2,7 @@ package com.unefy.feature.attendance
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
@@ -475,20 +476,31 @@ private fun AttendanceRow(entry: CheckedInEntry) {
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(
-                text = stringResource(
-                    if (entry.pending) {
-                        R.string.scanner_row_pending
-                    } else if (entry.method == "staff_scan") {
-                        R.string.scanner_row_scanned
-                    } else {
-                        R.string.scanner_row_manual
-                    },
-                ),
+                text = stringResource(rowLabelFor(entry)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+/**
+ * How one checked-in row describes itself.
+ *
+ * Three answers where there used to be two, and the third is why this is a
+ * function now: a self-entry — the supervisor's own attendance — used to fall into
+ * the `else` and read as "Von Hand", i.e. as a record somebody else had made. That
+ * is the one thing it is not, and the whole reason the server marks it.
+ *
+ * "Wartet" wins over the method because for a queued row the method is still the
+ * app's guess; the server has not spoken yet.
+ */
+@StringRes
+internal fun rowLabelFor(entry: CheckedInEntry): Int = when {
+    entry.pending -> R.string.scanner_row_pending
+    entry.method == "self" -> R.string.scanner_row_self
+    entry.method == "staff_scan" -> R.string.scanner_row_scanned
+    else -> R.string.scanner_row_manual
 }
 
 @Composable

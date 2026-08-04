@@ -19,6 +19,10 @@ dependencies {
     // The offline check-in queue: a check-in taken without a connection exists
     // nowhere else until it syncs.
     implementation(project(":core:database"))
+    // Not for a mirror — attendance has none. The check-in confirmation listens to
+    // the change stream the coordinator already holds open, so the member's phone
+    // hears about a check-in made on somebody else's device.
+    implementation(project(":core:sync"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -49,6 +53,8 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+    // FakeCoordinator, so the doorbell can be rung without a socket.
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     // The pick-list test runs the real ApiClient against a mock engine, so the
     // "no network once mirrored" claim counts actual requests.
