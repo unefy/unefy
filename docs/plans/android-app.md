@@ -167,9 +167,17 @@ Regeln.
   `PUSH_ENABLED`/Credentials antwortet der Server 503 `PUSH_DISABLED` und der
   Client latcht. Beide Build-Varianten (mit/ohne `google-services.json`)
   bauen; ein Fork ohne Firebase verliert nur den Hintergrund-Weckruf.
-- **Die App ist fast nur lesend.** Außer der eigenen Terminanmeldung gibt es
-  kein Anlegen oder Bearbeiten — keine Mitglieder, keine Termine, keine
-  Wettkämpfe. Für Vorstandsrollen ist das die auffälligste Lücke.
+- **Die App ist fast nur lesend.** Ausnahmen: die eigene Terminanmeldung und
+  seit 2026-08-04 die Registrierungsverwaltung im Termin-Detail für BOARD+
+  (Mitglied anmelden per BottomSheet-Pickliste aus dem Mitglieder-Spiegel,
+  Teilnehmer entfernen mit Bestätigung; Warteliste rückt serverseitig nach).
+  Beim Bauen im Backend gefunden und behoben: Wieder-Anmelden nach Abmelden
+  war ein 500 (Unique-Constraint sieht soft-gelöschte Zeilen, der
+  Duplikat-Check nicht — die Zeile wird jetzt reaktiviert), und der
+  Anmeldeschluss gilt nur noch für die Selbstanmeldung, nicht für den
+  Vorstand. Achtung Vokabular: der Registrierungsstatus heißt serverseitig
+  `waitlist`, nicht `waitlisted`. Weiterhin kein Anlegen/Bearbeiten von
+  Mitgliedern, Terminen oder Wettkämpfen.
 - **Auth.** Nur der Dev-Weg. Google OAuth (Custom Tabs), Passkeys (Credential
   Manager) und biometrisches Entsperren fehlen.
 - **Anwesenheit.** Das Backend hat Sessions und Check-in (Commit `8897d40`), die
