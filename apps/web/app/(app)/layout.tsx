@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { getSession, getTenants } from "@/lib/auth"
+import { getClub } from "@/lib/club"
 import { cn } from "@/lib/utils"
 
 export default async function AppLayout({
@@ -27,7 +28,13 @@ export default async function AppLayout({
     redirect("/onboarding")
   }
 
-  const [tenants, cookieStore] = await Promise.all([getTenants(), cookies()])
+  // Modules gate nav sections (e.g. Schießsport). Failing open with none:
+  // a club read hiccup must not blank the whole shell, only module entries.
+  const [tenants, cookieStore, club] = await Promise.all([
+    getTenants(),
+    cookies(),
+    getClub().catch(() => null),
+  ])
 
   // The sidebar writes its collapsed state to this cookie, so the server can
   // render the correct width immediately and avoid a layout shift.
@@ -38,7 +45,11 @@ export default async function AppLayout({
       {/* One change stream for the whole shell — see the component for why here. */}
       <LiveUpdates />
       <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar session={session} tenants={tenants} />
+        <AppSidebar
+          session={session}
+          tenants={tenants}
+          modules={club?.modules ?? []}
+        />
         <SidebarInset
           className={cn(
             "@container/content",

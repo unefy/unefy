@@ -30,4 +30,11 @@ export type Club = {
 
   /** IANA name, e.g. "Europe/Berlin". The club's calendar day. */
   timezone: string
+
+  /**
+   * Modules activated by the club's sports (union over `sports.modules`),
+   * e.g. `["shooting"]`. Gates module sections in nav and pages — the backend
+   * enforces the same gate on every module endpoint.
+   */
+  modules: string[]
 }

@@ -22,7 +22,10 @@
     "settings": "Einstellungen",
     "settingsAccess": "Zugänge",
     "attendance": "Anwesenheit",
-    "settingsGeneral": "Allgemein"
+    "settingsGeneral": "Allgemein",
+    "shooting": "Schießsport",
+    "shootingProof": "Nachweis",
+    "shootingRules": "Regeln"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -713,5 +716,151 @@
     },
     "timezoneCommon": "Häufig",
     "timezoneAll": "Alle Zeitzonen"
+  },
+  "shooting": {
+    "title": "Schießsport",
+    "description": "{count, plural, =0 {Noch keine Bescheinigung} one {# Bescheinigung} other {# Bescheinigungen}} ausgestellt.",
+    "proof": {
+      "title": "§14-Nachweis prüfen",
+      "hint": "Die Auswertung zählt Schießtage im Zeitfenster der Regel. Sie schlägt nur vor — ausgestellt wird per Klick, von dir.",
+      "rule": "Regel",
+      "noRules": "Noch keine Regel angelegt. Lege zuerst unter „Regeln“ fest, was gezählt wird.",
+      "memberPlaceholder": "Mitglied suchen – Name oder Nummer …",
+      "pick": "Auswählen",
+      "changeMember": "Ändern",
+      "evaluate": "Prüfen",
+      "issue": "Bescheinigung ausstellen",
+      "result": "Ergebnis",
+      "passed": "Erfüllt",
+      "failed": "Nicht erfüllt",
+      "period": "Zeitraum",
+      "sessionCount": "Schießtage",
+      "monthsCovered": "Monate mit Training",
+      "issuedToast": "Bescheinigung ausgestellt.",
+      "errors": {
+        "conflict": "Konflikt — bitte Seite neu laden.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Mitglied oder Regel nicht gefunden.",
+        "validation": "Eingaben bitte prüfen.",
+        "unknown": "Unerwarteter Fehler.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    },
+    "certificates": {
+      "title": "Bescheinigungen",
+      "searchPlaceholder": "Mitglied, Regel oder Prüfcode …",
+      "empty": "Noch keine Bescheinigung ausgestellt.",
+      "passed": "Erfüllt",
+      "failed": "Nicht erfüllt",
+      "valid": "Gültig",
+      "revoked": "Widerrufen",
+      "columns": {
+        "issuedAt": "Ausgestellt",
+        "member": "Mitglied",
+        "rule": "Regel",
+        "period": "Zeitraum",
+        "sessions": "Schießtage",
+        "result": "Ergebnis",
+        "status": "Status",
+        "code": "Prüfcode"
+      }
+    },
+    "revoke": {
+      "action": "Widerrufen",
+      "title": "Bescheinigung von {name} widerrufen?",
+      "description": "Der Widerruf wird protokolliert und ist auf der öffentlichen Prüfseite sofort sichtbar. Er lässt sich nicht rückgängig machen.",
+      "reason": "Begründung",
+      "reasonPlaceholder": "Warum wird widerrufen? (mind. 3 Zeichen)",
+      "cancel": "Abbrechen",
+      "revoking": "Widerrufe …",
+      "revokedToast": "Bescheinigung widerrufen.",
+      "errors": {
+        "conflict": "Bereits widerrufen.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Bescheinigung nicht gefunden.",
+        "validation": "Begründung bitte prüfen (mind. 3 Zeichen).",
+        "unknown": "Unerwarteter Fehler.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    },
+    "chain": {
+      "title": "Beweiskette",
+      "hint": "Jeder Abschluss, jede Bescheinigung und jeder Nachtrag hängt ein Kettenglied an. Bricht die Kette, wurde die Historie verändert.",
+      "emptyBadge": "Noch leer",
+      "validBadge": "Intakt",
+      "brokenBadge": "Gebrochen",
+      "length": "Kettenglieder",
+      "brokenAt": "Gebrochen bei Glied",
+      "anchor": "Externer Zeitstempel",
+      "anchoredAt": "bis Glied {seq}, {at}",
+      "noAnchor": "Noch keiner — Zeitstempeldienst nicht konfiguriert."
+    },
+    "rangeBook": {
+      "title": "Standbuch",
+      "hint": "Export als CSV (Semikolon, für Excel) — wer wann am Stand war, mit Disziplin, Waffenart und Aufsicht.",
+      "from": "Von",
+      "to": "Bis",
+      "download": "Herunterladen"
+    },
+    "rules": {
+      "title": "Regeln",
+      "description": "Was als Nachweis zählt, ist Konfiguration — Schwellen unterscheiden sich je Verband und Behörde.",
+      "empty": "Noch keine Regel angelegt.",
+      "windowValue": "{months} Monate",
+      "columns": {
+        "ruleKey": "Schlüssel",
+        "label": "Bezeichnung",
+        "window": "Zeitfenster",
+        "minDays": "Mind. Schießtage",
+        "minMonths": "Mind. Monate"
+      },
+      "form": {
+        "create": "Regel anlegen",
+        "edit": "Bearbeiten",
+        "createTitle": "Regel anlegen",
+        "editTitle": "Regel bearbeiten",
+        "intro": "Die beiden Kriterien sind Alternativen: Die Regel gilt als erfüllt, sobald eines erreicht ist.",
+        "fields": {
+          "ruleKey": "Schlüssel",
+          "ruleKeyHint": "Kleinbuchstaben, Ziffern, - und _. Nach dem Anlegen nicht mehr änderbar.",
+          "label": "Bezeichnung",
+          "windowMonths": "Zeitfenster (Monate)",
+          "minTotalDays": "Mind. Schießtage",
+          "minTotalDaysHint": "Leer = Kriterium nicht verwenden.",
+          "minDistinctMonths": "Mind. Monate mit Training",
+          "minDistinctMonthsHint": "Leer = Kriterium nicht verwenden."
+        },
+        "criteriaHint": "Mindestens eines der beiden Kriterien muss gesetzt sein.",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Speichere …",
+        "savedToast": "Regel gespeichert.",
+        "createdToast": "Regel angelegt.",
+        "errors": {
+          "conflict": "Eine Regel mit diesem Schlüssel existiert bereits.",
+          "forbidden": "Dafür fehlt dir die Berechtigung.",
+          "notFound": "Regel nicht gefunden.",
+          "validation": "Eingaben bitte prüfen — mindestens ein Kriterium.",
+          "unknown": "Unerwarteter Fehler.",
+          "unreachable": "Server nicht erreichbar."
+        }
+      },
+      "deleteDialog": {
+        "action": "Löschen",
+        "title": "Regel „{label}“ löschen?",
+        "description": "Bestehende Bescheinigungen bleiben unverändert — sie tragen ihre Zahlen selbst.",
+        "cancel": "Abbrechen",
+        "deleting": "Lösche …",
+        "deletedToast": "Regel gelöscht.",
+        "errors": {
+          "conflict": "Konflikt — bitte Seite neu laden.",
+          "forbidden": "Dafür fehlt dir die Berechtigung.",
+          "notFound": "Regel nicht gefunden.",
+          "validation": "Ungültige Anfrage.",
+          "unknown": "Unerwarteter Fehler.",
+          "unreachable": "Server nicht erreichbar."
+        }
+      }
+    }
   }
 }

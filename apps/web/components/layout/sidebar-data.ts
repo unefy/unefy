@@ -4,6 +4,7 @@ import {
   HouseIcon,
   ReceiptIcon,
   SettingsIcon,
+  TargetIcon,
   TrophyIcon,
   UsersIcon,
   type LucideIcon,
@@ -19,6 +20,11 @@ export type NavItem = {
   icon?: LucideIcon
   badge?: string
   items?: { titleKey: string; url: string }[]
+  /** Shown only when the club has this module active (see `Club.modules`). */
+  module?: string
+  /** Shown only to these roles. Backend authorization is the real boundary —
+   * this merely keeps nav entries that would 404 out of sight. */
+  roles?: string[]
 }
 
 export type NavGroup = {
@@ -69,6 +75,18 @@ export const sidebarData: SidebarData = {
           titleKey: "competitions",
           url: "/competitions",
           icon: TrophyIcon,
+        },
+        {
+          titleKey: "shooting",
+          url: "/shooting",
+          icon: TargetIcon,
+          module: "shooting",
+          // The whole module is board work — a member would only find 404s.
+          roles: ["owner", "admin", "board"],
+          items: [
+            { titleKey: "shootingProof", url: "/shooting" },
+            { titleKey: "shootingRules", url: "/shooting/rules" },
+          ],
         },
       ],
     },

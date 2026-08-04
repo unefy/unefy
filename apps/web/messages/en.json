@@ -22,7 +22,10 @@
     "settings": "Settings",
     "settingsAccess": "Accounts",
     "attendance": "Attendance",
-    "settingsGeneral": "General"
+    "settingsGeneral": "General",
+    "shooting": "Shooting",
+    "shootingProof": "Proof",
+    "shootingRules": "Rules"
   },
   "auth": {
     "signIn": "Sign in",
@@ -713,5 +716,151 @@
     },
     "timezoneCommon": "Common",
     "timezoneAll": "All time zones"
+  },
+  "shooting": {
+    "title": "Shooting",
+    "description": "{count, plural, =0 {No certificates} one {# certificate} other {# certificates}} issued.",
+    "proof": {
+      "title": "Check §14 proof",
+      "hint": "The evaluation counts shooting days within the rule's window. It only proposes — issuing happens on your click.",
+      "rule": "Rule",
+      "noRules": "No rule yet. Define under “Rules” what counts first.",
+      "memberPlaceholder": "Find member – name or number …",
+      "pick": "Select",
+      "changeMember": "Change",
+      "evaluate": "Evaluate",
+      "issue": "Issue certificate",
+      "result": "Result",
+      "passed": "Met",
+      "failed": "Not met",
+      "period": "Period",
+      "sessionCount": "Shooting days",
+      "monthsCovered": "Months with training",
+      "issuedToast": "Certificate issued.",
+      "errors": {
+        "conflict": "Conflict — please reload.",
+        "forbidden": "You lack permission for this.",
+        "notFound": "Member or rule not found.",
+        "validation": "Please check the input.",
+        "unknown": "Unexpected error.",
+        "unreachable": "Server unreachable."
+      }
+    },
+    "certificates": {
+      "title": "Certificates",
+      "searchPlaceholder": "Member, rule or verification code …",
+      "empty": "No certificate issued yet.",
+      "passed": "Met",
+      "failed": "Not met",
+      "valid": "Valid",
+      "revoked": "Revoked",
+      "columns": {
+        "issuedAt": "Issued",
+        "member": "Member",
+        "rule": "Rule",
+        "period": "Period",
+        "sessions": "Shooting days",
+        "result": "Result",
+        "status": "Status",
+        "code": "Code"
+      }
+    },
+    "revoke": {
+      "action": "Revoke",
+      "title": "Revoke {name}'s certificate?",
+      "description": "The revocation is logged and immediately visible on the public verify page. It cannot be undone.",
+      "reason": "Reason",
+      "reasonPlaceholder": "Why is it revoked? (min. 3 characters)",
+      "cancel": "Cancel",
+      "revoking": "Revoking …",
+      "revokedToast": "Certificate revoked.",
+      "errors": {
+        "conflict": "Already revoked.",
+        "forbidden": "You lack permission for this.",
+        "notFound": "Certificate not found.",
+        "validation": "Please check the reason (min. 3 characters).",
+        "unknown": "Unexpected error.",
+        "unreachable": "Server unreachable."
+      }
+    },
+    "chain": {
+      "title": "Proof chain",
+      "hint": "Every close, certificate and amendment appends a link. A broken chain means the history was altered.",
+      "emptyBadge": "Empty",
+      "validBadge": "Intact",
+      "brokenBadge": "Broken",
+      "length": "Links",
+      "brokenAt": "Broken at link",
+      "anchor": "External timestamp",
+      "anchoredAt": "up to link {seq}, {at}",
+      "noAnchor": "None yet — no timestamp service configured."
+    },
+    "rangeBook": {
+      "title": "Range book",
+      "hint": "CSV export (semicolons, Excel-friendly) — who was on the range when, with discipline, weapon category and supervisor.",
+      "from": "From",
+      "to": "To",
+      "download": "Download"
+    },
+    "rules": {
+      "title": "Rules",
+      "description": "What counts as proof is configuration — thresholds differ by association and authority.",
+      "empty": "No rule yet.",
+      "windowValue": "{months} months",
+      "columns": {
+        "ruleKey": "Key",
+        "label": "Label",
+        "window": "Window",
+        "minDays": "Min. shooting days",
+        "minMonths": "Min. months"
+      },
+      "form": {
+        "create": "Create rule",
+        "edit": "Edit",
+        "createTitle": "Create rule",
+        "editTitle": "Edit rule",
+        "intro": "The two criteria are alternatives: the rule is met once either one is reached.",
+        "fields": {
+          "ruleKey": "Key",
+          "ruleKeyHint": "Lowercase letters, digits, - and _. Fixed after creation.",
+          "label": "Label",
+          "windowMonths": "Window (months)",
+          "minTotalDays": "Min. shooting days",
+          "minTotalDaysHint": "Empty = criterion unused.",
+          "minDistinctMonths": "Min. months with training",
+          "minDistinctMonthsHint": "Empty = criterion unused."
+        },
+        "criteriaHint": "At least one of the two criteria must be set.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving …",
+        "savedToast": "Rule saved.",
+        "createdToast": "Rule created.",
+        "errors": {
+          "conflict": "A rule with this key already exists.",
+          "forbidden": "You lack permission for this.",
+          "notFound": "Rule not found.",
+          "validation": "Please check the input — at least one criterion.",
+          "unknown": "Unexpected error.",
+          "unreachable": "Server unreachable."
+        }
+      },
+      "deleteDialog": {
+        "action": "Delete",
+        "title": "Delete rule “{label}”?",
+        "description": "Issued certificates stay untouched — they carry their own numbers.",
+        "cancel": "Cancel",
+        "deleting": "Deleting …",
+        "deletedToast": "Rule deleted.",
+        "errors": {
+          "conflict": "Conflict — please reload.",
+          "forbidden": "You lack permission for this.",
+          "notFound": "Rule not found.",
+          "validation": "Invalid request.",
+          "unknown": "Unexpected error.",
+          "unreachable": "Server unreachable."
+        }
+      }
+    }
   }
 }

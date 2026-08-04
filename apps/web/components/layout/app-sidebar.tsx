@@ -21,10 +21,31 @@ import { ShieldIcon } from "lucide-react"
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   session: Session
   tenants: TenantMembership[]
+  /** The club's active modules — module-gated nav items need them. */
+  modules: string[]
 }
 
-export function AppSidebar({ session, tenants, ...props }: AppSidebarProps) {
+export function AppSidebar({
+  session,
+  tenants,
+  modules,
+  ...props
+}: AppSidebarProps) {
   const clubName = session.tenant_short_name || session.tenant_name || "unefy"
+
+  // Filtered here, not in the data file: the list is static, who sees what
+  // is per club and per role. Empty groups disappear with their items.
+  const navGroups = sidebarData.navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          (item.module === undefined || modules.includes(item.module)) &&
+          (item.roles === undefined ||
+            item.roles.includes(session.role ?? ""))
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -44,7 +65,7 @@ export function AppSidebar({ session, tenants, ...props }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain navGroups={sidebarData.navGroups} />
+        <NavMain navGroups={navGroups} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser session={session} tenants={tenants} />
