@@ -425,7 +425,21 @@ sie fällt hier aus dem konkreten Fall ab, statt vorher geraten zu werden.
    existierten bereits aus Schritt 3.
 3. ~~**Rotierender QR**~~ — **umgesetzt am 2026-08-02**, allerdings als
    Android-Scanner statt als PWA. Abweichungen und Entscheidungen unten.
-4. **Hash-Kette (Stufe 1)** — Session-Abschluss, Kettenglieder, Zeitstempel-Job.
+4. ~~**Hash-Kette (Stufe 1)**~~ — **umgesetzt am 2026-08-04.**
+   `proof_chain_entries` append-only je Verein: Abschluss (`close_hash` = Hash
+   über die finale Datensatzliste), Bescheinigung, Widerruf und Nachträge nach
+   Abschluss (`record_amendment`, verweist auf den `close_hash` statt ihn
+   umzuschreiben — genau wie oben unter „Folge für Stufe 1" gefordert).
+   Nebenläufige Appends serialisieren über `FOR UPDATE` auf dem letzten Glied
+   plus Unique-Index `(tenant_id, seq)`.
+   `GET /attendance/proof-chain/status` (board+) läuft die Kette ab und
+   rechnet jedes Glied nach. Der **Zeitstempel-Job** (`app/tasks/proof_anchor.py`)
+   läuft täglich, nur mit konfigurierter `TSA_URL`, und stempelt je Verein den
+   Kettenkopf, sobald die Kette gewachsen ist — der RFC-3161-Request ist
+   handgebautes DER (59 Bytes, SHA-256-Imprint über den Hex-String des
+   Kettenkopfs), das Token liegt opak in `proof_chain_anchors` und wird mit
+   `openssl ts -verify` geprüft. Ohne TSA gibt es keine Anker statt falscher.
+   Korrekturen *während* offener Einheit ketten nichts — dafür ist Stufe 0 da.
 
 ### Was in Schritt 3 tatsächlich gebaut wurde (2026-08-02)
 
