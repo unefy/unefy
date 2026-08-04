@@ -155,7 +155,13 @@ fun MemberDetailScreen(
     title: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val scrollState = rememberScrollState()
+    // Only when there is something to scroll: enterAlways otherwise collapses
+    // the bar on any drag, and on a short screen that leaves the back button
+    // gone and a hole where the bar was — a view whose height looks wrong.
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
+        canScroll = { scrollState.maxValue > 0 },
+    )
 
     Scaffold(
         // The detail view scrolls too, so its bar follows the same rule as the
@@ -185,7 +191,7 @@ fun MemberDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(insets)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
         ) {
             when (state) {
                 MemberDetailUiState.Loading -> Unit

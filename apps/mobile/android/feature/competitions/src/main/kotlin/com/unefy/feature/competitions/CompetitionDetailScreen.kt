@@ -120,7 +120,13 @@ fun CompetitionDetailScreen(
     onBack: () -> Unit = {},
     onOpenScoreboard: () -> Unit = {},
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val scrollState = rememberScrollState()
+    // Only when there is something to scroll: enterAlways otherwise collapses
+    // the bar on any drag, and on a short screen that leaves the back button
+    // gone and a hole where the bar was — a view whose height looks wrong.
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
+        canScroll = { scrollState.maxValue > 0 },
+    )
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -143,7 +149,7 @@ fun CompetitionDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(insets)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
         ) {
             val competition = (state as? CompetitionDetailUiState.Content)?.competition
 

@@ -106,7 +106,13 @@ fun EventDetailScreen(
     onRemoveRegistration: (String) -> Unit = {},
     onActionFailedShown: () -> Unit = {},
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val scrollState = rememberScrollState()
+    // Only when there is something to scroll: enterAlways otherwise collapses
+    // the bar on any drag, and on a short screen that leaves the back button
+    // gone and a hole where the bar was — a view whose height looks wrong.
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
+        canScroll = { scrollState.maxValue > 0 },
+    )
     val content = state as? EventDetailUiState.Content
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -152,7 +158,7 @@ fun EventDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(insets)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
         ) {
             when (state) {
                 EventDetailUiState.Loading -> Unit
