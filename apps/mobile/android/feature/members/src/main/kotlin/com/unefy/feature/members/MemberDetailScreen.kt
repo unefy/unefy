@@ -135,19 +135,12 @@ fun MemberDetailRoute(
 fun MemberDetailScreen(
     state: MemberDetailUiState,
     onBack: () -> Unit = {},
-    /** False when the screen is a top-level destination rather than a push. */
-    showBack: Boolean = true,
-    /** Null on the pushed detail view, where the header already names the member. */
-    title: String? = null,
-    actions: @Composable RowScope.() -> Unit = {},
 ) {
     UnefyDetailScaffold(
         // The name lives in the header below and slides up beside the arrow
         // once it scrolls out — never the same word twice on one screen.
         collapsedTitle = (state as? MemberDetailUiState.Content)?.member?.displayName,
-        title = title,
-        onBack = if (showBack) onBack else null,
-        actions = actions,
+        onBack = onBack,
     ) {
         when (state) {
             MemberDetailUiState.Loading -> Unit
@@ -163,7 +156,7 @@ fun MemberDetailScreen(
 }
 
 @Composable
-private fun MemberDetailContent(member: Member) {
+internal fun MemberDetailContent(member: Member) {
     val context = LocalContext.current
 
     Header(member)

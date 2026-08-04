@@ -64,8 +64,10 @@ data class ScreenSearch(
  * **Why the header floats.** Material's medium and large app bars are fixed
  * containers of 112dp and 152dp with the title pinned to the bottom edge, which
  * leaves most of that height empty; M3 Expressive no longer recommends them.
- * Modern apps put function up there instead — Gmail and Play show search and the
- * account, not a title. So this header is one row of working controls.
+ * This header is working rows instead: a title row that is identical on every
+ * screen — title, subtitle, account action — and, where a screen searches, the
+ * search pill as a second row beneath it. Search never replaces the title;
+ * a screen that looks different from its neighbours reads as a different app.
  *
  * It is drawn *over* the list, and the list is padded to start beneath it. That
  * is what makes glass possible at all: a translucent surface needs something
@@ -250,22 +252,31 @@ fun UnefyListScaffold(
                 ) {
                     navigationIcon?.invoke()
 
-                    if (search != null) {
-                        UnefySearchField(
-                            value = search.value,
-                            onValueChange = search.onValueChange,
-                            placeholder = search.placeholder,
-                            enabled = search.enabled,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        HeaderTitle(
-                            title = title,
-                            subtitle = subtitle,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    // The title row is identical on every screen — search never
+                    // replaces it. A screen that looks different from its
+                    // neighbours reads as a different app.
+                    HeaderTitle(
+                        title = title,
+                        subtitle = subtitle,
+                        modifier = Modifier.weight(1f),
+                    )
                     actions()
+                }
+
+                if (search != null) {
+                    UnefySearchField(
+                        value = search.value,
+                        onValueChange = search.onValueChange,
+                        placeholder = search.placeholder,
+                        enabled = search.enabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = UnefySpacing.screen,
+                                end = UnefySpacing.screen,
+                                bottom = UnefySpacing.sm,
+                            ),
+                    )
                 }
 
                 banner()

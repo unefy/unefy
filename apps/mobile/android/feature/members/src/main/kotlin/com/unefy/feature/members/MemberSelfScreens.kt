@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -19,10 +18,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,9 +83,11 @@ class MyProfileViewModel @Inject constructor(
 /**
  * The signed-in member's own record.
  *
- * Reuses the detail screen rather than duplicating it: the difference between
- * "a member" and "me" is which record is loaded, not how it is presented. A 404
- * is a normal state here — a board account that administers a club it does not
+ * A top-level tab, so it wears the same header as every other section — the
+ * big title and the account action, not the pushed detail's compact bar. The
+ * body below is still [MemberDetailContent]: the difference between "a member"
+ * and "me" is which record is loaded, not how it is presented. A 404 is a
+ * normal state here — a board account that administers a club it does not
  * belong to has no member record.
  */
 @Composable
@@ -97,34 +96,53 @@ fun MyProfileRoute(
     viewModel: MyProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-
-    if (state is MemberDetailUiState.Failure &&
-        (state as MemberDetailUiState.Failure).error is ApiError.NotFound
-    ) {
-        NoMemberRecord(actions = actions)
-    } else {
-        MemberDetailScreen(
-            state = state,
-            showBack = false,
-            title = stringResource(R.string.profile_title),
-            actions = actions,
-        )
-    }
+    MyProfileScreen(state = state, actions = actions, onRetry = viewModel::load)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NoMemberRecord(actions: @Composable RowScope.() -> Unit) {
-    Scaffold(topBar = { TopAppBar(title = {}, actions = actions) }) { insets ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(insets),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            NoMemberRecordBody()
+fun MyProfileScreen(
+    state: MemberDetailUiState,
+    actions: @Composable RowScope.() -> Unit = {},
+    onRetry: () -> Unit = {},
+) {
+    UnefyListScaffold(
+        title = stringResource(R.string.profile_title),
+        actions = actions,
+    ) {
+        when (state) {
+            MemberDetailUiState.Loading -> Unit
+
+            is MemberDetailUiState.Failure -> item {
+                Column(
+                    modifier = Modifier
+                        .fillParentMaxHeight(PROFILE_FILL)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(
+                        UnefySpacing.sm,
+                        Alignment.CenterVertically,
+                    ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (state.error is ApiError.NotFound) {
+                        NoMemberRecordBody()
+                    } else {
+                        Text(
+                            text = stringResource(R.string.error_generic_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                        )
+                        OutlinedButton(onClick = onRetry) {
+                            Text(stringResource(R.string.members_retry))
+                        }
+                    }
+                }
+            }
+
+            is MemberDetailUiState.Content -> item { MemberDetailContent(state.member) }
         }
     }
 }
+
+private const val PROFILE_FILL = 0.7f
 
 @Composable
 private fun NoMemberRecordBody() {

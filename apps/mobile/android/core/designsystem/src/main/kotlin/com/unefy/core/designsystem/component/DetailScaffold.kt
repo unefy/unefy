@@ -62,11 +62,6 @@ fun UnefyDetailScaffold(
     collapsedTitle: String?,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    /**
-     * Always-visible bar title, for top-level uses of a detail screen (the own
-     * profile). Suppresses the scroll-in behavior of [collapsedTitle].
-     */
-    title: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
     /** Overlay slot on the whole screen — a snackbar host, typically. */
     overlay: @Composable BoxScope.() -> Unit = {},
@@ -142,29 +137,20 @@ fun UnefyDetailScaffold(
                         .height(BAR_HEIGHT),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (title != null) {
+                    // Fully qualified: inside the header Row the RowScope
+                    // overload shadows the top-level one, and this Box is no
+                    // RowScope.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = collapsedTitle != null && showCollapsedTitle,
+                        enter = fadeIn(UnefyMotion.effects()),
+                        exit = fadeOut(UnefyMotion.effects()),
+                    ) {
                         Text(
-                            text = title,
+                            text = collapsedTitle.orEmpty(),
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    } else {
-                        // Fully qualified: inside the header Row the RowScope
-                        // overload shadows the top-level one, and this Box is no
-                        // RowScope.
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = collapsedTitle != null && showCollapsedTitle,
-                            enter = fadeIn(UnefyMotion.effects()),
-                            exit = fadeOut(UnefyMotion.effects()),
-                        ) {
-                            Text(
-                                text = collapsedTitle.orEmpty(),
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
                     }
                 }
 
