@@ -299,3 +299,42 @@ def require_role(*allowed_roles: str) -> Callable[..., Coroutine[Any, Any, AuthC
         return auth
 
     return check_role
+
+
+def require_module(module: str) -> Callable[..., Coroutine[Any, Any, AuthContext]]:
+    """Dependency that checks whether a module is active for the club.
+
+    A club's active modules are the union over its sports (`sports.modules`
+    via `tenant_sports`) — a Turnverein with a shooting section gets the
+    shooting module without that being a special case. This is the wiring that
+    makes the module concept from docs/plans/tenants-and-sports.md effective:
+    module endpoints refuse to exist for clubs whose sports don't carry them.
+
+    Composes with `require_role` — put this on the router, the role check on
+    the endpoint.
+    """
+
+    async def check_module(
+        auth: AuthContext = Depends(get_current_user),  # noqa: B008
+        session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    ) -> AuthContext:
+        from sqlalchemy import exists
+
+        from app.models.sport import Sport
+        from app.models.tenant_sport import TenantSport
+
+        active = await session.scalar(
+            select(
+                exists()
+                .where(TenantSport.tenant_id == auth.tenant)
+                .where(TenantSport.sport_id == Sport.id)
+                # Base-ARRAY `.any(value)` — mypy only knows the relationship
+                # overload of `any`, hence the ignore.
+                .where(Sport.modules.any(module))  # type: ignore[arg-type]
+            )
+        )
+        if not active:
+            raise ForbiddenError(f"Module '{module}' is not active for this club")
+        return auth
+
+    return check_module

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.middleware.logging import RequestLoggingMiddleware
 from app.api.v1.router import router as v1_router
+from app.api.verify import router as verify_router
 from app.config import get_settings
 from app.core.exceptions import AppError, app_exception_handler, unhandled_exception_handler
 from app.redis import close_redis, init_redis
@@ -164,6 +165,9 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(health_router)
+    # Outside /api/v1 on purpose: the QR on a printed certificate carries this
+    # URL, and a printed thing must outlive API versioning.
+    app.include_router(verify_router)
     app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
 
     return app
