@@ -561,6 +561,7 @@
     },
     "methods": {
       "manual": "Ticked off",
+      "self": "Entered by themselves",
       "staff_scan": "Scanned"
     },
     "detail": {
@@ -736,6 +737,8 @@
       "period": "Period",
       "sessionCount": "Shooting days",
       "monthsCovered": "Months with training",
+      "selfCertifiedDays": "Of those, self-entered",
+      "selfCertifiedValue": "{count, plural, one {# day} other {# days}} — {corroborated, plural, =0 {on none of them did this person check anybody else in} one {on # of them they checked others in} other {on # of them they checked others in}}",
       "issuedToast": "Certificate issued.",
       "errors": {
         "conflict": "Conflict — please reload.",

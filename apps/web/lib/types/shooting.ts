@@ -19,6 +19,15 @@ export type ProofEvaluation = {
   session_count: number
   months_covered: number
   passed: boolean
+  /**
+   * Of the counted days, those resting on nothing but the member's own word —
+   * and of those, the ones on which they checked other people in. The board
+   * needs to see this before signing anything: a supervisor has no other way to
+   * record their own attendance, so the number is expected to be non-zero and
+   * only becomes a question when nothing corroborates it.
+   */
+  self_certified_days: number
+  corroborated_self_days: number
 }
 
 export type ShootingCertificate = {
@@ -30,6 +39,8 @@ export type ShootingCertificate = {
   period_end: string
   session_count: number
   months_covered: number
+  self_certified_days: number
+  corroborated_self_days: number
   result: "passed" | "failed"
   issued_at: string
   issued_by_user_id: string

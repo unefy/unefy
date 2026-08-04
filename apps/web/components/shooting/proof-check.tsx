@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 
-import {
-  evaluateProofAction,
-  issueCertificateAction,
-} from "@/actions/shooting"
+import { evaluateProofAction, issueCertificateAction } from "@/actions/shooting"
 import { MemberSearch } from "@/components/attendance/member-search"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -189,6 +186,22 @@ export function ProofCheck({ rules }: { rules: ShootingRule[] }) {
                 <dd className="tabular-nums">{evaluation.session_count}</dd>
                 <dt className="text-muted-foreground">{t("monthsCovered")}</dt>
                 <dd className="tabular-nums">{evaluation.months_covered}</dd>
+                {/* Only when there is something to say. A club whose supervisors
+                    are always scanned by somebody has no self-entries, and a row
+                    of zeroes would just train people to skip this block. */}
+                {evaluation.self_certified_days > 0 && (
+                  <>
+                    <dt className="text-muted-foreground">
+                      {t("selfCertifiedDays")}
+                    </dt>
+                    <dd className="tabular-nums">
+                      {t("selfCertifiedValue", {
+                        count: evaluation.self_certified_days,
+                        corroborated: evaluation.corroborated_self_days,
+                      })}
+                    </dd>
+                  </>
+                )}
               </dl>
             )}
           </>

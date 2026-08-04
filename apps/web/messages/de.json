@@ -561,6 +561,7 @@
     },
     "methods": {
       "manual": "Abgehakt",
+      "self": "Selbst eingetragen",
       "staff_scan": "Gescannt"
     },
     "detail": {
@@ -736,6 +737,8 @@
       "period": "Zeitraum",
       "sessionCount": "Schießtage",
       "monthsCovered": "Monate mit Training",
+      "selfCertifiedDays": "Davon selbst eingetragen",
+      "selfCertifiedValue": "{count, plural, one {# Tag} other {# Tage}} — {corroborated, plural, =0 {an keinem davon hat die Person andere eingecheckt} one {an # davon hat sie andere eingecheckt} other {an # davon hat sie andere eingecheckt}}",
       "issuedToast": "Bescheinigung ausgestellt.",
       "errors": {
         "conflict": "Konflikt — bitte Seite neu laden.",
