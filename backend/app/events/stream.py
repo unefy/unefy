@@ -49,6 +49,7 @@ async def event_stream(
     *,
     last_event_id: str | None = None,
     allowed: frozenset[str] | None = None,
+    user_id: Any = None,
     on_heartbeat: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncGenerator[str]:
     """Yield SSE frames for one tenant until the client goes away.
@@ -59,6 +60,10 @@ async def event_stream(
     @param allowed collection names this connection may be told about. A stream is
         per tenant but its readers hold different roles, so the filter happens on
         the way out. None means no filtering.
+    @param user_id who is reading, needed only for addressed frames — see
+        `ChangeEvent.audience_user_id`. Without it, an addressed frame reaches
+        nobody, which is the right way round: a connection that cannot prove it is
+        the addressee is not one.
     @param on_heartbeat called each time the stream goes quiet. The route uses it
         to re-assert that this connection is still alive, which is what lets a
         dead one age out of the connection cap instead of holding a slot forever.
@@ -112,6 +117,27 @@ async def event_stream(
         for _stream, entries in batches:
             for event_id, fields in entries:
                 cursor = event_id
-                if allowed is not None and fields.get("entity") not in allowed:
+                if not _may_hear(fields, allowed=allowed, user_id=user_id):
                     continue
                 yield encode_sse(event_id, fields)
+
+
+def _may_hear(
+    fields: dict[str, str],
+    *,
+    allowed: frozenset[str] | None,
+    user_id: Any,
+) -> bool:
+    """Whether this connection is told about one frame.
+
+    Two filters, and an addressed frame answers to the second only. Its `entity`
+    is deliberately not a syncable collection — nothing in `allowed` would ever
+    match it — and it does not need to be: the publisher already decided that this
+    one person may know, which is a narrower decision than the role gate makes and
+    supersedes it. Letting `allowed` veto here would mean a member never hearing
+    about their own check-in.
+    """
+    addressee = fields.get("to")
+    if addressee is not None:
+        return user_id is not None and addressee == str(user_id)
+    return allowed is None or fields.get("entity") in allowed

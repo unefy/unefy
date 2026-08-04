@@ -462,6 +462,128 @@ class TestEventStream:
             await anext(gen)
 
 
+class TestAddressedFrames:
+    """Hints meant for one person, not for the club.
+
+    The case this exists for: a check-in happens on the supervisor's phone, so the
+    member's own phone is the one device that cannot see the outcome. It is told
+    directly rather than through a synced collection, because the sync path
+    withholds anything newer than its watermark and would be slower than the
+    polling it replaces — and because a club-wide attendance collection would tell
+    every member who else was there.
+    """
+
+    async def test_it_reaches_the_person_it_is_addressed_to(
+        self,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        reader = uuid.uuid4()
+        record_id = uuid.uuid4()
+        await publish(
+            fake_redis,
+            [
+                ChangeEvent(
+                    test_tenant.id, "check-ins", record_id, "upsert", audience_user_id=reader
+                )
+            ],
+        )
+
+        gen = event_stream(
+            fake_redis,
+            test_tenant.id,
+            last_event_id="0",
+            allowed=frozenset({"events"}),
+            user_id=reader,
+        )
+        try:
+            assert (await anext(gen)).startswith(":")
+            # Bounded, so a regression fails in two seconds instead of waiting out
+            # the heartbeat that arrives in place of the missing frame.
+            frame = await asyncio.wait_for(anext(gen), timeout=2)
+        finally:
+            await gen.aclose()
+
+        # Delivered although "check-ins" is in no allowed set and is deliberately
+        # not a syncable collection: being the addressee is the narrower
+        # permission, and it supersedes the role gate rather than being vetoed by
+        # it. Without this, a member would never hear about their own check-in.
+        assert str(record_id) in frame
+        assert f'"to":"{reader}"' in frame
+
+    async def test_nobody_else_hears_it(
+        self,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        """The privacy half. One stream per club, so this is the only barrier."""
+        addressee = uuid.uuid4()
+        record_id = uuid.uuid4()
+        await publish(
+            fake_redis,
+            [
+                ChangeEvent(
+                    test_tenant.id, "check-ins", record_id, "upsert", audience_user_id=addressee
+                ),
+                ChangeEvent(test_tenant.id, "events", uuid.uuid4(), "upsert"),
+            ],
+        )
+
+        gen = event_stream(
+            fake_redis,
+            test_tenant.id,
+            last_event_id="0",
+            allowed=frozenset({"events"}),
+            user_id=uuid.uuid4(),
+        )
+        try:
+            assert (await anext(gen)).startswith(":")
+            # The unaddressed frame behind it still arrives, which is what makes
+            # this a filter rather than a stream that stopped.
+            frame = await anext(gen)
+        finally:
+            await gen.aclose()
+
+        assert '"entity":"events"' in frame
+        assert str(record_id) not in frame
+
+    async def test_an_anonymous_reader_hears_no_addressed_frame(
+        self,
+        test_tenant: Tenant,
+        fake_redis: Any,
+    ) -> None:
+        """A connection that cannot say who it is, is not the addressee.
+
+        Fails open the safe way round: no user id means the frame is withheld, not
+        that the check is skipped.
+        """
+        record_id = uuid.uuid4()
+        await publish(
+            fake_redis,
+            [
+                ChangeEvent(
+                    test_tenant.id, "check-ins", record_id, "upsert", audience_user_id=uuid.uuid4()
+                ),
+                ChangeEvent(test_tenant.id, "members", uuid.uuid4(), "upsert"),
+            ],
+        )
+
+        gen = event_stream(fake_redis, test_tenant.id, last_event_id="0")
+        try:
+            assert (await anext(gen)).startswith(":")
+            frame = await anext(gen)
+        finally:
+            await gen.aclose()
+
+        assert '"entity":"members"' in frame
+        assert str(record_id) not in frame
+
+    def test_an_unaddressed_hint_carries_no_recipient_field(self) -> None:
+        """So a reader never has to tell an empty recipient from an absent one."""
+        fields = ChangeEvent(uuid.uuid4(), "members", uuid.uuid4(), "upsert").fields()
+        assert "to" not in fields
+
+
 class TestStreamRoute:
     """`GET /api/v1/stream` itself — auth and the connection cap.
 

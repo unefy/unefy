@@ -194,6 +194,7 @@ async def stream(request: Request) -> StreamingResponse:
                 tenant_id,
                 last_event_id=last_event_id,
                 allowed=allowed,
+                user_id=user_id,
                 on_heartbeat=still_here,
             ):
                 yield frame

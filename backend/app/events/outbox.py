@@ -104,12 +104,32 @@ class ChangeEvent:
     #: and a finer verb would imply the hint carries information it does not.
     op: str
 
+    #: Who this hint is *for*, when it is for one person rather than the club.
+    #:
+    #: A check-in happens on the supervisor's phone, so the member's own phone is
+    #: the one device with no way of knowing. It needs the news in a second, which
+    #: rules out the collection path: a synced collection is drained through
+    #: `/sync/*`, which deliberately withholds anything newer than
+    #: `CURSOR_SAFETY_LAG`, so the client waits out that watermark before the row
+    #: is even readable. Slower than the polling it would replace.
+    #:
+    #: So this is a hint the client acts on directly, and it is addressed. The
+    #: alternative — a club-wide `attendance-records` collection readable by
+    #: members — would tell every member who else was present, which is nobody
+    #: else's business.
+    audience_user_id: uuid.UUID | None = None
+
     def fields(self) -> "StreamFields":
-        return {
+        fields: StreamFields = {
             "entity": self.entity,
             "id": str(self.entity_id),
             "op": self.op,
         }
+        # Omitted rather than sent empty: a stream field has no null, and every
+        # reader would then have to distinguish "" from absent.
+        if self.audience_user_id is not None:
+            fields["to"] = str(self.audience_user_id)
+        return fields
 
 
 def queue_change(
@@ -119,10 +139,19 @@ def queue_change(
     entity: str,
     entity_id: uuid.UUID,
     op: str,
+    audience_user_id: uuid.UUID | None = None,
 ) -> None:
     """Record that something changed. Published only if the commit succeeds."""
     pending: list[ChangeEvent] = session.info.setdefault(OUTBOX_KEY, [])
-    pending.append(ChangeEvent(tenant_id=tenant_id, entity=entity, entity_id=entity_id, op=op))
+    pending.append(
+        ChangeEvent(
+            tenant_id=tenant_id,
+            entity=entity,
+            entity_id=entity_id,
+            op=op,
+            audience_user_id=audience_user_id,
+        )
+    )
 
 
 def _collect_flush(session: Session, _ctx: object) -> None:
