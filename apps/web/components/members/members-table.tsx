@@ -32,14 +32,16 @@ export function MembersTable({ members }: { members: Member[] }) {
 
   const columns: DataTableColumn<Member>[] = [
     {
-      key: "name",
-      header: t("columns.name"),
+      key: "lastName",
+      header: t("columns.lastName"),
       sortValue: (row) => `${row.last_name} ${row.first_name}`,
-      cell: (row) => (
-        <span className="font-medium">
-          {row.last_name}, {row.first_name}
-        </span>
-      ),
+      cell: (row) => <span className="font-medium">{row.last_name}</span>,
+    },
+    {
+      key: "firstName",
+      header: t("columns.firstName"),
+      sortValue: (row) => `${row.first_name} ${row.last_name}`,
+      cell: (row) => row.first_name,
     },
     {
       key: "memberNumber",
@@ -79,19 +81,6 @@ export function MembersTable({ members }: { members: Member[] }) {
       cellClassName: "text-muted-foreground",
       cell: (row) => <DateCell value={row.joined_at} dateOnly />,
     },
-    {
-      key: "access",
-      header: t("columns.access"),
-      align: "center",
-      shrink: true,
-      sortValue: (row) => row.user_id !== null,
-      cell: (row) =>
-        row.user_id ? (
-          <Badge variant="outline">{t("hasAccess")}</Badge>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
   ]
 
   return (
@@ -100,7 +89,7 @@ export function MembersTable({ members }: { members: Member[] }) {
       columns={columns}
       rowKey={(row) => row.id}
       locale={locale}
-      defaultSort={{ key: "name", direction: "asc" }}
+      defaultSort={{ key: "lastName", direction: "asc" }}
       searchPlaceholder={t("searchPlaceholder")}
       searchFields={(row) => [
         row.first_name,
