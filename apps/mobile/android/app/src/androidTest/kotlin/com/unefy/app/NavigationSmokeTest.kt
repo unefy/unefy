@@ -3,6 +3,7 @@ package com.unefy.app
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
@@ -110,18 +111,29 @@ class NavigationSmokeTest {
     /**
      * The scanner has to answer "who is in the room", not just "someone was
      * scanned" — that is the question the paper list answered.
+     *
+     * It answers it one tap further along than it used to: the list moved off
+     * the viewfinder onto a screen of its own once shooting details joined every
+     * row, and what stayed behind is the count and the way in. So the way in is
+     * part of the answer and gets walked here — it is also the only route into
+     * `AttendanceListKey` that any instrumented test takes.
      */
     @Test
-    fun the_scanner_lists_who_is_checked_in() {
+    fun the_scanner_leads_to_who_is_checked_in() {
         show(ClubRole.BOARD)
         openFromMoreShelf(TopLevel.CheckIn)
         composeRule.onNodeWithContentDescription(string(AttendanceR.string.attendance_open_scanner))
             .performClick()
         composeRule.waitForIdle()
 
+        // Count and door in one control, so the number is asserted by finding it:
+        // both canned records, recorded and buffered counted together.
+        awaitNode(button(string(AttendanceR.string.scanner_attendance_list, 2)))
+            .performClick()
+
         // Loaded through the real repository and its cache, so the row proves
         // the fetch, the decoding and the merge — not just that a list renders.
-        composeRule.onNodeWithText("Erika Beispiel").assertIsDisplayed()
+        awaitNode(hasText("Erika Beispiel")).assertIsDisplayed()
         composeRule.onNodeWithText(string(AttendanceR.string.scanner_row_scanned))
             .assertIsDisplayed()
         // A guest has no member id, and the list once decoded that as a whole
@@ -204,5 +216,27 @@ class NavigationSmokeTest {
 
     private fun label(destination: TopLevel): String = string(destination.label)
 
+    /**
+     * A node that is not there yet, but should be.
+     *
+     * `waitForIdle` is not enough for anything a screen fills from the
+     * repository: it waits for composition and for Espresso's idling resources,
+     * neither of which knows about a coroutine loading records off the main
+     * dispatcher. Waiting for the node is also the assertion — the timeout
+     * fails the test if it never arrives.
+     */
+    private fun awaitNode(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+        composeRule.waitUntil(NODE_TIMEOUT_MS) {
+            composeRule.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+        }
+        return composeRule.onNode(matcher)
+    }
+
     private fun string(id: Int): String = composeRule.activity.getString(id)
+
+    private fun string(id: Int, count: Int): String = composeRule.activity.getString(id, count)
+
+    private companion object {
+        const val NODE_TIMEOUT_MS = 5_000L
+    }
 }
