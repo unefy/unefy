@@ -340,6 +340,8 @@ private class FakeEventsRepository(
     override suspend fun detail(id: String): ApiResult<EventDetail> =
         ApiResult.Failure(ApiError.NotFound(null))
 
+    override suspend fun openAttendanceSession(eventId: String) = error("unused")
+
     override suspend fun overlay(): ApiResult<Map<String, EventOverlay>> {
         overlayCalls++
         overlayFailure?.let { return ApiResult.Failure(it) }

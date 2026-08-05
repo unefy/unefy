@@ -71,6 +71,7 @@ import com.unefy.app.ui.accountActions
 import com.unefy.core.model.ClubRole
 import com.unefy.feature.attendance.AttendanceListRoute
 import com.unefy.feature.attendance.MemberCodeRoute
+import com.unefy.feature.attendance.MyRangeDaysRoute
 import com.unefy.feature.attendance.ScannerRoute
 import com.unefy.feature.competitions.CompetitionDetailRoute
 import com.unefy.feature.competitions.CompetitionsRoute
@@ -410,7 +411,16 @@ internal fun unefyEntryProvider(
         )
     }
     entry<EventDetailKey> { key ->
-        EventDetailRoute(eventId = key.eventId, role = role, onBack = onBack)
+        EventDetailRoute(
+            eventId = key.eventId,
+            role = role,
+            onBack = onBack,
+            // The calendar's door into attendance — see AttendanceListKey.
+            onOpenAttendanceList = { sessionId, sessionTitle ->
+                onOpen(AttendanceListKey(sessionId, sessionTitle))
+            },
+            onOpenScanner = { onOpen(ScannerKey) },
+        )
     }
     entry<DuesKey> { DuesRoute(actions = accountActions) }
     entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
@@ -423,8 +433,10 @@ internal fun unefyEntryProvider(
             // A detail, not a section: the scanner is opened from here and
             // backs out to here, so it is pushed rather than swapped in.
             onOpenScanner = { onOpen(ScannerKey) },
+            onOpenRangeDays = { onOpen(MyRangeDaysKey) },
         )
     }
+    entry<MyRangeDaysKey> { MyRangeDaysRoute(onBack = onBack) }
     entry<ScannerKey> {
         ScannerRoute(
             onBack = onBack,

@@ -298,4 +298,14 @@ private class FakeAttendanceRepository(
     override suspend fun sessionRecords(sessionId: String) = error("unused")
 
     override suspend fun deleteRecord(recordId: String, reason: String?) = error("unused")
+
+    override suspend fun myRangeDays() = error("unused")
+
+    override suspend fun createSelfEntry(occurredOn: String, location: String) = error("unused")
+
+    override suspend fun deleteSelfEntry(recordId: String) = error("unused")
+
+    override suspend fun todaysEvents(startIso: String, endIso: String) = error("unused")
+
+    override suspend fun openSessionForEvent(eventId: String) = error("unused")
 }

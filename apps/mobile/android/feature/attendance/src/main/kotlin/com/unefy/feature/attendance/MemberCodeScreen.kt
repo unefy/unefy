@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,17 +50,23 @@ import com.unefy.core.model.ClubRole
 fun MemberCodeRoute(
     role: ClubRole,
     onOpenScanner: () -> Unit,
+    onOpenRangeDays: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     viewModel: MemberCodeViewModel = hiltViewModel(),
+    moduleViewModel: ShootingModuleViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val shootingClub by moduleViewModel.enabled.collectAsStateWithLifecycle()
     MemberCodeScreen(
         state = state,
         // The backend gates scanning on board and above, so offering it to a
         // member would only produce a 403 at the far end of a camera session.
         canScan = role.canAdminister,
+        // Only for a club that shoots — §14 vocabulary stays out of the rest.
+        showRangeDays = shootingClub,
         actions = actions,
         onOpenScanner = onOpenScanner,
+        onOpenRangeDays = onOpenRangeDays,
         onRetry = viewModel::retry,
     )
 }
@@ -68,8 +75,10 @@ fun MemberCodeRoute(
 fun MemberCodeScreen(
     state: MemberCodeUiState,
     canScan: Boolean = false,
+    showRangeDays: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
     onOpenScanner: () -> Unit = {},
+    onOpenRangeDays: () -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
     UnefyListScaffold(
@@ -98,7 +107,18 @@ fun MemberCodeScreen(
         when (state) {
             MemberCodeUiState.Loading -> Unit
 
-            is MemberCodeUiState.Content -> item("code") { CodeCard(state) }
+            is MemberCodeUiState.Content -> item("code") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CodeCard(state)
+                    // Under the code, not among the header icons: the proof
+                    // list is the member's own thing, like the code above it.
+                    if (showRangeDays) {
+                        TextButton(onClick = onOpenRangeDays) {
+                            Text(stringResource(R.string.range_days_title))
+                        }
+                    }
+                }
+            }
 
             // Deliberately not the confirmation: nothing is confirmed yet, and
             // showing a tick that might turn into a refusal is worse than a

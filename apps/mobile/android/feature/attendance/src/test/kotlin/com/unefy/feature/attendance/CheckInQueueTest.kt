@@ -342,4 +342,14 @@ private class FakeRepository : AttendanceRepository {
 
     override suspend fun deleteRecord(recordId: String, reason: String?): ApiResult<Unit> =
         error("not used")
+
+    override suspend fun myRangeDays() = error("not used")
+
+    override suspend fun createSelfEntry(occurredOn: String, location: String) = error("not used")
+
+    override suspend fun deleteSelfEntry(recordId: String) = error("not used")
+
+    override suspend fun todaysEvents(startIso: String, endIso: String) = error("not used")
+
+    override suspend fun openSessionForEvent(eventId: String) = error("not used")
 }

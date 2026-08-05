@@ -54,6 +54,11 @@ object ApiEndpoints {
     const val ATTENDANCE_ME_SEED = "$ATTENDANCE/me/seed"
     const val ATTENDANCE_ME_RECORDS = "$ATTENDANCE/me/records"
 
+    /** The member's own external self-entries — range days the club did not run. */
+    const val ATTENDANCE_ME_ENTRIES = "$ATTENDANCE/me/entries"
+
+    fun attendanceMeEntry(recordId: String): String = "$ATTENDANCE_ME_ENTRIES/$recordId"
+
     /** Check-in from a scanned code, as opposed to a supervisor ticking a box. */
     fun attendanceScan(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/scan"
 

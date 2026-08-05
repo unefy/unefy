@@ -8,6 +8,7 @@ import androidx.camera.compose.CameraXViewfinder
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -96,6 +98,7 @@ fun ScannerRoute(
         onGuestNameChange = viewModel::onGuestNameChange,
         onCheckInGuest = { viewModel.checkInGuest(state.manual.guestName) },
         onCreateSession = { viewModel.createSessionForToday(defaultTitle) },
+        onCreateSessionFromEvent = viewModel::createSessionFromEvent,
         onCodeTapped = viewModel::onCodeTapped,
         onTapNotReady = viewModel::onTapNotReady,
         onTagDetected = viewModel::onTagDetected,
@@ -127,6 +130,7 @@ fun ScannerScreen(
     onGuestNameChange: (String) -> Unit = {},
     onCheckInGuest: () -> Unit = {},
     onCreateSession: () -> Unit = {},
+    onCreateSessionFromEvent: (EventOption) -> Unit = {},
     onCodeTapped: (String, (CheckInApdu.Outcome) -> Unit) -> Unit = { _, _ -> },
     onTapNotReady: () -> Unit = {},
     onTagDetected: () -> Unit = {},
@@ -215,7 +219,19 @@ fun ScannerScreen(
                     // laptop is how an evening goes unrecorded.
                     body = stringResource(R.string.scanner_no_sessions_body),
                     action = stringResource(R.string.scanner_create_session) to onCreateSession,
-                )
+                ) {
+                    // Today's Termine, so the evening starts under the name it
+                    // was announced with — the ad-hoc button above stays for
+                    // everything the calendar does not know about.
+                    state.todaysEvents.forEach { event ->
+                        OutlinedButton(
+                            onClick = { onCreateSessionFromEvent(event) },
+                            enabled = !state.creatingSession,
+                        ) {
+                            Text(stringResource(R.string.scanner_start_from_event, event.title))
+                        }
+                    }
+                }
             }
 
             else -> scannerContent(
@@ -252,7 +268,16 @@ private fun LazyListScope.scannerContent(
                     FilterChip(
                         selected = session.id == state.selectedSessionId,
                         onClick = { onSelectSession(session.id) },
-                        label = { Text(session.title) },
+                        // The Termin's name when one is linked and differs —
+                        // that is the name the evening was announced under.
+                        label = {
+                            Text(
+                                session.eventTitle
+                                    ?.takeIf { it != session.title }
+                                    ?.let { "${session.title} · $it" }
+                                    ?: session.title,
+                            )
+                        },
                     )
                 }
             }
@@ -477,7 +502,12 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
 }
 
 @Composable
-private fun Message(title: String, body: String, action: Pair<String, () -> Unit>? = null) {
+private fun Message(
+    title: String,
+    body: String,
+    action: Pair<String, () -> Unit>? = null,
+    extra: @Composable ColumnScope.() -> Unit = {},
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -495,6 +525,7 @@ private fun Message(title: String, body: String, action: Pair<String, () -> Unit
         action?.let { (label, onClick) ->
             Button(onClick = onClick) { Text(label) }
         }
+        extra()
     }
 }
 

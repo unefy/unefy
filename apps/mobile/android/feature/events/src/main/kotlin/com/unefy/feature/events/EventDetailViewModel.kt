@@ -3,6 +3,7 @@ package com.unefy.feature.events
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.core.model.Event
+import com.unefy.core.model.EventAttendanceSession
 import com.unefy.core.model.EventDetail
 import com.unefy.core.model.EventRegistration
 import com.unefy.core.network.ApiError
@@ -43,6 +44,10 @@ sealed interface EventDetailUiState {
         val now: String,
         /** Registration ids a board removal is in flight for — the row locks. */
         val removing: Set<String> = emptySet(),
+        /** The event's attendance sessions — board only, empty for members. */
+        val attendanceSessions: List<EventAttendanceSession> = emptyList(),
+        /** True while the "start attendance" call is in flight. */
+        val startingAttendance: Boolean = false,
         /** A board action failed; shown once as a snackbar, then handed back. */
         val actionFailed: Boolean = false,
     ) : EventDetailUiState
@@ -94,6 +99,15 @@ class EventDetailViewModel @Inject constructor(
 
     private val removing = MutableStateFlow<Set<String>>(emptySet())
     private val actionFailed = MutableStateFlow(false)
+    private val startingAttendance = MutableStateFlow(false)
+
+    /**
+     * A session just opened from this event, waiting to be navigated to.
+     * One-shot: the route consumes it. State rather than a callback so a
+     * recomposition mid-call cannot lose the navigation.
+     */
+    private val _startedSession = MutableStateFlow<EventAttendanceSession?>(null)
+    val startedSession: StateFlow<EventAttendanceSession?> = _startedSession.asStateFlow()
 
     private val _picker = MutableStateFlow(MemberPickerState())
     val picker: StateFlow<MemberPickerState> = _picker.asStateFlow()
@@ -103,8 +117,8 @@ class EventDetailViewModel @Inject constructor(
         remote,
         busy,
         connectivity.isOnline(),
-        combine(removing, actionFailed) { r, f -> r to f },
-    ) { mirrored, result, isBusy, online, (removingIds, failed) ->
+        combine(removing, actionFailed, startingAttendance) { r, f, st -> Triple(r, f, st) },
+    ) { mirrored, result, isBusy, online, (removingIds, failed, starting) ->
         val fetched = (result as? ApiResult.Success)?.data
         val event = mirrored?.let { base ->
             fetched?.event?.let { enriched ->
@@ -126,6 +140,8 @@ class EventDetailViewModel @Inject constructor(
                 now = clock.nowIso(),
                 removing = removingIds,
                 actionFailed = failed,
+                attendanceSessions = fetched?.attendanceSessions.orEmpty(),
+                startingAttendance = starting,
             )
             // Only a failure when there is nothing at all to show — replacing a
             // mirrored event with an error screen because the connection dropped
@@ -304,6 +320,37 @@ class EventDetailViewModel @Inject constructor(
             }
             removing.update { it - registrationId }
         }
+    }
+
+    /**
+     * Opens (or finds) the attendance session for this event and hands it to
+     * the route for navigation. Idempotent end to end — the backend returns
+     * the existing open session, so a double tap cannot fork the evening.
+     */
+    fun startAttendance() {
+        val id = eventId.value ?: return
+        if (!startingAttendance.compareAndSet(expect = false, update = true)) return
+
+        viewModelScope.launch {
+            try {
+                when (val result = repository.openAttendanceSession(id)) {
+                    is ApiResult.Success -> {
+                        _startedSession.value = result.data
+                        // The section shows the new session immediately even if
+                        // the person navigates back before any refresh.
+                        (repository.detail(id) as? ApiResult.Success)?.let { remote.value = it }
+                    }
+
+                    is ApiResult.Failure -> actionFailed.value = true
+                }
+            } finally {
+                startingAttendance.value = false
+            }
+        }
+    }
+
+    fun consumeStartedSession() {
+        _startedSession.value = null
     }
 
     fun onActionFailedShown() {

@@ -17,8 +17,22 @@ data class EventRegistration(
     val isWaitlisted: Boolean get() = status == "waitlist"
 }
 
+/**
+ * An attendance session hung off this event — the second door to the
+ * attendance list. Only the board sees these; the backend sends an empty
+ * array to everyone else.
+ */
+data class EventAttendanceSession(
+    val id: String,
+    val title: String,
+    /** `open` or `closed` — the backend's vocabulary. */
+    val status: String,
+    val recordCount: Int,
+)
+
 /** The single event with everything the detail screen shows. */
 data class EventDetail(
     val event: Event,
     val registrations: List<EventRegistration>,
+    val attendanceSessions: List<EventAttendanceSession> = emptyList(),
 )

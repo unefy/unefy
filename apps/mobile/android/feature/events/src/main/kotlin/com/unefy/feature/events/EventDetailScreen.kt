@@ -63,16 +63,31 @@ fun EventDetailRoute(
     eventId: String,
     role: ClubRole,
     onBack: () -> Unit,
+    onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
+    onOpenScanner: () -> Unit = {},
     viewModel: EventDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val picker by viewModel.picker.collectAsStateWithLifecycle()
     LaunchedEffect(eventId) { viewModel.load(eventId) }
+
+    // Starting attendance ends in the scanner: the person who opened the
+    // evening is about to check people in, not to read an empty list.
+    val started by viewModel.startedSession.collectAsStateWithLifecycle()
+    LaunchedEffect(started) {
+        if (started != null) {
+            viewModel.consumeStartedSession()
+            onOpenScanner()
+        }
+    }
+
     EventDetailScreen(
         state = state,
         canManage = role.canAdminister,
         picker = picker,
         onBack = onBack,
+        onOpenAttendanceList = onOpenAttendanceList,
+        onStartAttendance = viewModel::startAttendance,
         onToggleRegistration = viewModel::toggleRegistration,
         onOpenPicker = viewModel::openPicker,
         onDismissPicker = viewModel::dismissPicker,
@@ -96,6 +111,8 @@ fun EventDetailScreen(
     onPickMember: (MemberOption) -> Unit = {},
     onRemoveRegistration: (String) -> Unit = {},
     onActionFailedShown: () -> Unit = {},
+    onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
+    onStartAttendance: () -> Unit = {},
 ) {
     val content = state as? EventDetailUiState.Content
 
@@ -145,6 +162,8 @@ fun EventDetailScreen(
                 onToggleRegistration = onToggleRegistration,
                 onOpenPicker = onOpenPicker,
                 onRemoveRegistration = onRemoveRegistration,
+                onOpenAttendanceList = onOpenAttendanceList,
+                onStartAttendance = onStartAttendance,
             )
         }
     }
@@ -157,6 +176,8 @@ private fun EventDetailContent(
     onToggleRegistration: () -> Unit,
     onOpenPicker: () -> Unit,
     onRemoveRegistration: (String) -> Unit,
+    onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
+    onStartAttendance: () -> Unit = {},
 ) {
     val event = state.event
 
@@ -204,6 +225,18 @@ private fun EventDetailContent(
             mono = true,
         )
         Field(stringResource(R.string.event_detail_competition), event.competitionName)
+    }
+
+    // Attendance lives here too, but only for the board: the calendar is the
+    // place people look for the evening, and the evening's list should be one
+    // tap away — not hidden behind the scanner. Members never see this; the
+    // backend sends them an empty array, and attendance is the board's record.
+    if (canManage && state.detailLoaded) {
+        AttendanceBlock(
+            state = state,
+            onOpenAttendanceList = onOpenAttendanceList,
+            onStartAttendance = onStartAttendance,
+        )
     }
 
     // The board sees the section even when it is empty — it hosts the add
@@ -272,6 +305,71 @@ private fun EventDetailContent(
                         Text(stringResource(R.string.event_detail_remove_cancel))
                     }
                 },
+            )
+        }
+    }
+}
+
+/**
+ * The event's attendance sessions and the way in.
+ *
+ * A row per session opens the attendance list; with no open session there is
+ * one button that starts the evening — prefilled from the event, ending in the
+ * scanner, because whoever starts it is about to check people in.
+ */
+@Composable
+private fun AttendanceBlock(
+    state: EventDetailUiState.Content,
+    onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit,
+    onStartAttendance: () -> Unit,
+) {
+    SectionTitle(stringResource(R.string.event_detail_section_attendance))
+
+    state.attendanceSessions.forEach { session ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenAttendanceList(session.id, session.title) }
+                .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(
+                        R.string.event_detail_attendance_row,
+                        session.recordCount,
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = if (session.status == "closed") {
+                        stringResource(R.string.event_detail_attendance_closed)
+                    } else {
+                        stringResource(R.string.event_detail_attendance_open)
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        UnefyRowDivider()
+    }
+
+    if (state.attendanceSessions.none { it.status == "open" }) {
+        TextButton(
+            onClick = onStartAttendance,
+            enabled = state.online && !state.startingAttendance,
+            modifier = Modifier.padding(horizontal = UnefySpacing.sm),
+        ) {
+            Text(
+                stringResource(
+                    if (state.startingAttendance) {
+                        R.string.event_detail_attendance_starting
+                    } else {
+                        R.string.event_detail_attendance_start
+                    },
+                ),
             )
         }
     }

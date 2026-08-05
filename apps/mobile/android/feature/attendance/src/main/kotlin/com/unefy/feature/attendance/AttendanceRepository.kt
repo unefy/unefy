@@ -49,6 +49,20 @@ internal data class AttendanceSessionDto(
     @SerialName("closes_at") val closesAt: String,
     val status: String,
     @SerialName("record_count") val recordCount: Int = 0,
+    // The linked Termin's title, when there is one. Not cached — offline the
+    // chip falls back to the session's own title, which is usually the same.
+    @SerialName("event_title") val eventTitle: String? = null,
+)
+
+/**
+ * Just enough of a Termin to start an attendance session from it. Its own DTO
+ * for the same reason as [MemberPickDto]: features never depend on each other,
+ * and this is a different projection — a title to tap, not a calendar entry.
+ */
+@Serializable
+internal data class EventOptionDto(
+    val id: String,
+    val title: String,
 )
 
 @Serializable
@@ -121,10 +135,37 @@ internal data class MyRecordDto(
     val id: String,
     @SerialName("session_title") val sessionTitle: String? = null,
     @SerialName("checked_in_at") val checkedInAt: String,
+    @SerialName("occurred_on") val occurredOn: String = "",
+    val origin: String = "club",
+    @SerialName("external_location") val externalLocation: String? = null,
+    val method: String = "manual",
+)
+
+@Serializable
+internal data class SelfEntryRequest(
+    @SerialName("occurred_on") val occurredOn: String,
+    val location: String,
 )
 
 /** The member's own most recent check-in, for confirming one just happened. */
 data class OwnCheckIn(val sessionTitle: String?, val checkedInAtEpochSeconds: Long)
+
+/**
+ * One day of the member's own range history — club evenings and self-kept
+ * entries in one list, told apart by [origin].
+ */
+data class OwnRangeDay(
+    val id: String,
+    /** ISO date, the day that counts for the §14 proof. */
+    val occurredOn: String,
+    /** The session's title for a club day; null for an external one. */
+    val sessionTitle: String?,
+    /** The foreign range's name for an external day; null for a club one. */
+    val externalLocation: String?,
+    /** "club" | "external". */
+    val origin: String,
+    val method: String,
+)
 
 /** The seed plus the parameters it is valid under. */
 data class AttendanceSeed(
@@ -139,7 +180,12 @@ data class AttendanceSessionSummary(
     val title: String,
     val location: String?,
     val recordCount: Int,
+    /** The linked Termin's title, when there is one and we are online. */
+    val eventTitle: String? = null,
 )
+
+/** A Termin of today, offered when the scanner has nothing to check into. */
+data class EventOption(val id: String, val title: String)
 
 data class ScanOutcome(val memberName: String?, val memberNumber: String?, val assurance: String)
 
@@ -211,8 +257,33 @@ interface AttendanceRepository {
 
     suspend fun members(search: String?): ApiResult<List<MemberPick>>
 
+    /**
+     * Today's Termine, for the empty scanner. Whoever stands at the range with
+     * nothing open usually stands there *because* of a calendar entry — the
+     * ad-hoc "start now" stays, this only saves retyping its title.
+     */
+    suspend fun todaysEvents(startIso: String, endIso: String): ApiResult<List<EventOption>>
+
+    /**
+     * The event's open attendance session — found or freshly opened by the
+     * backend, prefilled from the Termin. Idempotent against double taps.
+     */
+    suspend fun openSessionForEvent(eventId: String): ApiResult<AttendanceSessionSummary>
+
     /** The session's attendance list, newest first. Cached for offline use. */
     suspend fun sessionRecords(sessionId: String): ApiResult<List<CheckedInEntry>>
+
+    /** The caller's whole range history, newest first — both origins. */
+    suspend fun myRangeDays(): ApiResult<List<OwnRangeDay>>
+
+    /**
+     * A self-kept entry about a visit to some other range. The server derives
+     * origin, method and assurance — the app only states day and place.
+     */
+    suspend fun createSelfEntry(occurredOn: String, location: String): ApiResult<OwnRangeDay>
+
+    /** Takes an own external entry back. 409 once a certificate references it. */
+    suspend fun deleteSelfEntry(recordId: String): ApiResult<Unit>
 
     /**
      * The caller's own latest check-in, or null if they have none.
@@ -267,9 +338,7 @@ class DefaultAttendanceRepository @Inject constructor(
                 parameter("status", "open")
                 parameter("per_page", SESSION_PAGE_SIZE)
             }
-            .map { dtos ->
-                dtos.map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
-            }
+            .map { dtos -> dtos.map { it.toSummary() } }
 
         return when {
             result is ApiResult.Success -> {
@@ -337,7 +406,24 @@ class DefaultAttendanceRepository @Inject constructor(
             ApiEndpoints.ATTENDANCE_SESSIONS,
             body = CreateSessionRequest(title, opensAt, closesAt),
         )
-        .map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) }
+        .map { it.toSummary() }
+
+    override suspend fun todaysEvents(
+        startIso: String,
+        endIso: String,
+    ): ApiResult<List<EventOption>> = apiClient
+        .get<List<EventOptionDto>>(ApiEndpoints.EVENTS) {
+            parameter("starts_after", startIso)
+            parameter("starts_before", endIso)
+            parameter("per_page", SESSION_PAGE_SIZE)
+        }
+        .map { dtos -> dtos.map { EventOption(it.id, it.title) } }
+
+    override suspend fun openSessionForEvent(
+        eventId: String,
+    ): ApiResult<AttendanceSessionSummary> = apiClient
+        .post<AttendanceSessionDto>("${ApiEndpoints.event(eventId)}/attendance-session")
+        .map { it.toSummary() }
 
     /**
      * The member list, from the mirror.
@@ -403,6 +489,26 @@ class DefaultAttendanceRepository @Inject constructor(
         }
     }
 
+    override suspend fun myRangeDays(): ApiResult<List<OwnRangeDay>> = apiClient
+        .get<List<MyRecordDto>>(ApiEndpoints.ATTENDANCE_ME_RECORDS) {
+            parameter("page", 1)
+            parameter("per_page", MEMBER_PAGE_SIZE)
+        }
+        .map { records -> records.map { it.toRangeDay() } }
+
+    override suspend fun createSelfEntry(
+        occurredOn: String,
+        location: String,
+    ): ApiResult<OwnRangeDay> = apiClient
+        .post<MyRecordDto>(
+            ApiEndpoints.ATTENDANCE_ME_ENTRIES,
+            body = SelfEntryRequest(occurredOn, location),
+        )
+        .map { it.toRangeDay() }
+
+    override suspend fun deleteSelfEntry(recordId: String): ApiResult<Unit> =
+        apiClient.deleteNoContent(ApiEndpoints.attendanceMeEntry(recordId))
+
     override suspend fun latestOwnCheckIn(): ApiResult<OwnCheckIn?> = apiClient
         .get<List<MyRecordDto>>(ApiEndpoints.ATTENDANCE_ME_RECORDS) {
             parameter("page", 1)
@@ -419,6 +525,23 @@ class DefaultAttendanceRepository @Inject constructor(
             ApiEndpoints.attendanceRecord(recordId) +
                 if (reason.isNullOrBlank()) "" else "?reason=${reason.encodeURLParameter()}",
         )
+
+    private fun AttendanceSessionDto.toSummary() = AttendanceSessionSummary(
+        id = id,
+        title = title,
+        location = location,
+        recordCount = recordCount,
+        eventTitle = eventTitle,
+    )
+
+    private fun MyRecordDto.toRangeDay() = OwnRangeDay(
+        id = id,
+        occurredOn = occurredOn.ifBlank { checkedInAt.take(DATE_LENGTH) },
+        sessionTitle = sessionTitle,
+        externalLocation = externalLocation,
+        origin = origin,
+        method = method,
+    )
 
     private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
         key = row.id,
@@ -446,6 +569,9 @@ class DefaultAttendanceRepository @Inject constructor(
          * for the constant.
          */
         const val MEMBERS_COLLECTION = "members"
+
+        /** The date prefix of an ISO instant, as a fallback for occurred_on. */
+        const val DATE_LENGTH = 10
     }
 }
 

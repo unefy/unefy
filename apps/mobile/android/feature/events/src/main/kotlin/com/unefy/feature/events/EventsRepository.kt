@@ -5,6 +5,7 @@ import com.unefy.core.database.SyncedEvent
 import com.unefy.core.database.SyncedEventDao
 import com.unefy.core.database.SyncedMemberDao
 import com.unefy.core.model.Event
+import com.unefy.core.model.EventAttendanceSession
 import com.unefy.core.model.EventDetail
 import com.unefy.core.model.EventRegistration
 import com.unefy.core.network.ApiClient
@@ -112,6 +113,25 @@ internal data class EventDetailDto(
     @SerialName("is_registered") val isRegistered: Boolean = false,
     @SerialName("competition_name") val competitionName: String? = null,
     val registrations: List<EventRegistrationDto> = emptyList(),
+    // Board only — the backend sends an empty array to plain members.
+    @SerialName("attendance_sessions")
+    val attendanceSessions: List<EventAttendanceSessionDto> = emptyList(),
+)
+
+/** An attendance session hung off the event, as the detail embeds it. */
+@Serializable
+internal data class EventAttendanceSessionDto(
+    val id: String,
+    val title: String = "",
+    val status: String = "open",
+    @SerialName("record_count") val recordCount: Int = 0,
+)
+
+internal fun EventAttendanceSessionDto.toDomain() = EventAttendanceSession(
+    id = id,
+    title = title,
+    status = status,
+    recordCount = recordCount,
 )
 
 @Serializable
@@ -150,6 +170,7 @@ internal fun EventDetailDto.toDomain() = EventDetail(
             note = it.note,
         )
     },
+    attendanceSessions = attendanceSessions.map(EventAttendanceSessionDto::toDomain),
 )
 
 /** The caller-specific and derived fields of one event, fetched online. */
@@ -186,6 +207,13 @@ interface EventsRepository {
      * events have no registration control anyway.
      */
     suspend fun overlay(): ApiResult<Map<String, EventOverlay>>
+
+    /**
+     * Board-level: the event's open attendance session — found or freshly
+     * opened by the backend, prefilled from the event. Idempotent; a second
+     * call returns the same session.
+     */
+    suspend fun openAttendanceSession(eventId: String): ApiResult<EventAttendanceSession>
 
     /** Self-service: registers the caller, never someone else. */
     suspend fun register(eventId: String): ApiResult<Unit>
@@ -249,6 +277,12 @@ class DefaultEventsRepository @Inject constructor(
                 it.id to EventOverlay(it.isRegistered, it.registeredCount, it.competitionName)
             }
         }
+
+    override suspend fun openAttendanceSession(
+        eventId: String,
+    ): ApiResult<EventAttendanceSession> = apiClient
+        .post<EventAttendanceSessionDto>("${ApiEndpoints.event(eventId)}/attendance-session")
+        .map(EventAttendanceSessionDto::toDomain)
 
     override suspend fun register(eventId: String): ApiResult<Unit> = apiClient
         .post<RegistrationDto>(ApiEndpoints.eventSelfRegistration(eventId))

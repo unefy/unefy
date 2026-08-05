@@ -59,6 +59,10 @@ data object AttendanceCodeKey : UnefyNavKey
 @Serializable
 data object ScannerKey : UnefyNavKey
 
+/** The member's own range history, incl. self-kept entries. Shooting clubs only. */
+@Serializable
+data object MyRangeDaysKey : UnefyNavKey
+
 /**
  * One session's attendance list, opened from the scanner. Carries the title so
  * the screen can say which evening it shows without a second fetch.

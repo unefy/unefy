@@ -89,6 +89,8 @@
     <string name="scanner_no_sessions_title">Keine offene Einheit</string>
     <string name="scanner_no_sessions_body">Es läuft gerade keine Einheit. Du kannst hier eine starten — Titel und Ende lassen sich später im Web korrigieren.</string>
     <string name="scanner_create_session">Einheit starten</string>
+    <!-- One per Termin of today: the evening starts under its announced name. -->
+    <string name="scanner_start_from_event">Aus Termin: %1$s</string>
     <string name="scanner_default_session_title">Übungsabend</string>
     <string name="scanner_guest_label">Nicht dabei? Gast erfassen</string>
     <string name="scanner_guest_placeholder">Name des Gasts</string>
@@ -101,4 +103,28 @@
     <string name="scanner_manual_empty">Kein Mitglied gefunden.</string>
     <string name="scanner_manual_error">Mitgliederliste nicht ladbar.</string>
     <string name="scanner_manual_present">Bereits eingecheckt</string>
+
+    <!-- Meine Schießtage: the member's own range history, incl. self-kept
+         entries for foreign ranges. Same honest language as the scanner's
+         "Selbst eingetragen" — a claim never dresses up as an attest. -->
+    <string name="range_days_title">Meine Schießtage</string>
+    <string name="range_days_add">Schießtag erfassen</string>
+    <string name="range_days_add_title">Schießtag erfassen</string>
+    <string name="range_days_add_hint">Für einen Besuch auf einem fremden Stand. Der Eintrag zählt als selbst geführter Nachweis.</string>
+    <string name="range_days_date">Datum</string>
+    <string name="range_days_pick_date">Datum wählen</string>
+    <string name="range_days_date_ok">Übernehmen</string>
+    <string name="range_days_date_cancel">Abbrechen</string>
+    <string name="range_days_location">Stand / Ort</string>
+    <string name="range_days_untitled">Schießtag</string>
+    <string name="range_days_self_kept">Selbst geführt</string>
+    <string name="range_days_club">Verein</string>
+    <string name="range_days_created">Eintrag gespeichert — als selbst geführt gekennzeichnet.</string>
+    <string name="range_days_certified">Nicht möglich: Eine Bescheinigung verweist auf diesen Eintrag.</string>
+    <string name="range_days_day_taken">Für diesen Tag gibt es schon einen Eintrag.</string>
+    <string name="range_days_failed">Das hat nicht geklappt. Bitte erneut versuchen.</string>
+    <string name="range_days_error_title">Liste nicht ladbar</string>
+    <string name="range_days_error_body">Deine Schießtage konnten nicht geladen werden.</string>
+    <string name="range_days_empty_title">Noch keine Schießtage</string>
+    <string name="range_days_empty_body">Vereinsabende erscheinen hier automatisch. Besuche auf fremden Ständen kannst du selbst erfassen.</string>
 </resources>

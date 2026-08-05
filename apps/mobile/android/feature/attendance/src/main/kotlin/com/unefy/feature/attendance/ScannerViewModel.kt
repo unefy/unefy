@@ -18,6 +18,7 @@ import com.unefy.feature.attendance.nfc.NfcState
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.Executors
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +109,11 @@ data class ScannerUiState(
     val nfc: NfcState = NfcState.Idle,
     /** True while a session is being opened from here. */
     val creatingSession: Boolean = false,
+    /**
+     * Today's Termine, offered when no session is open. Empty is also what an
+     * offline or termin-less day looks like — the ad-hoc button carries those.
+     */
+    val todaysEvents: List<EventOption> = emptyList(),
 )
 
 /**
@@ -176,11 +182,51 @@ class ScannerViewModel @Inject constructor(
                         )
                     }
                     refreshAttendance()
+                    // An empty scanner usually stands at the range *because* of
+                    // a calendar entry — offer today's Termine beside "start".
+                    if (result.data.isEmpty()) loadTodaysEvents()
                 }
 
                 is ApiResult.Failure -> _uiState.update {
                     it.copy(loadingSessions = false, sessionsError = result.error)
                 }
+            }
+        }
+    }
+
+    private fun loadTodaysEvents() {
+        viewModelScope.launch {
+            val zone = ZoneId.systemDefault()
+            val today = Instant.ofEpochSecond(clock.epochSeconds()).atZone(zone).toLocalDate()
+            val events = repository.todaysEvents(
+                startIso = today.atStartOfDay(zone).toInstant().toString(),
+                endIso = today.plusDays(1).atStartOfDay(zone).toInstant().toString(),
+            )
+            // Silent on failure: the offer is a shortcut, and an error message
+            // about a list nobody asked for would bury the one button that works.
+            if (events is ApiResult.Success) {
+                _uiState.update { it.copy(todaysEvents = events.data) }
+            }
+        }
+    }
+
+    /**
+     * Opens the Termin's session — prefilled by the server, idempotent there,
+     * so a double tap lands in the same evening.
+     */
+    fun createSessionFromEvent(event: EventOption) {
+        if (_uiState.value.creatingSession) return
+        _uiState.update { it.copy(creatingSession = true) }
+
+        viewModelScope.launch {
+            val result = repository.openSessionForEvent(event.id)
+            _uiState.update { it.copy(creatingSession = false) }
+
+            if (result is ApiResult.Success) {
+                loadSessions()
+                selectSession(result.data.id)
+            } else if (result is ApiResult.Failure) {
+                _uiState.update { it.copy(feedback = feedbackFor(result.error)) }
             }
         }
     }
