@@ -2,12 +2,9 @@ package com.unefy.feature.attendance
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,17 +15,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
-// The List overload of items(); without it the Int-count one is resolved.
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,7 +50,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefyListScaffold
-import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
@@ -71,6 +62,7 @@ import com.unefy.feature.attendance.nfc.TapResult
 fun ScannerRoute(
     onBack: () -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
+    onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
     viewModel: ScannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -109,10 +101,11 @@ fun ScannerRoute(
         onTagDetected = viewModel::onTagDetected,
         onNfcState = viewModel::onNfcState,
         onRefresh = viewModel::refresh,
-        onUndo = viewModel::undo,
-        onEditShootingDetail = viewModel::editShootingDetail,
-        onDismissShootingDetail = viewModel::dismissShootingDetail,
-        onSaveShootingDetail = viewModel::saveShootingDetail,
+        onOpenAttendance = {
+            state.sessions.firstOrNull { it.id == state.selectedSessionId }?.let { session ->
+                onOpenAttendanceList(session.id, session.title)
+            }
+        },
     )
 }
 
@@ -139,10 +132,7 @@ fun ScannerScreen(
     onTagDetected: () -> Unit = {},
     onNfcState: (NfcState) -> Unit = {},
     onRefresh: () -> Unit = {},
-    onUndo: (CheckedInEntry) -> Unit = {},
-    onEditShootingDetail: (CheckedInEntry) -> Unit = {},
-    onDismissShootingDetail: () -> Unit = {},
-    onSaveShootingDetail: (String?, String?, Int?) -> Unit = { _, _, _ -> },
+    onOpenAttendance: () -> Unit = {},
 ) {
     // The scanner is only a reader while it is on screen, so letting the phone
     // lock during an evening silently ends check-in.
@@ -170,18 +160,6 @@ fun ScannerScreen(
             TapResult.NotReady -> onTapNotReady()
             TapResult.Foreign -> Unit
         }
-    }
-
-    val editing = state.shooting?.editing
-    if (editing != null && state.shooting != null) {
-        ShootingDetailSheet(
-            entry = editing,
-            detail = state.shooting.details[editing.key],
-            disciplines = state.shooting.disciplines,
-            saving = state.shooting.saving,
-            onSave = onSaveShootingDetail,
-            onDismiss = onDismissShootingDetail,
-        )
     }
 
     if (state.manual.open) {
@@ -246,8 +224,7 @@ fun ScannerScreen(
                 onGrantCamera = onGrantCamera,
                 onSelectSession = onSelectSession,
                 bindCamera = bindCamera,
-                onUndo = onUndo,
-                onEditShootingDetail = onEditShootingDetail,
+                onOpenAttendance = onOpenAttendance,
             )
         }
     }
@@ -259,8 +236,7 @@ private fun LazyListScope.scannerContent(
     onGrantCamera: () -> Unit,
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
-    onUndo: (CheckedInEntry) -> Unit,
-    onEditShootingDetail: (CheckedInEntry) -> Unit,
+    onOpenAttendance: () -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -335,12 +311,19 @@ private fun LazyListScope.scannerContent(
                 },
                 feedback = state.feedback.takeIf { state.selectedSessionId != null },
             )
+            // The list itself lives one screen further: with discipline, weapon
+            // and round count on every row it became data entry, and data entry
+            // does not belong in the space left over under a camera. Here stays
+            // what the scanner needs — the count, and the way there.
             if (state.selectedSessionId != null) {
-                Text(
-                    text = stringResource(R.string.scanner_counted, state.checkedInCount),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                TextButton(onClick = onOpenAttendance) {
+                    Text(
+                        stringResource(
+                            R.string.scanner_attendance_list,
+                            state.checkedInCount,
+                        ),
+                    )
+                }
             }
 
             // Visible whenever anything is held. A queue nobody can see is a
@@ -360,52 +343,6 @@ private fun LazyListScope.scannerContent(
         }
     }
 
-    // The attendance list itself. Without it the screen can say that somebody
-    // was scanned but not who is in the room, which is the question the paper
-    // list answered and the one the supervisor actually has.
-    items(state.attendance, key = { it.key }) { entry ->
-        // Swipe, matching the rest of the app's lists. A mistap is the common
-        // reason a row is here wrongly, and it wants to be undone in the same
-        // gesture-and-a-half it took to create.
-        val dismiss = rememberSwipeToDismissBoxState()
-        LaunchedEffect(dismiss.currentValue) {
-            if (dismiss.currentValue != SwipeToDismissBoxValue.Settled) onUndo(entry)
-        }
-        SwipeToDismissBox(
-            state = dismiss,
-            backgroundContent = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.errorContainer),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Text(
-                        text = stringResource(R.string.scanner_undo),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = UnefySpacing.screen),
-                    )
-                }
-            },
-        ) {
-            AttendanceRow(
-                entry = entry,
-                detail = state.shooting?.details?.get(entry.key),
-                disciplines = state.shooting?.disciplines.orEmpty(),
-                // A guest has no member record, so the server refuses a detail
-                // on it; a pending row has no record id yet to hang one on.
-                onEdit = if (
-                    state.shooting != null && !entry.pending && entry.memberId != null
-                ) {
-                    { onEditShootingDetail(entry) }
-                } else {
-                    null
-                },
-            )
-        }
-        UnefyRowDivider()
-    }
 }
 
 /**
@@ -421,7 +358,7 @@ private fun LazyListScope.scannerContent(
  */
 /** Runs [onRefresh] whenever this screen comes to the foreground. */
 @Composable
-private fun RefreshOnResume(onRefresh: () -> Unit) {
+internal fun RefreshOnResume(onRefresh: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val current by rememberUpdatedState(onRefresh)
 
@@ -445,7 +382,6 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
 
         ScanFeedback.Detected -> MaterialTheme.colorScheme.secondaryContainer
 
-        is ScanFeedback.Undone -> MaterialTheme.colorScheme.surfaceContainerHighest
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
         ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.errorContainer
@@ -460,7 +396,6 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
 
         ScanFeedback.Detected -> MaterialTheme.colorScheme.onSecondaryContainer
 
-        is ScanFeedback.Undone -> MaterialTheme.colorScheme.onSurface
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
         ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.onErrorContainer
@@ -493,99 +428,6 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
             modifier = Modifier.padding(UnefySpacing.md),
         )
     }
-}
-
-@Composable
-private fun AttendanceRow(
-    entry: CheckedInEntry,
-    detail: ShootingDetail?,
-    disciplines: List<ClubDiscipline>,
-    /** Null when this row cannot carry a shooting detail — see the call site. */
-    onEdit: (() -> Unit)?,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (onEdit != null) {
-                    Modifier.clickable(
-                        onClickLabel = stringResource(R.string.shooting_edit),
-                        onClick = onEdit,
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = entry.memberName.ifBlank { stringResource(R.string.scanner_unknown_member) },
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = stringResource(rowLabelFor(entry)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            // Only when something was entered. An empty line under every row
-            // would make the list twice as tall to say nothing.
-            val summary = shootingSummary(detail, disciplines)
-            if (summary != null) {
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/**
- * The three shooting fields on one line, or null when there is nothing to say.
- *
- * Short names where the club set one: "LG 10m" is what the range book prints and
- * what the supervisor recognises, and the full name would push the round count off
- * a phone screen.
- */
-@Composable
-private fun shootingSummary(
-    detail: ShootingDetail?,
-    disciplines: List<ClubDiscipline>,
-): String? {
-    if (detail == null) return null
-    val discipline = disciplines.firstOrNull { it.id == detail.clubDisciplineId }
-    val parts = listOfNotNull(
-        discipline?.shortName ?: discipline?.name,
-        detail.weaponCategory?.let { weaponLabel(it) },
-        detail.roundsFired?.let { count ->
-            pluralStringResource(R.plurals.shooting_rounds_short, count, count)
-        },
-    )
-    return parts.joinToString(" · ").ifBlank { null }
-}
-
-/**
- * How one checked-in row describes itself.
- *
- * Three answers where there used to be two, and the third is why this is a
- * function now: a self-entry — the supervisor's own attendance — used to fall into
- * the `else` and read as "Von Hand", i.e. as a record somebody else had made. That
- * is the one thing it is not, and the whole reason the server marks it.
- *
- * "Wartet" wins over the method because for a queued row the method is still the
- * app's guess; the server has not spoken yet.
- */
-@StringRes
-internal fun rowLabelFor(entry: CheckedInEntry): Int = when {
-    entry.pending -> R.string.scanner_row_pending
-    entry.method == "self" -> R.string.scanner_row_self
-    entry.method == "staff_scan" -> R.string.scanner_row_scanned
-    else -> R.string.scanner_row_manual
 }
 
 @Composable
@@ -626,7 +468,6 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.NoSessionChosen -> stringResource(R.string.scanner_pick_session)
     ScanFeedback.Busy -> stringResource(R.string.scanner_busy)
     ScanFeedback.Detected -> stringResource(R.string.scanner_detected)
-    is ScanFeedback.Undone -> stringResource(R.string.scanner_undone, feedback.memberName)
 
     is ScanFeedback.QueuedOffline -> stringResource(
         R.string.scanner_queued,

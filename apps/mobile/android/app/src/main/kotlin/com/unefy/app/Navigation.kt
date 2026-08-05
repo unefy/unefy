@@ -69,6 +69,7 @@ import com.unefy.app.nav.NavSettingsViewModel
 import com.unefy.app.nav.TopLevel
 import com.unefy.app.ui.accountActions
 import com.unefy.core.model.ClubRole
+import com.unefy.feature.attendance.AttendanceListRoute
 import com.unefy.feature.attendance.MemberCodeRoute
 import com.unefy.feature.attendance.ScannerRoute
 import com.unefy.feature.competitions.CompetitionDetailRoute
@@ -424,7 +425,22 @@ internal fun unefyEntryProvider(
             onOpenScanner = { onOpen(ScannerKey) },
         )
     }
-    entry<ScannerKey> { ScannerRoute(onBack = onBack, actions = accountActions) }
+    entry<ScannerKey> {
+        ScannerRoute(
+            onBack = onBack,
+            actions = accountActions,
+            onOpenAttendanceList = { sessionId, sessionTitle ->
+                onOpen(AttendanceListKey(sessionId, sessionTitle))
+            },
+        )
+    }
+    entry<AttendanceListKey> { key ->
+        AttendanceListRoute(
+            sessionId = key.sessionId,
+            sessionTitle = key.sessionTitle,
+            onBack = onBack,
+        )
+    }
     entry<CompetitionsKey> {
         CompetitionsRoute(
             actions = accountActions,

@@ -59,5 +59,12 @@ data object AttendanceCodeKey : UnefyNavKey
 @Serializable
 data object ScannerKey : UnefyNavKey
 
+/**
+ * One session's attendance list, opened from the scanner. Carries the title so
+ * the screen can say which evening it shows without a second fetch.
+ */
+@Serializable
+data class AttendanceListKey(val sessionId: String, val sessionTitle: String) : UnefyNavKey
+
 @Serializable
 data object MoreKey : UnefyNavKey

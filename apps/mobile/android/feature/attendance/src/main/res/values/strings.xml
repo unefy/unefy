@@ -44,7 +44,17 @@
         <item quantity="other">%1$d Check-ins warten auf Verbindung</item>
     </plurals>
     <string name="scanner_failed">Check-in fehlgeschlagen</string>
-    <string name="scanner_counted">%1$d in dieser Einheit erfasst</string>
+    <!-- A button, not a counter: it carries the count and opens the list. -->
+    <string name="scanner_attendance_list">%1$d erfasst — Anwesenheit öffnen</string>
+
+    <!-- The attendance list, as its own screen behind the scanner. -->
+    <string name="attendance_list_title">Anwesenheit</string>
+    <string name="attendance_list_empty_title">Noch niemand da</string>
+    <string name="attendance_list_empty_body">Sobald jemand eincheckt, erscheint die Person hier.</string>
+    <string name="attendance_list_error_title">Liste nicht ladbar</string>
+    <string name="attendance_list_error_body">Die Anwesenheitsliste konnte nicht geladen werden.</string>
+    <string name="attendance_list_undo_failed">Zurücknehmen fehlgeschlagen</string>
+    <string name="shooting_save_failed">Speichern fehlgeschlagen</string>
     <string name="nfc_service_description">unefy Check-in</string>
     <string name="nfc_aid_group_description">Anwesenheits-Check-in</string>
     <string name="scanner_row_scanned">Gescannt</string>
