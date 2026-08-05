@@ -187,6 +187,23 @@ Unter `/api/v1/attendance/me`, neben `me/seed` und `me/records`:
 Backend-Tests: ein pytest-Prozess, geteilte `unefy_test`-DB (parallele Läufe
 erzeugen Phantom-Fehler).
 
+## Stand
+
+- **Umgesetzt 2026-08-05:** Strang A Backend (A1+A2, `feat(api): link
+  attendance sessions to events`), Strang B Backend (B1–B3, `feat(api): record
+  self-kept range days as external entries`) und die Android-Seite (A3+B4,
+  `feat(mobile): open attendance from termine and add own range days`):
+  Termin-Detail zeigt dem Vorstand die Einheiten mit Zähler und startet eine
+  aus dem Termin (landet im Scanner), der leere Scanner bietet die heutigen
+  Termine an, und unter „Mein Check-in" gibt es „Meine Schießtage" mit
+  Erfassungsformular für fremde Stände (nur Schieß-Modul-Vereine).
+- **Bekannte Lücke:** Es gibt keinen Lese-Pfad, über den ein Mitglied die
+  Schießdetails seiner eigenen Einträge zurücklesen kann —
+  `GET /modules/shooting/records` ist board-only und sessionbezogen. Das
+  Formular schreibt die Details beim Anlegen; Bearbeiten danach braucht einen
+  eigenen Read-Endpoint (z. B. `GET /modules/shooting/me/records`).
+- Web (A4) offen, ebenso Beleg-Foto und Anerkennungsregeln (unten).
+
 ## Offene Fragen
 
 - Anerkennungsregeln für externe Tage (Verbandssache): nur Ausweis oder auch
