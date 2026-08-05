@@ -55,7 +55,11 @@ export default async function MemberDetailLayout({
 
   return (
     <>
-      <div className="space-y-3">
+      {/* Sticky below the app topbar (h-16): name and tabs stay in view while
+          a long tab body scrolls. The negative margins undo the content
+          padding so the bar spans the full width and sits close under the
+          topbar instead of floating in it. */}
+      <div className="sticky top-16 z-40 -mx-4 -mt-4 space-y-2 border-b bg-background/95 px-4 pt-1 pb-3 backdrop-blur md:-mx-6 md:-mt-6 md:px-6">
         <Link
           href="/members"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -70,6 +74,9 @@ export default async function MemberDetailLayout({
           <Badge variant="secondary">
             {memberStatusLabel(tl, member.status)}
           </Badge>
+          <span className="font-mono text-sm text-muted-foreground">
+            {member.member_number}
+          </span>
           <div className="ms-auto flex items-center gap-2">
             <MemberDialog
               member={member}
@@ -92,9 +99,6 @@ export default async function MemberDetailLayout({
             />
           </div>
         </div>
-        <p className="font-mono text-sm text-muted-foreground">
-          {member.member_number}
-        </p>
         <MemberTabs baseHref={`/members/${member.id}`} tabs={tabs} />
       </div>
 
