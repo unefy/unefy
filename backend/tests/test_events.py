@@ -403,3 +403,232 @@ async def test_event_update_can_set_session_link(auth_client: AsyncClient) -> No
     data = resp.json()["data"]
     assert data["competition_id"] == comp["id"]
     assert data["event_type"] == "competition"
+
+
+# --- Termin ↔ Einheit (attendance link) ---
+
+
+async def _member_client(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+) -> AsyncClient:
+    """A client whose session carries the plain "member" role."""
+    import json
+
+    from httpx import ASGITransport
+
+    import app.redis as redis_module
+    from app.database import get_db_session
+    from app.main import app
+
+    async def override_db():  # type: ignore[no-untyped-def]
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_db
+    redis_module._redis_client = fake_redis
+
+    token = uuid.uuid4().hex
+    await fake_redis.set(
+        f"session:{token}",
+        json.dumps({"user_id": str(user_id), "tenant_id": str(tenant_id), "role": "member"}),
+        ex=604800,
+    )
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"unefy_session": token},
+    )
+
+
+async def test_attendance_session_accepts_a_valid_event_link(auth_client: AsyncClient) -> None:
+    event = await _create_event(auth_client, title="Übungsabend")
+    resp = await auth_client.post(
+        "/api/v1/attendance/sessions",
+        json={
+            "title": "Stand 1",
+            "opens_at": "2026-09-01T10:00:00+00:00",
+            "closes_at": "2026-09-01T14:00:00+00:00",
+            "event_id": event["id"],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["event_id"] == event["id"]
+    assert data["event_title"] == "Übungsabend"
+
+    # The list carries the title too — the scanner's chips show it.
+    resp = await auth_client.get("/api/v1/attendance/sessions")
+    row = next(r for r in resp.json()["data"] if r["id"] == data["id"])
+    assert row["event_title"] == "Übungsabend"
+
+
+async def test_attendance_session_rejects_an_unknown_event(auth_client: AsyncClient) -> None:
+    resp = await auth_client.post(
+        "/api/v1/attendance/sessions",
+        json={
+            "title": "Stand 1",
+            "opens_at": "2026-09-01T10:00:00+00:00",
+            "closes_at": "2026-09-01T14:00:00+00:00",
+            "event_id": str(uuid.uuid4()),
+        },
+    )
+    assert resp.status_code == 404
+
+
+async def test_attendance_session_rejects_an_event_of_another_tenant(
+    auth_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.models.event import Event
+    from app.models.tenant import Tenant as TenantModel
+
+    other = TenantModel(id=uuid.uuid4(), name="Other Club", slug="other-club-events")
+    db_session.add(other)
+    await db_session.flush()
+    foreign = Event(
+        tenant_id=other.id,
+        title="Fremder Abend",
+        starts_at=datetime(2026, 9, 1, 10, 0, tzinfo=UTC),
+    )
+    db_session.add(foreign)
+    await db_session.flush()
+
+    resp = await auth_client.post(
+        "/api/v1/attendance/sessions",
+        json={
+            "title": "Stand 1",
+            "opens_at": "2026-09-01T10:00:00+00:00",
+            "closes_at": "2026-09-01T14:00:00+00:00",
+            "event_id": str(foreign.id),
+        },
+    )
+    assert resp.status_code == 404
+
+
+async def test_attendance_session_update_validates_the_event(auth_client: AsyncClient) -> None:
+    resp = await auth_client.post(
+        "/api/v1/attendance/sessions",
+        json={
+            "title": "Stand 1",
+            "opens_at": "2026-09-01T10:00:00+00:00",
+            "closes_at": "2026-09-01T14:00:00+00:00",
+        },
+    )
+    session_id = resp.json()["data"]["id"]
+
+    resp = await auth_client.patch(
+        f"/api/v1/attendance/sessions/{session_id}",
+        json={"event_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 404
+
+    event = await _create_event(auth_client, title="Übungsabend")
+    resp = await auth_client.patch(
+        f"/api/v1/attendance/sessions/{session_id}",
+        json={"event_id": event["id"]},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"]["event_title"] == "Übungsabend"
+
+
+async def test_open_attendance_session_from_event(auth_client: AsyncClient) -> None:
+    event = await _create_event(
+        auth_client,
+        title="Übungsabend",
+        location="Stand West",
+        starts_at="2026-09-01T17:00:00+00:00",
+        ends_at="2026-09-01T21:00:00+00:00",
+    )
+    resp = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["title"] == "Übungsabend"
+    assert data["location"] == "Stand West"
+    assert data["event_id"] == event["id"]
+    assert data["status"] == "open"
+    assert data["opens_at"] == "2026-09-01T17:00:00Z"
+    assert data["closes_at"] == "2026-09-01T21:00:00Z"
+
+
+async def test_open_attendance_session_is_idempotent(auth_client: AsyncClient) -> None:
+    event = await _create_event(auth_client, title="Übungsabend")
+    first = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert first.status_code == 201
+
+    second = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert second.status_code == 200
+    assert second.json()["data"]["id"] == first.json()["data"]["id"]
+
+
+async def test_open_attendance_session_defaults_the_window(auth_client: AsyncClient) -> None:
+    """No end on the event → the scanner's eight hours, closing stays deliberate."""
+    event = await _create_event(auth_client, starts_at="2026-09-01T17:00:00+00:00")
+    resp = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert resp.status_code == 201
+    assert resp.json()["data"]["closes_at"] == "2026-09-02T01:00:00Z"
+
+
+async def test_open_attendance_session_for_unknown_event(auth_client: AsyncClient) -> None:
+    resp = await auth_client.post(f"/api/v1/events/{uuid.uuid4()}/attendance-session")
+    assert resp.status_code == 404
+
+
+async def test_open_attendance_session_requires_board(
+    anon_client: AsyncClient,
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    event = await _create_event(auth_client)
+
+    resp = await anon_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert resp.status_code == 403
+
+    member_client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    resp = await member_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    assert resp.status_code == 403
+    await member_client.aclose()
+
+
+async def test_event_detail_embeds_attendance_sessions_for_board(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    event = await _create_event(auth_client, title="Übungsabend")
+    opened = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+    session_id = opened.json()["data"]["id"]
+
+    member = await _add_member(db_session, test_tenant.id, member_number="M-100")
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{session_id}/check-in",
+        json={"member_id": str(member.id)},
+    )
+    assert resp.status_code == 201
+
+    resp = await auth_client.get(f"/api/v1/events/{event['id']}")
+    sessions = resp.json()["data"]["attendance_sessions"]
+    assert [s["id"] for s in sessions] == [session_id]
+    assert sessions[0]["record_count"] == 1
+    assert sessions[0]["status"] == "open"
+
+
+async def test_event_detail_hides_attendance_from_members(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Attendance is the board's record; the calendar must not leak it."""
+    event = await _create_event(auth_client)
+    await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
+
+    member_client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    resp = await member_client.get(f"/api/v1/events/{event['id']}")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["attendance_sessions"] == []
+    await member_client.aclose()

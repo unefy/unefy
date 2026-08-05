@@ -11,6 +11,7 @@ from app.core.preconditions import require_if_match, set_etag
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.models.member import Member
+from app.schemas.attendance import AttendanceSessionResponse
 from app.schemas.event import (
     EventCreate,
     EventRegistrationCreate,
@@ -18,6 +19,7 @@ from app.schemas.event import (
     EventResponse,
     EventUpdate,
 )
+from app.services.attendance import AttendanceService
 from app.services.event import EventService
 
 router = APIRouter()
@@ -112,6 +114,22 @@ async def get_event(
     # Same semantics as the list endpoint: any registration counts, waitlisted
     # included — the caller's question is "am I on this event", not "am I in".
     own_member = await service.members.get_by_user_id(auth.user_id)
+
+    # The attendance sessions hung off this event — the second door to the
+    # attendance list: whoever opens the training evening in the calendar can
+    # step through to who was there. Board only, matching the attendance API
+    # itself: attendance is a record of where people were, and even the
+    # session's existence and head count belong to that record, not to every
+    # member browsing the calendar.
+    attendance_sessions: list[dict[str, Any]] = []
+    if auth.role in ("owner", "admin", "board"):
+        attendance = AttendanceService(session, auth)
+        attendance_sessions = [
+            AttendanceSessionResponse.model_validate(row).model_dump(mode="json")
+            | {"record_count": count, "event_title": event.title}
+            for row, count in await attendance.sessions.for_event(event_id)
+        ]
+
     return {
         "data": EventResponse.model_validate(event).model_dump(mode="json")
         | {
@@ -124,6 +142,7 @@ async def get_event(
                 | {"member_name": f"{first} {last}"}
                 for r, first, last in rows
             ],
+            "attendance_sessions": attendance_sessions,
         }
     }
 
@@ -190,6 +209,39 @@ async def delete_event(
     deleted = await service.events.soft_delete(event_id)
     if not deleted:
         raise NotFoundError("Event not found")
+
+
+@router.post("/{event_id}/attendance-session")
+async def open_attendance_session(
+    event_id: uuid.UUID,
+    response: Response,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """The event's open attendance session — found or freshly opened.
+
+    One button on the event: "start attendance". Idempotent, because that
+    button gets double-tapped; an existing open session comes back with 200
+    instead of a conflict, since either way the caller's next step is the same
+    — start checking people in. A deliberate second session for the same
+    evening (two ranges) goes through the plain attendance API.
+    """
+    service = _get_service(session, auth)
+    event = await service.events.get_by_id(event_id)
+    if event is None:
+        raise NotFoundError("Event not found")
+
+    attendance = AttendanceService(session, auth)
+    row, created = await attendance.open_session_for_event(event)
+    response.status_code = 201 if created else 200
+    return {
+        "data": AttendanceSessionResponse.model_validate(row).model_dump(mode="json")
+        | {
+            "record_count": await attendance.sessions.record_count(row.id),
+            "supervisor_name": await attendance.sessions.supervisor_name(row),
+            "event_title": event.title,
+        }
+    }
 
 
 @router.post("/{event_id}/registrations", status_code=201)

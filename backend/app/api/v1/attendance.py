@@ -45,11 +45,16 @@ def _audit_payload(entry: object, actor_name: str | None) -> dict[str, Any]:
 
 
 def _session_payload(
-    row: object, *, record_count: int, supervisor_name: str | None
+    row: object,
+    *,
+    record_count: int,
+    supervisor_name: str | None,
+    event_title: str | None = None,
 ) -> dict[str, Any]:
     return AttendanceSessionResponse.model_validate(row).model_dump(mode="json") | {
         "record_count": record_count,
         "supervisor_name": supervisor_name,
+        "event_title": event_title,
     }
 
 
@@ -70,6 +75,7 @@ async def create_session(
             row,
             record_count=0,
             supervisor_name=await service.sessions.supervisor_name(row),
+            event_title=await service.sessions.event_title(row),
         )
     }
 
@@ -103,8 +109,13 @@ async def list_sessions(
     total = await service.sessions.count(**filters)  # type: ignore[arg-type]
     return {
         "data": [
-            _session_payload(row, record_count=count, supervisor_name=supervisor)
-            for row, count, supervisor in rows
+            _session_payload(
+                row,
+                record_count=count,
+                supervisor_name=supervisor,
+                event_title=event_title,
+            )
+            for row, count, supervisor, event_title in rows
         ],
         "meta": {
             "total": total,
@@ -130,6 +141,7 @@ async def get_session(
             row,
             record_count=len(records),
             supervisor_name=await service.sessions.supervisor_name(row),
+            event_title=await service.sessions.event_title(row),
         )
         | {
             "records": [
@@ -157,6 +169,7 @@ async def update_session(
             row,
             record_count=await service.sessions.record_count(session_id),
             supervisor_name=await service.sessions.supervisor_name(row),
+            event_title=await service.sessions.event_title(row),
         )
     }
 
@@ -180,6 +193,7 @@ async def close_session(
             row,
             record_count=await service.sessions.record_count(session_id),
             supervisor_name=await service.sessions.supervisor_name(row),
+            event_title=await service.sessions.event_title(row),
         )
     }
 

@@ -20,6 +20,7 @@ from app.models.attendance import (
     AttendanceRecord,
     AttendanceSession,
 )
+from app.models.event import Event
 from app.models.member import Member
 from app.models.tenant import Tenant
 from app.redis import get_redis
@@ -191,8 +192,23 @@ class AttendanceService:
         if await self.members.get_by_id(member_id) is None:
             raise NotFoundError("Supervisor member not found")
 
+    async def _validate_event(self, event_id: uuid.UUID | None) -> None:
+        """The event a session hangs off, if any. Tenant-scoped, like everything.
+
+        The column existed long before anything read it; validating late means
+        the first bad id would have been stored, not refused.
+        """
+        if event_id is None:
+            return
+        result = await self.session.execute(
+            select(Event.id).where(Event.tenant_id == self.tenant_id).where(Event.id == event_id)
+        )
+        if result.scalar_one_or_none() is None:
+            raise NotFoundError("Event not found")
+
     async def create_session(self, data: AttendanceSessionCreate) -> AttendanceSession:
         await self._validate_supervisor(data.supervisor_member_id)
+        await self._validate_event(data.event_id)
         row = AttendanceSession(
             **data.model_dump(),
             tenant_id=self.tenant_id,
@@ -204,6 +220,42 @@ class AttendanceService:
         await self.session.flush()
         await self.session.refresh(row)
         return row
+
+    async def open_session_for_event(self, event: Event) -> tuple[AttendanceSession, bool]:
+        """The open session for an event — found or freshly opened.
+
+        Idempotent on purpose: this backs a single "start attendance" action on
+        the event, and a double tap must not produce two parallel sessions. A
+        second session for the same evening (two ranges) stays possible through
+        the plain session endpoint, where it is a deliberate act.
+
+        Returns the session and whether it was created by this call.
+        """
+        existing = await self.sessions.open_for_event(event.id)
+        if existing is not None:
+            return existing, False
+
+        closes_at = event.ends_at
+        if closes_at is None or closes_at <= event.starts_at:
+            # The scanner's default for an ad-hoc session: longer than any
+            # evening, and closing stays a deliberate act.
+            closes_at = event.starts_at + timedelta(hours=8)
+
+        row = AttendanceSession(
+            tenant_id=self.tenant_id,
+            title=event.title,
+            event_id=event.id,
+            location=event.location,
+            opens_at=event.starts_at,
+            closes_at=closes_at,
+            status="open",
+            created_by=self.auth.user_id,
+            updated_by=self.auth.user_id,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        await self.session.refresh(row)
+        return row, True
 
     async def update_session(
         self,
@@ -218,6 +270,8 @@ class AttendanceService:
         changes = data.model_dump(exclude_unset=True, exclude={"reason"})
         if "supervisor_member_id" in changes:
             await self._validate_supervisor(changes["supervisor_member_id"])
+        if "event_id" in changes:
+            await self._validate_event(changes["event_id"])
 
         before = {field: getattr(row, field) for field in changes}
         for field, value in changes.items():

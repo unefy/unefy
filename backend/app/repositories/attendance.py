@@ -5,6 +5,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.sql.selectable import ScalarSelect
 
 from app.models.attendance import AttendanceRecord, AttendanceSession
+from app.models.event import Event
 from app.models.member import Member
 from app.repositories.base import BaseRepository
 from app.schemas.attendance import (
@@ -61,8 +62,8 @@ class AttendanceSessionRepository(
         division_id: uuid.UUID | None = None,
         status: str | None = None,
         sort_order: str = "desc",
-    ) -> list[tuple[AttendanceSession, int, str | None]]:
-        """Sessions with their live record count and the supervisor's name."""
+    ) -> list[tuple[AttendanceSession, int, str | None, str | None]]:
+        """Sessions with their live record count, supervisor name and event title."""
         supervisor = Member.__table__.alias("supervisor")
         query = self._filtered_query(
             opens_after=opens_after,
@@ -72,16 +73,17 @@ class AttendanceSessionRepository(
         ).add_columns(
             self._record_count_subquery().label("record_count"),
             (supervisor.c.first_name + " " + supervisor.c.last_name).label("supervisor_name"),
+            Event.title.label("event_title"),
         )
         query = query.outerjoin(
             supervisor, AttendanceSession.supervisor_member_id == supervisor.c.id
-        )
+        ).outerjoin(Event, AttendanceSession.event_id == Event.id)
         if sort_order == "asc":
             query = query.order_by(AttendanceSession.opens_at.asc())
         else:
             query = query.order_by(AttendanceSession.opens_at.desc())
         result = await self.session.execute(query.offset(offset).limit(limit))
-        return [(row[0], row[1], row[2]) for row in result.all()]
+        return [(row[0], row[1], row[2], row[3]) for row in result.all()]
 
     async def count(
         self,
@@ -123,6 +125,41 @@ class AttendanceSessionRepository(
         )
         row = result.first()
         return f"{row[0]} {row[1]}" if row else None
+
+    async def event_title(self, session_row: AttendanceSession) -> str | None:
+        if session_row.event_id is None:
+            return None
+        result = await self.session.execute(
+            select(Event.title)
+            .where(Event.tenant_id == self.tenant_id)
+            .where(Event.id == session_row.event_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def open_for_event(self, event_id: uuid.UUID) -> AttendanceSession | None:
+        """The open session already running for this event, if any.
+
+        Only open ones: a closed evening is history, and asking to check in
+        against the same event again means a new session, not a reopen.
+        """
+        result = await self.session.execute(
+            self._base_query()
+            .where(AttendanceSession.event_id == event_id)
+            .where(AttendanceSession.status == "open")
+            .order_by(AttendanceSession.opens_at.asc())
+        )
+        return result.scalars().first()
+
+    async def for_event(self, event_id: uuid.UUID) -> list[tuple[AttendanceSession, int]]:
+        """Every session hung off this event, with its live record count."""
+        query = (
+            self._base_query()
+            .where(AttendanceSession.event_id == event_id)
+            .add_columns(self._record_count_subquery().label("record_count"))
+            .order_by(AttendanceSession.opens_at.asc())
+        )
+        result = await self.session.execute(query)
+        return [(row[0], row[1]) for row in result.all()]
 
     async def record_count(self, session_id: uuid.UUID) -> int:
         result = await self.session.execute(

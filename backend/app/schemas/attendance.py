@@ -58,6 +58,7 @@ class AttendanceSessionResponse(BaseSchema):
     status: str
     supervisor_member_id: uuid.UUID | None = None
     supervisor_name: str | None = None
+    event_title: str | None = None
     closed_at: datetime | None = None
     closed_by: uuid.UUID | None = None
     record_count: int = 0
