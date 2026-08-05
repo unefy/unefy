@@ -28,6 +28,10 @@
     <string name="nav_directory">Directory</string>
     <string name="nav_my_dues">My dues</string>
     <string name="account_sign_out">Sign out</string>
+    <!-- Header above the club list in the account menu; the tick marks the
+         current club. No email here — the initials carry the identity. -->
+    <string name="account_switch_club">Switch club</string>
+    <string name="account_current_club">Current club</string>
     <string name="nav_competitions">Competitions</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">More</string>

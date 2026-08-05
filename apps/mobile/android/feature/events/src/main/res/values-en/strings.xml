@@ -17,6 +17,13 @@
     <string name="event_detail_cancelled">Cancelled</string>
     <string name="event_detail_section_description">Description</string>
     <string name="event_detail_section_details">Details</string>
+    <!-- Attendance from the calendar: board only, one tap to the evening's list. -->
+    <string name="event_detail_section_attendance">Attendance</string>
+    <string name="event_detail_attendance_row">%1$d recorded</string>
+    <string name="event_detail_attendance_open">Open</string>
+    <string name="event_detail_attendance_closed">Closed</string>
+    <string name="event_detail_attendance_start">Start session</string>
+    <string name="event_detail_attendance_starting">Starting …</string>
     <string name="event_detail_location">Location</string>
     <string name="event_detail_starts">Starts</string>
     <string name="event_detail_ends">Ends</string>
