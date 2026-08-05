@@ -201,31 +201,34 @@ private fun EventDetailContent(
         )
     }
 
-    UnefyDetailSection(stringResource(R.string.event_detail_section_details)) {
-        Field(stringResource(R.string.event_detail_location), event.location)
-        Field(
-            label = stringResource(R.string.event_detail_starts),
-            value = if (event.allDay) {
-                UnefyFormat.date(event.startsAt)
-            } else {
-                UnefyFormat.dateTime(event.startsAt)
-            },
-            mono = true,
-        )
-        Field(
-            label = stringResource(R.string.event_detail_ends),
-            value = event.endsAt?.let {
-                if (event.allDay) UnefyFormat.date(it) else UnefyFormat.dateTime(it)
-            },
-            mono = true,
-        )
-        Field(
-            label = stringResource(R.string.event_detail_deadline),
-            value = event.registrationDeadline?.let(UnefyFormat::dateTime),
-            mono = true,
-        )
-        Field(stringResource(R.string.event_detail_competition), event.competitionName)
-    }
+    UnefyDetailSection(
+        title = stringResource(R.string.event_detail_section_details),
+        fields = listOf(
+            Field(stringResource(R.string.event_detail_location), event.location),
+            Field(
+                label = stringResource(R.string.event_detail_starts),
+                value = if (event.allDay) {
+                    UnefyFormat.date(event.startsAt)
+                } else {
+                    UnefyFormat.dateTime(event.startsAt)
+                },
+                mono = true,
+            ),
+            Field(
+                label = stringResource(R.string.event_detail_ends),
+                value = event.endsAt?.let {
+                    if (event.allDay) UnefyFormat.date(it) else UnefyFormat.dateTime(it)
+                },
+                mono = true,
+            ),
+            Field(
+                label = stringResource(R.string.event_detail_deadline),
+                value = event.registrationDeadline?.let(UnefyFormat::dateTime),
+                mono = true,
+            ),
+            Field(stringResource(R.string.event_detail_competition), event.competitionName),
+        ),
+    )
 
     // Attendance lives here too, but only for the board: the calendar is the
     // place people look for the evening, and the evening's list should be one

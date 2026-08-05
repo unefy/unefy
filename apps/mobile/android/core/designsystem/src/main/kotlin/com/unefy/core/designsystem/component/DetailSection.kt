@@ -18,16 +18,29 @@ import com.unefy.core.designsystem.theme.UnefySpacing
 /**
  * A titled block of label/value fields on a detail screen.
  *
- * Renders nothing when every field inside it is empty — an empty "Banking"
- * heading over nothing is worse than no heading. Fields register through
- * [UnefyFieldScope.Field], which drops null and blank values, so the caller
- * lists everything it *could* show and the section decides what survives.
+ * Renders nothing when every field is empty — an empty "Banking" heading over
+ * nothing is worse than no heading. [Field] returns null for a null or blank
+ * value, so the caller lists everything it *could* show and the section decides
+ * what survives.
+ *
+ * The fields arrive as values rather than as a composable block, and that is the
+ * whole point. This was a `@Composable UnefyFieldScope.() -> Unit` that collected
+ * its fields into a plain list while it composed, and then rendered from that
+ * list in the same function body. Compose is free to recompose the block on its
+ * own — it does exactly that when the record the block closes over changes,
+ * because the block's captured values are what it tracks — while skipping this
+ * function, whose own arguments still compare equal. The fields were then
+ * appended to a list nothing re-read, so the section kept rendering the previous
+ * record: a member detail screen showed the newly opened member's name in its
+ * header over the previously opened member's address, category and IBAN.
+ *
+ * A list parameter cannot drift that way. It compares unequal when the data
+ * changes, so this function recomposes, and there is no state between the two.
  */
 @Composable
-fun UnefyDetailSection(title: String, content: @Composable UnefyFieldScope.() -> Unit) {
-    val scope = UnefyFieldScope()
-    scope.content()
-    if (scope.fields.isEmpty()) return
+fun UnefyDetailSection(title: String, fields: List<UnefyField?>) {
+    val visible = fields.filterNotNull()
+    if (visible.isEmpty()) return
 
     Text(
         text = title,
@@ -40,7 +53,7 @@ fun UnefyDetailSection(title: String, content: @Composable UnefyFieldScope.() ->
             bottom = UnefySpacing.sm,
         ),
     )
-    scope.fields.forEach { field ->
+    visible.forEach { field ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -64,16 +77,19 @@ fun UnefyDetailSection(title: String, content: @Composable UnefyFieldScope.() ->
     }
 }
 
-class UnefyFieldScope internal constructor() {
-    internal val fields = mutableListOf<UnefyFieldData>()
-}
+/** One label/value row, as data. */
+data class UnefyField(val label: String, val value: String, val mono: Boolean = false)
 
-internal data class UnefyFieldData(val label: String, val value: String, val mono: Boolean)
-
-/** Registers a field; null or blank values simply do not appear. */
-fun UnefyFieldScope.Field(label: String, value: String?, mono: Boolean = false) {
-    if (!value.isNullOrBlank()) fields += UnefyFieldData(label, value, mono)
-}
+/**
+ * A field, or null when there is nothing to show.
+ *
+ * Capitalised because it reads as a constructor at the call site — the same
+ * reason `Color(…)` and `Offset(…)` are. Nullable so that a section can be
+ * written as a flat list of everything a record might carry, and the blanks fall
+ * out on their own.
+ */
+fun Field(label: String, value: String?, mono: Boolean = false): UnefyField? =
+    if (value.isNullOrBlank()) null else UnefyField(label, value, mono)
 
 /**
  * A small labelled state, as a pill. The caller picks the colour role — status

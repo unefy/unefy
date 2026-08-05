@@ -10,6 +10,9 @@ import androidx.compose.ui.test.onNodeWithText
 import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.theme.UnefyTheme
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -27,10 +30,23 @@ import org.junit.Test
  * section, because that is how the real screens pass it — `MemberDetailContent`
  * takes a `Member` and the sections close over it.
  */
+@HiltAndroidTest
 class DetailSectionTest {
 
-    @get:Rule
+    // Nothing here is injected, but the runner swaps in HiltTestApplication for
+    // the whole run: a class without the rule throws "The component was not
+    // created" as soon as anything reaches for the component, and which test
+    // runs first decides whether it does.
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeRule = createComposeRule()
+
+    @Before
+    fun setUp() {
+        hiltRule.inject()
+    }
 
     @Test
     fun a_section_shows_the_values_of_the_record_it_is_given() {
@@ -72,7 +88,7 @@ class DetailSectionTest {
 
     @Composable
     private fun ContactSection(email: String) {
-        UnefyDetailSection(TITLE) { Field(LABEL, email) }
+        UnefyDetailSection(title = TITLE, fields = listOf(Field(LABEL, email)))
     }
 
     private companion object {

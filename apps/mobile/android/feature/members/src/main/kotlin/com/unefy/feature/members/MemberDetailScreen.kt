@@ -205,31 +205,49 @@ internal fun MemberDetailContent(
         }
     }
 
-    UnefyDetailSection(stringResource(R.string.detail_section_contact)) {
-        Field(stringResource(R.string.detail_email), member.email)
-        Field(stringResource(R.string.detail_phone), member.phone)
-        Field(stringResource(R.string.detail_mobile), member.mobile)
-    }
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_contact),
+        fields = listOf(
+            Field(stringResource(R.string.detail_email), member.email),
+            Field(stringResource(R.string.detail_phone), member.phone),
+            Field(stringResource(R.string.detail_mobile), member.mobile),
+        ),
+    )
 
-    UnefyDetailSection(stringResource(R.string.detail_section_address)) {
-        Field(stringResource(R.string.detail_street), member.street)
-        Field(stringResource(R.string.detail_city), member.postalLine)
-    }
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_address),
+        fields = listOf(
+            Field(stringResource(R.string.detail_street), member.street),
+            Field(stringResource(R.string.detail_city), member.postalLine),
+        ),
+    )
 
-    UnefyDetailSection(stringResource(R.string.detail_section_membership)) {
-        Field(stringResource(R.string.detail_category), member.category)
-        Field(stringResource(R.string.detail_joined), UnefyFormat.date(member.joinedAt), mono = true)
-        Field(stringResource(R.string.detail_left), member.leftAt?.let(UnefyFormat::date), mono = true)
-        Field(
-            label = stringResource(R.string.detail_birthday),
-            value = member.birthday?.let(UnefyFormat::date),
-            mono = true,
-        )
-        Field(stringResource(R.string.detail_gender), member.gender?.let { genderLabel(it) })
-    }
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_membership),
+        fields = listOf(
+            Field(stringResource(R.string.detail_category), member.category),
+            Field(
+                label = stringResource(R.string.detail_joined),
+                value = UnefyFormat.date(member.joinedAt),
+                mono = true,
+            ),
+            Field(
+                label = stringResource(R.string.detail_left),
+                value = member.leftAt?.let(UnefyFormat::date),
+                mono = true,
+            ),
+            Field(
+                label = stringResource(R.string.detail_birthday),
+                value = member.birthday?.let(UnefyFormat::date),
+                mono = true,
+            ),
+            Field(stringResource(R.string.detail_gender), member.gender?.let { genderLabel(it) }),
+        ),
+    )
 
-    UnefyDetailSection(stringResource(R.string.detail_section_federations)) {
-        federations.forEach { federation ->
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_federations),
+        fields = federations.map { federation ->
             Field(
                 label = federation.federation,
                 value = listOfNotNull(
@@ -240,12 +258,15 @@ internal fun MemberDetailContent(
                 ).joinToString(" · ").ifBlank { null },
                 mono = true,
             )
-        }
-    }
+        },
+    )
 
-    UnefyDetailSection(stringResource(R.string.detail_section_banking)) {
-        Field(stringResource(R.string.detail_iban), member.maskedIban, mono = true)
-    }
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_banking),
+        fields = listOf(
+            Field(stringResource(R.string.detail_iban), member.maskedIban, mono = true),
+        ),
+    )
 }
 
 /**

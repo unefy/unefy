@@ -163,26 +163,29 @@ fun CompetitionDetailScreen(
             )
         }
 
-        UnefyDetailSection(stringResource(R.string.competition_detail_section_scoring)) {
-            Field(
-                label = stringResource(R.string.competition_detail_unit),
-                value = competition.scoringUnit,
-            )
-            Field(
-                label = stringResource(R.string.competition_detail_mode),
-                value = stringResource(
-                    if (competition.highestWins) {
-                        R.string.competition_detail_mode_highest
-                    } else {
-                        R.string.competition_detail_mode_lowest
-                    },
+        UnefyDetailSection(
+            title = stringResource(R.string.competition_detail_section_scoring),
+            fields = listOf(
+                Field(
+                    label = stringResource(R.string.competition_detail_unit),
+                    value = competition.scoringUnit,
                 ),
-            )
-            Field(
-                label = stringResource(R.string.competition_detail_type),
-                value = competitionTypeLabel(competition.type),
-            )
-        }
+                Field(
+                    label = stringResource(R.string.competition_detail_mode),
+                    value = stringResource(
+                        if (competition.highestWins) {
+                            R.string.competition_detail_mode_highest
+                        } else {
+                            R.string.competition_detail_mode_lowest
+                        },
+                    ),
+                ),
+                Field(
+                    label = stringResource(R.string.competition_detail_type),
+                    value = competitionTypeLabel(competition.type),
+                ),
+            ),
+        )
 
         if (competition.disciplines.isNotEmpty()) {
             Text(
