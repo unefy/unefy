@@ -1,9 +1,12 @@
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import EmailStr, Field
 
 from app.schemas.base import BaseSchema, PaginationMeta
+
+Gender = Literal["male", "female", "diverse"]
 
 
 class MemberBulkDelete(BaseSchema):
@@ -17,6 +20,7 @@ class MemberCreate(BaseSchema):
     phone: str | None = Field(default=None, max_length=50)
     mobile: str | None = Field(default=None, max_length=50)
     birthday: date | None = None
+    gender: Gender | None = None
     street: str | None = Field(default=None, max_length=255)
     zip_code: str | None = Field(default=None, max_length=20)
     city: str | None = Field(default=None, max_length=255)
@@ -40,6 +44,7 @@ class MemberUpdate(BaseSchema):
     phone: str | None = Field(default=None, max_length=50)
     mobile: str | None = Field(default=None, max_length=50)
     birthday: date | None = None
+    gender: Gender | None = None
     street: str | None = Field(default=None, max_length=255)
     zip_code: str | None = Field(default=None, max_length=20)
     city: str | None = Field(default=None, max_length=255)
@@ -66,6 +71,7 @@ class MemberResponse(BaseSchema):
     phone: str | None = None
     mobile: str | None = None
     birthday: date | None = None
+    gender: str | None = None
     street: str | None = None
     zip_code: str | None = None
     city: str | None = None
@@ -89,6 +95,18 @@ class MemberResponse(BaseSchema):
 class MemberListResponse(BaseSchema):
     data: list[MemberResponse]
     meta: PaginationMeta
+
+
+class FederationMembershipResponse(BaseSchema):
+    id: uuid.UUID
+    member_id: uuid.UUID
+    federation: str
+    federation_number: str | None = None
+    joined_at: date | None = None
+    left_at: date | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class MemberDirectoryEntry(BaseSchema):

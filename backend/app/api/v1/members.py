@@ -12,6 +12,7 @@ from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
 from app.schemas.member import (
+    FederationMembershipResponse,
     MemberBulkDelete,
     MemberCreate,
     MemberDirectoryEntry,
@@ -215,6 +216,29 @@ async def bulk_delete_members(
     service = _get_service(session, auth)
     deleted_count = await service.delete_many(data.ids)
     return {"data": {"deleted": deleted_count}}
+
+
+@router.get("/{member_id}/federations")
+async def list_member_federations(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """A member's federation memberships (DSB, BDS, …).
+
+    Unpaginated on purpose: a shooter belongs to a handful of federations,
+    never to pages of them.
+    """
+    repo = MemberRepository(session, auth.tenant)
+    if await repo.get_by_id(member_id) is None:
+        raise NotFoundError("Member not found")
+    memberships = await repo.federation_memberships(member_id)
+    return {
+        "data": [
+            FederationMembershipResponse.model_validate(m).model_dump(mode="json")
+            for m in memberships
+        ]
+    }
 
 
 @router.get("/{member_id}/attendance")

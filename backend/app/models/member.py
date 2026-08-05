@@ -40,6 +40,7 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     mobile: Mapped[str | None] = mapped_column(String(50), nullable=True)
     birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Address
     street: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -71,3 +72,29 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
     # Null until the member first asks for a seed — there is no reason to mint
     # one for a club that never turns scanning on.
     attendance_ref: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class MemberFederationMembership(TenantModel, AuditMixin, SoftDeleteMixin):
+    """A member's membership in an external federation (DSB, BDS, …).
+
+    Its own table rather than columns on Member: a shooter is routinely in
+    more than one federation, each with its own number and entry date, and
+    federation reporting needs them as rows, not as a fixed pair of fields.
+    """
+
+    __tablename__ = "member_federation_memberships"
+    __table_args__ = (
+        # One row per federation and member — a second number in the same
+        # federation is a data error, not a feature.
+        UniqueConstraint("tenant_id", "member_id", "federation"),
+        Index("ix_member_federation_memberships_member", "tenant_id", "member_id"),
+    )
+
+    member_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("members.id"), nullable=False, index=True
+    )
+    federation: Mapped[str] = mapped_column(String(100), nullable=False)
+    federation_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    joined_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    left_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

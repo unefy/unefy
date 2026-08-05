@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import func, or_, select
 
-from app.models.member import Member
+from app.models.member import Member, MemberFederationMembership
 from app.repositories.base import BaseRepository
 from app.schemas.member import MemberCreate, MemberUpdate
 
@@ -171,6 +171,22 @@ class MemberRepository(
         query = self._base_query().where(Member.user_id == user_id)
         result = await self.session.execute(query)
         return result.scalars().first()
+
+    async def federation_memberships(
+        self, member_id: uuid.UUID
+    ) -> list[MemberFederationMembership]:
+        """A member's federation memberships (DSB, BDS, …), tenant-scoped."""
+        query = (
+            select(MemberFederationMembership)
+            .where(
+                MemberFederationMembership.tenant_id == self.tenant_id,
+                MemberFederationMembership.member_id == member_id,
+                MemberFederationMembership.deleted_at.is_(None),
+            )
+            .order_by(MemberFederationMembership.federation.asc())
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
 
     async def get_by_attendance_ref(self, ref: str) -> Member | None:
         """Resolve a scanned pseudonym back to a member.

@@ -235,6 +235,9 @@
       "first_name": {
         "nullable": false
       },
+      "gender": {
+        "nullable": true
+      },
       "iban": {
         "nullable": true
       },
