@@ -179,6 +179,7 @@ export default async function MemberDetailPage({
           member={member}
           access={linkedAccount}
           invitation={openInvitation}
+          availableAccounts={access.members.filter((m) => m.member_id === null)}
         />
       )}
     </>

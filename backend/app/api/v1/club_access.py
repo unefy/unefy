@@ -38,6 +38,11 @@ class InviteRequest(BaseModel):
     member_id: uuid.UUID | None = None
 
 
+class LinkRequest(BaseModel):
+    member_id: uuid.UUID
+    user_id: uuid.UUID
+
+
 class RoleUpdate(BaseModel):
     role: str = Field(pattern=_ROLE_PATTERN)
 
@@ -93,6 +98,33 @@ async def invite(
         member_id=data.member_id,
     )
     return {"data": invitation}
+
+
+@router.post("/links", status_code=201)
+async def link_member(
+    data: LinkRequest,
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Bind an existing club account to a member record.
+
+    The path for people who can already sign in — the invitation flow refuses
+    them, and without this the founder can never reach their own member data.
+    """
+    return {
+        "data": await ClubAccessService(session).link_member(
+            _tenant_id(auth), data.member_id, data.user_id
+        )
+    }
+
+
+@router.delete("/links/{member_id}", status_code=204)
+async def unlink_member(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> None:
+    await ClubAccessService(session).unlink_member(_tenant_id(auth), member_id)
 
 
 @router.delete("/invitations/{invitation_id}", status_code=204)

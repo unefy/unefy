@@ -6,8 +6,10 @@ import { toast } from "sonner"
 
 import {
   inviteMemberAction,
+  linkMemberAction,
   revokeInvitationAction,
   setAccessActiveAction,
+  unlinkMemberAction,
 } from "@/actions/club-access"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -45,18 +47,23 @@ type MemberAccessProps = {
   access: ClubAccessMember | null
   /** An invitation for this member that is still open. */
   invitation: ClubInvitation | null
+  /** Club accounts not yet linked to any member — offered for linking. */
+  availableAccounts?: ClubAccessMember[]
 }
 
 export function MemberAccess({
   member,
   access,
   invitation,
+  availableAccounts = [],
 }: MemberAccessProps) {
   const t = useTranslations("members.access")
   const tl = useTranslations("admin")
   const [pending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
   const [role, setRole] = useState("member")
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUserId, setLinkUserId] = useState("")
 
   const name = `${member.first_name} ${member.last_name}`
 
@@ -65,6 +72,7 @@ export function MemberAccess({
       const result = await action()
       if (result.success) {
         setOpen(false)
+        setLinkOpen(false)
       } else {
         toast.error(t(`errors.${result.error ?? "unknown"}`))
       }
@@ -90,23 +98,32 @@ export function MemberAccess({
             {!access.is_active && (
               <Badge variant="destructive">{t("blocked")}</Badge>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="ms-auto"
-              disabled={pending}
-              onClick={() =>
-                run(() =>
-                  setAccessActiveAction(
-                    access.user_id,
-                    !access.is_active,
-                    member.id
+            <div className="ms-auto flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                onClick={() => run(() => unlinkMemberAction(member.id))}
+              >
+                {t("unlink")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() =>
+                  run(() =>
+                    setAccessActiveAction(
+                      access.user_id,
+                      !access.is_active,
+                      member.id
+                    )
                   )
-                )
-              }
-            >
-              {access.is_active ? t("block") : t("unblock")}
-            </Button>
+                }
+              >
+                {access.is_active ? t("block") : t("unblock")}
+              </Button>
+            </div>
           </div>
         ) : invitation ? (
           <div className="flex flex-wrap items-center gap-3">
@@ -202,6 +219,82 @@ export function MemberAccess({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            {/* The other direction: the person already signed in (founder,
+                Google login) and only the binding to the register is missing.
+                An invitation cannot reach them — the backend refuses addresses
+                that already have access. */}
+            {availableAccounts.length > 0 && (
+              <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+                <DialogTrigger
+                  render={
+                    <Button variant="outline" size="sm" disabled={pending}>
+                      {t("link")}
+                    </Button>
+                  }
+                />
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t("linkTitle")}</DialogTitle>
+                    <DialogDescription>
+                      {t("linkDescription", { name })}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <DialogBody>
+                    <div className="space-y-2">
+                      <Label htmlFor="link-account">{t("account")}</Label>
+                      <Select
+                        value={linkUserId}
+                        onValueChange={(value) => setLinkUserId(String(value))}
+                      >
+                        <SelectTrigger id="link-account" className="w-full">
+                          <SelectValue>
+                            {(value: string) => {
+                              const account = availableAccounts.find(
+                                (a) => a.user_id === value
+                              )
+                              return account
+                                ? `${account.name} (${account.email})`
+                                : t("pickAccount")
+                            }}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {availableAccounts.map((account) => (
+                              <SelectItem
+                                key={account.user_id}
+                                value={account.user_id}
+                              >
+                                {account.name} ({account.email})
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </DialogBody>
+
+                  <DialogFooter>
+                    <DialogClose
+                      render={
+                        <Button type="button" variant="outline">
+                          {t("cancel")}
+                        </Button>
+                      }
+                    />
+                    <Button
+                      disabled={pending || !linkUserId}
+                      onClick={() =>
+                        run(() => linkMemberAction(member.id, linkUserId))
+                      }
+                    >
+                      {pending ? t("linking") : t("link")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         )}
       </div>

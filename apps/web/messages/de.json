@@ -438,8 +438,16 @@
         "validation": "Für eine Einladung wird eine E-Mail-Adresse benötigt.",
         "forbidden": "Dafür fehlen Ihnen die Rechte.",
         "unreachable": "Der Server ist nicht erreichbar.",
-        "unknown": "Es ist ein Fehler aufgetreten."
-      }
+        "unknown": "Es ist ein Fehler aufgetreten.",
+        "notFound": "Der Datensatz wurde nicht gefunden."
+      },
+      "link": "Mit Konto verknüpfen",
+      "linking": "Wird verknüpft …",
+      "linkTitle": "Mit bestehendem Konto verknüpfen",
+      "linkDescription": "Wählen Sie das Konto, das zu {name} gehört. Die Person sieht danach ihre eigenen Daten (Beiträge, Anwesenheit) im Selbstservice.",
+      "account": "Konto",
+      "pickAccount": "Konto wählen …",
+      "unlink": "Verknüpfung lösen"
     },
     "form": {
       "create": "Mitglied",

@@ -52,6 +52,8 @@ export type ClubAccessMember = {
   role: string
   is_active: boolean
   joined_at: string
+  /** The member record this account is linked to, if any. */
+  member_id: string | null
 }
 
 /** An invitation that has neither been accepted nor withdrawn. */

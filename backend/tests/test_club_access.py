@@ -29,6 +29,8 @@ GUARDED_ENDPOINTS = [
     ("DELETE", f"{BASE}/invitations/{uuid.uuid4()}"),
     ("PATCH", f"{BASE}/members/{uuid.uuid4()}"),
     ("PATCH", f"{BASE}/members/{uuid.uuid4()}/active"),
+    ("POST", f"{BASE}/links"),
+    ("DELETE", f"{BASE}/links/{uuid.uuid4()}"),
 ]
 
 
@@ -513,3 +515,132 @@ async def test_invite_without_member_or_email_is_rejected(
 ) -> None:
     resp = await auth_client.post(f"{BASE}/invitations", json={"role": "member"})
     assert resp.status_code == 422, resp.text
+
+
+# --- Linking existing accounts to member records ---
+
+
+async def _add_member(db_session: AsyncSession, tenant_id: uuid.UUID, **overrides):  # type: ignore[no-untyped-def]
+    from datetime import date
+
+    from app.models.member import Member
+
+    fields = {
+        "tenant_id": tenant_id,
+        "member_number": f"L-{uuid.uuid4().hex[:6]}",
+        "first_name": "Link",
+        "last_name": "Kandidat",
+        "joined_at": date(2024, 1, 1),
+        "status": "active",
+    }
+    fields.update(overrides)
+    member = Member(**fields)
+    db_session.add(member)
+    await db_session.flush()
+    return member
+
+
+async def test_link_binds_account_and_lights_up_self_service(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The founder case: owner exists, member row exists, no invitation can join them."""
+    member = await _add_member(db_session, test_tenant.id)
+
+    resp = await auth_client.post(
+        f"{BASE}/links", json={"member_id": str(member.id), "user_id": str(test_user.id)}
+    )
+    assert resp.status_code == 201, resp.text
+
+    # The link is what /members/me resolves through — before it, 404; now, the row.
+    me = await auth_client.get("/api/v1/members/me")
+    assert me.status_code == 200, me.text
+    assert me.json()["data"]["id"] == str(member.id)
+
+    # And the access list reports the link, so the UI can filter taken accounts.
+    listing = await auth_client.get(BASE)
+    account = next(
+        m for m in listing.json()["data"]["members"] if m["user_id"] == str(test_user.id)
+    )
+    assert account["member_id"] == str(member.id)
+
+
+async def test_link_rejects_member_that_already_has_an_account(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+
+    resp = await auth_client.post(
+        f"{BASE}/links", json={"member_id": str(member.id), "user_id": str(test_user.id)}
+    )
+    assert resp.status_code == 409, resp.text
+
+
+async def test_link_rejects_account_already_linked_to_another_member(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """One person, one register entry — a second link would fork their identity."""
+    await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    second = await _add_member(db_session, test_tenant.id)
+
+    resp = await auth_client.post(
+        f"{BASE}/links", json={"member_id": str(second.id), "user_id": str(test_user.id)}
+    )
+    assert resp.status_code == 409, resp.text
+
+
+async def test_link_rejects_a_user_without_club_access(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+) -> None:
+    """Linking must never smuggle in access — that is what invitations are for."""
+    stranger = User(email=f"stranger-{uuid.uuid4().hex[:6]}@example.com", name="Stranger")
+    db_session.add(stranger)
+    await db_session.flush()
+    member = await _add_member(db_session, test_tenant.id)
+
+    resp = await auth_client.post(
+        f"{BASE}/links", json={"member_id": str(member.id), "user_id": str(stranger.id)}
+    )
+    assert resp.status_code == 404, resp.text
+
+
+async def test_link_rejects_a_member_of_another_tenant(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    other_tenant: Tenant,
+    test_user: User,
+) -> None:
+    foreign = await _add_member(db_session, other_tenant.id)
+
+    resp = await auth_client.post(
+        f"{BASE}/links", json={"member_id": str(foreign.id), "user_id": str(test_user.id)}
+    )
+    assert resp.status_code == 404, resp.text
+
+
+async def test_unlink_clears_the_binding(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+
+    resp = await auth_client.delete(f"{BASE}/links/{member.id}")
+    assert resp.status_code == 204, resp.text
+    await db_session.refresh(member)
+    assert member.user_id is None
+
+    # A second unlink has nothing to undo.
+    resp = await auth_client.delete(f"{BASE}/links/{member.id}")
+    assert resp.status_code == 409, resp.text

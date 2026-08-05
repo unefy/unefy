@@ -47,10 +47,21 @@ class ClubAccessService:
     # --- Reading ---
 
     async def list_members(self, tenant_id: uuid.UUID) -> list[dict[str, Any]]:
-        """Accounts that can sign in to this club."""
+        """Accounts that can sign in to this club.
+
+        `member_id` names the member record the account is linked to, so the
+        UI can tell which accounts are still free to link and which member a
+        login belongs to — without a second request per row.
+        """
         rows = await self.session.execute(
-            select(TenantMembership, User)
+            select(TenantMembership, User, Member.id)
             .join(User, User.id == TenantMembership.user_id)
+            .outerjoin(
+                Member,
+                (Member.user_id == User.id)
+                & (Member.tenant_id == tenant_id)
+                & (Member.deleted_at.is_(None)),
+            )
             .where(TenantMembership.tenant_id == tenant_id)
             .order_by(User.name.asc())
         )
@@ -63,8 +74,9 @@ class ClubAccessService:
                 "role": membership.role,
                 "is_active": membership.is_active,
                 "joined_at": membership.joined_at,
+                "member_id": member_id,
             }
-            for membership, user in rows.all()
+            for membership, user, member_id in rows.all()
         ]
 
     async def list_invitations(self, tenant_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -183,6 +195,65 @@ class ClubAccessService:
         if member is None:
             raise NotFoundError("Member not found")
         return member
+
+    # --- Linking accounts to member records ---
+
+    async def link_member(
+        self, tenant_id: uuid.UUID, member_id: uuid.UUID, user_id: uuid.UUID
+    ) -> dict[str, Any]:
+        """Bind an existing club account to a member record.
+
+        The invitation flow covers people without an account; this covers the
+        ones who already have one — above all the founder, who is owner before
+        the register is even imported and whom no invitation can ever reach
+        (`invite` refuses addresses that already have access, by design).
+
+        Linking hands the account the member's self-service data (dues,
+        attendance), so it stays with owner/admin — same bar as inviting.
+        """
+        member = await self._get_member(tenant_id, member_id)
+        if member.user_id is not None:
+            raise ConflictError("This member is already linked to an account")
+
+        # The account must already belong to this club: linking must never be
+        # a way to smuggle in access — that is what invitations are for.
+        await self._get_membership(tenant_id, user_id)
+
+        already_linked = (
+            await self.session.execute(
+                select(Member.id)
+                .where(Member.tenant_id == tenant_id)
+                .where(Member.user_id == user_id)
+                .where(Member.deleted_at.is_(None))
+            )
+        ).scalar_one_or_none()
+        if already_linked is not None:
+            raise ConflictError("This account is already linked to another member")
+
+        member.user_id = user_id
+        await self.session.flush()
+        logger.info(
+            "club_member_linked",
+            tenant_id=str(tenant_id),
+            member_id=str(member_id),
+            user_id=str(user_id),
+        )
+        return {"member_id": member_id, "user_id": user_id}
+
+    async def unlink_member(self, tenant_id: uuid.UUID, member_id: uuid.UUID) -> None:
+        """Undo a link — the escape hatch for binding the wrong person."""
+        member = await self._get_member(tenant_id, member_id)
+        if member.user_id is None:
+            raise ConflictError("This member is not linked to an account")
+        unlinked_user = member.user_id
+        member.user_id = None
+        await self.session.flush()
+        logger.info(
+            "club_member_unlinked",
+            tenant_id=str(tenant_id),
+            member_id=str(member_id),
+            user_id=str(unlinked_user),
+        )
 
     # --- Invitations ---
 

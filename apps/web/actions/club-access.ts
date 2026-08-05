@@ -56,6 +56,45 @@ export async function inviteMemberAction(
   return { success: true }
 }
 
+export async function linkMemberAction(
+  memberId: string,
+  userId: string
+): Promise<ActionResult> {
+  const parsed = z
+    .object({ member_id: uuid, user_id: uuid })
+    .safeParse({ member_id: memberId, user_id: userId })
+  if (!parsed.success) return { success: false, error: "validation" }
+
+  try {
+    await apiCall("/api/v1/club/access/links", {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    })
+  } catch (error) {
+    return toError(error)
+  }
+
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/members")
+  return { success: true }
+}
+
+export async function unlinkMemberAction(memberId: string): Promise<ActionResult> {
+  if (!uuid.safeParse(memberId).success) {
+    return { success: false, error: "validation" }
+  }
+
+  try {
+    await apiCall(`/api/v1/club/access/links/${memberId}`, { method: "DELETE" })
+  } catch (error) {
+    return toError(error)
+  }
+
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/members")
+  return { success: true }
+}
+
 export async function revokeInvitationAction(
   invitationId: string,
   memberId?: string

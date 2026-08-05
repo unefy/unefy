@@ -438,8 +438,16 @@
         "validation": "An email address is required to send an invitation.",
         "forbidden": "You do not have permission to do that.",
         "unreachable": "The server is unreachable.",
-        "unknown": "Something went wrong."
-      }
+        "unknown": "Something went wrong.",
+        "notFound": "The record was not found."
+      },
+      "link": "Link to account",
+      "linking": "Linking …",
+      "linkTitle": "Link to an existing account",
+      "linkDescription": "Pick the account that belongs to {name}. That person will then see their own data (dues, attendance) in self-service.",
+      "account": "Account",
+      "pickAccount": "Pick an account …",
+      "unlink": "Remove link"
     },
     "form": {
       "create": "Member",
