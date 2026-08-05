@@ -381,19 +381,18 @@
     "searchPlaceholder": "Name, Nummer oder E-Mail …",
     "empty": "Noch keine Mitglieder angelegt.",
     "columns": {
-      "name": "Name",
+      "lastName": "Nachname",
+      "firstName": "Vorname",
       "memberNumber": "Nr.",
       "email": "E-Mail",
       "status": "Status",
       "category": "Kategorie",
-      "joinedAt": "Eintritt",
-      "access": "Zugang"
+      "joinedAt": "Eintritt"
     },
     "filters": {
       "allStatuses": "Alle Status",
       "allCategories": "Alle Kategorien"
     },
-    "hasAccess": "Ja",
     "detail": {
       "contact": "Kontakt",
       "membership": "Mitgliedschaft",
@@ -415,7 +414,50 @@
         "federationLeftAt": "Verbandsaustritt"
       },
       "back": "Zurück zur Übersicht",
-      "federations": "Verbandsmitgliedschaften"
+      "federations": "Verbandsmitgliedschaften",
+      "tabs": {
+        "overview": "Übersicht",
+        "dues": "Beiträge",
+        "attendance": "Anwesenheit",
+        "shooting": "Schießbuch"
+      },
+      "duesTab": {
+        "assignments": "Beitragszuordnung",
+        "noAssignments": "Diesem Mitglied ist kein Beitrag zugeordnet.",
+        "validFrom": "gültig ab",
+        "validTo": "bis",
+        "history": "Beitragshistorie",
+        "noDues": "Keine Beiträge vorhanden.",
+        "fee": "Beitrag",
+        "year": "Jahr",
+        "amount": "Betrag",
+        "status": "Status",
+        "paidAt": "Bezahlt am",
+        "statusValues": {
+          "open": "Offen",
+          "paid": "Bezahlt",
+          "cancelled": "Storniert"
+        }
+      },
+      "attendanceTab": {
+        "title": "Anwesenheit ({count} Einträge)",
+        "empty": "Keine Anwesenheit erfasst.",
+        "date": "Datum",
+        "session": "Termin",
+        "location": "Ort",
+        "previous": "Zurück",
+        "next": "Weiter",
+        "pageOf": "Seite {page} von {total}"
+      },
+      "shootingTab": {
+        "title": "Schießnachweis-Stand",
+        "noRules": "Es sind keine Nachweisregeln hinterlegt.",
+        "passed": "Erfüllt",
+        "notPassed": "Nicht erfüllt",
+        "numbers": "{days} Schießtage in {months} Monaten ({from} – {to})",
+        "selfCertified": "davon {days} Selbsteinträge",
+        "evaluationFailed": "Auswertung nicht verfügbar."
+      }
     },
     "access": {
       "title": "Zugang",

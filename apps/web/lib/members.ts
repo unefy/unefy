@@ -1,3 +1,5 @@
+import { cache } from "react"
+
 import { apiCall, apiList } from "@/lib/api"
 import type { ClubAccess, Member, MemberFederation } from "@/lib/types/member"
 
@@ -36,9 +38,13 @@ export async function listMembers(
   )
 }
 
-export async function getMember(memberId: string) {
+/**
+ * `cache()` dedupes within one request: the member-detail layout fetches the
+ * record for its header and the overview tab fetches it again — one HTTP call.
+ */
+export const getMember = cache(async (memberId: string) => {
   return apiCall<Member>(`/api/v1/members/${memberId}`)
-}
+})
 
 /**
  * The caller's own member record — self-service, any role. 404s when the

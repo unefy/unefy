@@ -381,19 +381,18 @@
     "searchPlaceholder": "Name, number or email …",
     "empty": "No members yet.",
     "columns": {
-      "name": "Name",
+      "lastName": "Last name",
+      "firstName": "First name",
       "memberNumber": "No.",
       "email": "Email",
       "status": "Status",
       "category": "Category",
-      "joinedAt": "Joined",
-      "access": "Account"
+      "joinedAt": "Joined"
     },
     "filters": {
       "allStatuses": "All statuses",
       "allCategories": "All categories"
     },
-    "hasAccess": "Yes",
     "detail": {
       "contact": "Contact",
       "membership": "Membership",
@@ -415,7 +414,50 @@
         "federationLeftAt": "Federation left"
       },
       "back": "Back to overview",
-      "federations": "Federation memberships"
+      "federations": "Federation memberships",
+      "tabs": {
+        "overview": "Overview",
+        "dues": "Dues",
+        "attendance": "Attendance",
+        "shooting": "Range book"
+      },
+      "duesTab": {
+        "assignments": "Fee assignment",
+        "noAssignments": "No fee is assigned to this member.",
+        "validFrom": "valid from",
+        "validTo": "until",
+        "history": "Dues history",
+        "noDues": "No dues on record.",
+        "fee": "Fee",
+        "year": "Year",
+        "amount": "Amount",
+        "status": "Status",
+        "paidAt": "Paid on",
+        "statusValues": {
+          "open": "Open",
+          "paid": "Paid",
+          "cancelled": "Cancelled"
+        }
+      },
+      "attendanceTab": {
+        "title": "Attendance ({count} entries)",
+        "empty": "No attendance on record.",
+        "date": "Date",
+        "session": "Session",
+        "location": "Location",
+        "previous": "Previous",
+        "next": "Next",
+        "pageOf": "Page {page} of {total}"
+      },
+      "shootingTab": {
+        "title": "Shooting proof standing",
+        "noRules": "No proof rules are configured.",
+        "passed": "Met",
+        "notPassed": "Not met",
+        "numbers": "{days} range days in {months} months ({from} – {to})",
+        "selfCertified": "{days} of them self-entries",
+        "evaluationFailed": "Evaluation unavailable."
+      }
     },
     "access": {
       "title": "Account",

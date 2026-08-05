@@ -2,6 +2,7 @@ import { apiCall, apiList } from "@/lib/api"
 import type {
   ClubDiscipline,
   ProofChainStatus,
+  ProofEvaluation,
   ShootingCertificate,
   ShootingRecordDetail,
   ShootingRule,
@@ -25,6 +26,13 @@ export async function listShootingCertificates(
   const perPage = options.perPage ?? 100
   return apiList<ShootingCertificate>(
     `/api/v1/modules/shooting/certificates?page=${options.page ?? 1}&per_page=${perPage}`
+  )
+}
+
+/** The live proof numbers for one member against one rule. */
+export async function evaluateProof(memberId: string, ruleKey: string) {
+  return apiCall<ProofEvaluation>(
+    `/api/v1/modules/shooting/proof/${memberId}?rule_key=${encodeURIComponent(ruleKey)}`
   )
 }
 

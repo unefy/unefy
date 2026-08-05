@@ -41,6 +41,12 @@ export type AttendanceSessionDetail = AttendanceSession & {
   records: AttendanceRecord[]
 }
 
+/** A record seen from the member's side — the session is the context. */
+export type MemberAttendanceRecord = AttendanceRecord & {
+  session_title: string | null
+  session_location: string | null
+}
+
 /** A field-level before/after, as stored in the audit entry. */
 export type AuditChange = { from: unknown; to: unknown }
 

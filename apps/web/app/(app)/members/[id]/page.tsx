@@ -1,16 +1,10 @@
-import Link from "next/link"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
 
-import { deleteMemberAction } from "@/actions/members"
-import { ConfirmDelete } from "@/components/admin/confirm-delete"
 import { MemberAccess } from "@/components/members/member-access"
-import { MemberDialog } from "@/components/members/member-dialog"
-import { Badge } from "@/components/ui/badge"
 import { DateCell } from "@/components/ui/date-cell"
-import { genderLabel, memberStatusLabel } from "@/lib/labels"
+import { genderLabel } from "@/lib/labels"
 import { getClubAccess, getMember, listMemberFederations } from "@/lib/members"
-import { ArrowLeftIcon } from "lucide-react"
 
 function Fact({
   label,
@@ -29,18 +23,19 @@ function Fact({
   )
 }
 
-export default async function MemberDetailPage({
+/** Overview tab: master data, federations and account access. */
+export default async function MemberOverviewPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const [t, tl, tf, { id }] = await Promise.all([
+  const [t, tl, { id }] = await Promise.all([
     getTranslations("members"),
     getTranslations("admin"),
-    getTranslations("members.form"),
     params,
   ])
 
+  // Deduped with the layout's fetch via React cache().
   const member = await getMember(id).catch(() => null)
   if (!member) notFound()
 
@@ -67,48 +62,6 @@ export default async function MemberDetailPage({
 
   return (
     <>
-      <div className="space-y-3">
-        <Link
-          href="/members"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" />
-          {t("detail.back")}
-        </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {member.first_name} {member.last_name}
-          </h1>
-          <Badge variant="secondary">
-            {memberStatusLabel(tl, member.status)}
-          </Badge>
-          <div className="ms-auto flex items-center gap-2">
-            <MemberDialog
-              member={member}
-              hasActiveAccount={linkedAccount?.is_active ?? false}
-              accountUserId={linkedAccount?.user_id}
-            />
-            <ConfirmDelete
-              title={tf("deleteTitle", {
-                name: `${member.first_name} ${member.last_name}`,
-              })}
-              description={tf("deleteDescription")}
-              action={async () => {
-                "use server"
-                const result = await deleteMemberAction(member.id)
-                // The record this page shows is gone, so staying here would
-                // land on a 404 — leave for the list instead.
-                if (result.success) redirect("/members")
-                return result
-              }}
-            />
-          </div>
-        </div>
-        <p className="font-mono text-sm text-muted-foreground">
-          {member.member_number}
-        </p>
-      </div>
-
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           {t("detail.contact")}

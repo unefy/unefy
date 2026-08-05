@@ -5,6 +5,7 @@ import type {
   AttendanceSession,
   AttendanceSessionDetail,
   AuditEntry,
+  MemberAttendanceRecord,
 } from "@/lib/types/attendance"
 
 /**
@@ -58,6 +59,13 @@ export async function getAttendanceSessionAudit(sessionId: string) {
  * Falls back rather than failing: a missing club record must not take down the
  * attendance list, and being an hour out beats showing nothing.
  */
+/** One member's attendance history, board view. */
+export async function listMemberAttendance(memberId: string, page = 1) {
+  return apiList<MemberAttendanceRecord>(
+    `/api/v1/members/${memberId}/attendance?page=${page}&per_page=25`
+  )
+}
+
 export async function getClubTimeZone(): Promise<string> {
   const club = await getClub().catch(() => null)
   return club?.timezone || FALLBACK_TIME_ZONE
