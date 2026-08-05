@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UnefySearchField
 import com.unefy.core.designsystem.component.UnefyRowDivider
+import com.unefy.core.designsystem.component.rememberSearchFieldState
 import com.unefy.core.designsystem.theme.UnefySpacing
 
 /**
@@ -51,6 +53,8 @@ internal fun ManualPickSheet(
     onCheckInGuest: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val guestName = rememberSearchFieldState(onGuestNameChange)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -65,8 +69,7 @@ internal fun ManualPickSheet(
             )
 
             UnefySearchField(
-                value = state.query,
-                onValueChange = onQueryChange,
+                state = rememberSearchFieldState(onQueryChange),
                 placeholder = stringResource(R.string.scanner_manual_search),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -111,14 +114,21 @@ internal fun ManualPickSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 UnefySearchField(
-                    value = state.guestName,
-                    onValueChange = onGuestNameChange,
+                    state = guestName,
                     placeholder = stringResource(R.string.scanner_guest_placeholder),
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(
-                    onClick = onCheckInGuest,
-                    enabled = state.guestName.isNotBlank(),
+                    // Cleared here rather than by the view model: the field owns
+                    // its text now, so nothing the view model does to its own
+                    // copy can empty it.
+                    onClick = {
+                        onCheckInGuest()
+                        guestName.clearText()
+                    },
+                    // The field's text, so the button enables on the keystroke
+                    // rather than after the round trip through the view model.
+                    enabled = guestName.text.isNotBlank(),
                 ) {
                     Text(stringResource(R.string.scanner_guest_action))
                 }

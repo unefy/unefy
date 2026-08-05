@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +31,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -49,11 +50,19 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 
-/** Search wiring for a screen whose list can be filtered. */
-@Immutable
+/**
+ * Search wiring for a screen whose list can be filtered.
+ *
+ * Carries the field's [TextFieldState], not a value and a setter — see
+ * [UnefySearchField] for why the text must not travel through the view model and
+ * back. Build it with [rememberSearchFieldState].
+ *
+ * `@Stable` rather than `@Immutable`: the reference never changes, but the state
+ * it points at does, and it is observable.
+ */
+@Stable
 data class ScreenSearch(
-    val value: String,
-    val onValueChange: (String) -> Unit,
+    val state: TextFieldState,
     val placeholder: String,
     val enabled: Boolean = true,
 )
@@ -289,8 +298,7 @@ fun UnefyListScaffold(
 
                 if (search != null) {
                     UnefySearchField(
-                        value = search.value,
-                        onValueChange = search.onValueChange,
+                        state = search.state,
                         placeholder = search.placeholder,
                         enabled = search.enabled,
                         modifier = Modifier

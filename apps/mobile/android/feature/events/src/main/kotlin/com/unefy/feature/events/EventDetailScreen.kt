@@ -50,6 +50,7 @@ import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.component.UnefyPill
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.component.UnefySearchField
+import com.unefy.core.designsystem.component.rememberSearchFieldState
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
@@ -406,8 +407,7 @@ private fun MemberPickerSheet(
             )
 
             UnefySearchField(
-                value = state.query,
-                onValueChange = onQueryChange,
+                state = rememberSearchFieldState(onQueryChange),
                 placeholder = stringResource(R.string.event_detail_add_search),
                 modifier = Modifier.fillMaxWidth(),
             )

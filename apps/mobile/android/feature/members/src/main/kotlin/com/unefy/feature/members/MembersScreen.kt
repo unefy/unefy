@@ -49,6 +49,7 @@ import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.UNEFY_STATE_FILL
 import com.unefy.core.designsystem.component.UnefyCenteredState
 import com.unefy.core.designsystem.component.ScreenSearch
+import com.unefy.core.designsystem.component.rememberSearchFieldState
 import com.unefy.core.designsystem.component.UnefyListScaffold
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.component.UnefyStaleBanner
@@ -98,8 +99,9 @@ fun MembersScreen(
         subtitle = clubName,
         modifier = modifier,
         search = ScreenSearch(
-            value = content?.query.orEmpty(),
-            onValueChange = onQueryChange,
+            // The field's own text, not the view model's. It reaches the filter
+            // one way; what the filter makes of it never comes back.
+            state = rememberSearchFieldState(onQueryChange),
             placeholder = stringResource(R.string.members_search),
             enabled = state !is MembersUiState.Failure,
         ),
