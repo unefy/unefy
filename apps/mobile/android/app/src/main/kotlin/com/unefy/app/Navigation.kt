@@ -47,11 +47,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import com.unefy.core.designsystem.R as DesignR
@@ -363,6 +365,23 @@ private fun NavHost(
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
+        // A ViewModel per destination, not per app.
+        //
+        // NavDisplay's default decorator list holds only the saveable-state
+        // holder, so `hiltViewModel()` inside an entry resolves against the
+        // Activity's store: one MemberDetailViewModel for every member ever
+        // opened, never cleared when its screen is popped. The screen then
+        // starts on the *previous* member's state, because a StateFlow replays
+        // its last value to a new subscriber and `load()` only runs afterwards
+        // — so a detail screen rendered a stranger's data for a frame, and any
+        // section that failed to recompose kept it. Per-entry stores mean a
+        // freshly opened destination starts from Loading, and its ViewModel is
+        // cleared when it leaves the back stack.
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            // Requires the holder above — SavedStateHandle depends on it.
+            rememberViewModelStoreNavEntryDecorator(),
+        ),
         transitionSpec = forward,
         popTransitionSpec = backward,
         // Same motion, but scrubbed by the predictive-back gesture instead
