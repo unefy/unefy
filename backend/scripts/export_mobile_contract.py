@@ -26,7 +26,11 @@ from typing import Any
 from app.schemas.competition import CompetitionResponse, ScoreboardRow
 from app.schemas.due import DueResponse, DueSummaryResponse
 from app.schemas.event import EventRegistrationResponse, EventResponse
-from app.schemas.member import MemberDirectoryEntry, MemberResponse
+from app.schemas.member import (
+    FederationMembershipResponse,
+    MemberDirectoryEntry,
+    MemberResponse,
+)
 from app.schemas.sync import SyncMeta, Tombstone
 
 #: What the mobile apps decode. Enrichment fields are the ones the list
@@ -35,6 +39,7 @@ from app.schemas.sync import SyncMeta, Tombstone
 SCHEMAS: dict[str, Any] = {
     "MemberResponse": MemberResponse,
     "MemberDirectoryEntry": MemberDirectoryEntry,
+    "FederationMembershipResponse": FederationMembershipResponse,
     "EventResponse": EventResponse,
     "EventRegistrationResponse": EventRegistrationResponse,
     "DueResponse": DueResponse,

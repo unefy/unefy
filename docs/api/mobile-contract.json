@@ -190,6 +190,37 @@
       }
     }
   },
+  "FederationMembershipResponse": {
+    "fields": {
+      "created_at": {
+        "nullable": false
+      },
+      "federation": {
+        "nullable": false
+      },
+      "federation_number": {
+        "nullable": true
+      },
+      "id": {
+        "nullable": false
+      },
+      "joined_at": {
+        "nullable": true
+      },
+      "left_at": {
+        "nullable": true
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "notes": {
+        "nullable": true
+      },
+      "updated_at": {
+        "nullable": false
+      }
+    }
+  },
   "MemberDirectoryEntry": {
     "fields": {
       "category": {
