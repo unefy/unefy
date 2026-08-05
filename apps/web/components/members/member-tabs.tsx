@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { cn } from "@/lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export type MemberTab = {
   /** Route segment below the member id; "" is the overview. */
@@ -12,8 +12,12 @@ export type MemberTab = {
 }
 
 /**
- * The tab bar of a member detail page. Tabs are links to sub-routes, not
- * client state — every tab is addressable and survives a reload.
+ * The tab bar of a member detail page — shadcn pill tabs in link mode.
+ *
+ * Each trigger renders as a `Link` to a sub-route rather than switching a
+ * panel: every tab is addressable, survives a reload, and loads only its own
+ * data. The `Tabs` value merely mirrors the current URL so the pills show the
+ * right active state.
  */
 export function MemberTabs({
   baseHref,
@@ -23,27 +27,32 @@ export function MemberTabs({
   tabs: MemberTab[]
 }) {
   const pathname = usePathname()
+  const active =
+    tabs.find(
+      (tab) =>
+        (tab.segment ? `${baseHref}/${tab.segment}` : baseHref) === pathname
+    )?.segment ?? ""
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b">
-      {tabs.map((tab) => {
-        const href = tab.segment ? `${baseHref}/${tab.segment}` : baseHref
-        const active = pathname === href
-        return (
-          <Link
-            key={tab.segment}
-            href={href}
-            className={cn(
-              "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm",
-              active
-                ? "border-foreground font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </Link>
-        )
-      })}
-    </nav>
+    <div className="max-w-full overflow-x-auto">
+      <Tabs value={active}>
+        <TabsList>
+          {tabs.map((tab) => (
+            <TabsTrigger
+              key={tab.segment}
+              value={tab.segment}
+              nativeButton={false}
+              render={
+                <Link
+                  href={tab.segment ? `${baseHref}/${tab.segment}` : baseHref}
+                />
+              }
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    </div>
   )
 }
