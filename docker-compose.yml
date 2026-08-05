@@ -33,6 +33,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://unefy:unefy@postgres:5432/unefy
       REDIS_URL: redis://redis:6379/0
+      # Mailpit speaks plain SMTP — no STARTTLS, no auth. Mails land in its
+      # web UI (http://localhost:8025) instead of the backend log.
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -57,6 +62,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U unefy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025" # web UI — every mail the backend sends lands here
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
       interval: 5s
       timeout: 5s
       retries: 5
