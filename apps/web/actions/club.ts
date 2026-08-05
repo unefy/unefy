@@ -100,3 +100,30 @@ export async function updateClubAction(
     return toError(error)
   }
 }
+
+export async function setClubSportsAction(
+  sportIds: string[],
+  primarySportId: string
+): Promise<ActionResult> {
+  const parsed = z
+    .object({
+      sport_ids: z.array(z.string().uuid()).min(1),
+      primary_sport_id: z.string().uuid(),
+    })
+    .refine((value) => value.sport_ids.includes(value.primary_sport_id))
+    .safeParse({ sport_ids: sportIds, primary_sport_id: primarySportId })
+  if (!parsed.success) return { success: false, error: "validation" }
+
+  try {
+    await apiCall("/api/v1/club/sports", {
+      method: "PUT",
+      body: JSON.stringify(parsed.data),
+    })
+  } catch (error) {
+    return toError(error)
+  }
+
+  // Sports gate module nav and pages, so everything may look different now.
+  revalidatePath("/", "layout")
+  return { success: true }
+}

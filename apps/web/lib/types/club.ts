@@ -37,4 +37,15 @@ export type Club = {
    * enforces the same gate on every module endpoint.
    */
   modules: string[]
+
+  /** The club's sports, primary first. */
+  sports: ClubSport[]
+}
+
+export type ClubSport = {
+  id: string
+  key: string
+  name: string
+  icon: string | null
+  is_primary: boolean
 }

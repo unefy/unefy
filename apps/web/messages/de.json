@@ -26,7 +26,8 @@
     "shooting": "Schießsport",
     "shootingProof": "Nachweis",
     "shootingRules": "Regeln",
-    "myArea": "Mein Bereich"
+    "myArea": "Mein Bereich",
+    "settingsSports": "Sportarten"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -806,7 +807,24 @@
       "unreachable": "Server nicht erreichbar."
     },
     "timezoneCommon": "Häufig",
-    "timezoneAll": "Alle Zeitzonen"
+    "timezoneAll": "Alle Zeitzonen",
+    "sports": {
+      "title": "Sportarten",
+      "description": "Welche Sportarten der Verein betreibt. Die Auswahl schaltet die zugehörigen Module frei — z. B. das Schießbuch beim Schießsport.",
+      "primary": "Hauptsportart",
+      "primaryHint": "Bestimmt die Standard-Kataloge des Vereins.",
+      "primaryNone": "Sportart wählen …",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "savedToast": "Sportarten gespeichert.",
+      "errors": {
+        "validation": "Bitte mindestens eine Sportart und eine Hauptsportart wählen.",
+        "forbidden": "Dafür fehlen Ihnen die Rechte.",
+        "notFound": "Unbekannte Sportart.",
+        "unknown": "Es ist ein Fehler aufgetreten.",
+        "unreachable": "Der Server ist nicht erreichbar."
+      }
+    }
   },
   "shooting": {
     "title": "Schießsport",

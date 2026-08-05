@@ -118,6 +118,7 @@ export const sidebarData: SidebarData = {
           // with their pages.
           items: [
             { titleKey: "settingsGeneral", url: "/settings" },
+            { titleKey: "settingsSports", url: "/settings/sports" },
             { titleKey: "settingsAccess", url: "/settings/access" },
           ],
         },

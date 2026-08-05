@@ -26,7 +26,8 @@
     "shooting": "Shooting",
     "shootingProof": "Proof",
     "shootingRules": "Rules",
-    "myArea": "My area"
+    "myArea": "My area",
+    "settingsSports": "Sports"
   },
   "auth": {
     "signIn": "Sign in",
@@ -806,7 +807,24 @@
       "unreachable": "Server unreachable."
     },
     "timezoneCommon": "Common",
-    "timezoneAll": "All time zones"
+    "timezoneAll": "All time zones",
+    "sports": {
+      "title": "Sports",
+      "description": "Which sports the club runs. The selection activates the matching modules — e.g. the range book for shooting sports.",
+      "primary": "Primary sport",
+      "primaryHint": "Determines the club's default catalogs.",
+      "primaryNone": "Pick a sport …",
+      "save": "Save",
+      "saving": "Saving …",
+      "savedToast": "Sports saved.",
+      "errors": {
+        "validation": "Pick at least one sport and a primary sport.",
+        "forbidden": "You lack the permissions for this.",
+        "notFound": "Unknown sport.",
+        "unknown": "Something went wrong.",
+        "unreachable": "The server is unreachable."
+      }
+    }
   },
   "shooting": {
     "title": "Shooting",
