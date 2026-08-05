@@ -27,6 +27,7 @@ from app.core.jwt import (
 )
 from app.core.rate_limit import RateLimit
 from app.database import get_db_session
+from app.dependencies import AuthContext, get_current_user
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 from app.redis import get_redis
@@ -125,6 +126,25 @@ async def _load_first_active_tenant(
     return tenant, membership
 
 
+async def _load_active_tenant(
+    session: AsyncSession, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> tuple[Tenant, TenantMembership] | None:
+    """The user's active membership in exactly this tenant, or None."""
+    stmt = (
+        select(TenantMembership, Tenant)
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .where(TenantMembership.user_id == user_id)
+        .where(TenantMembership.tenant_id == tenant_id)
+        .where(TenantMembership.is_active.is_(True))
+    )
+    result = await session.execute(stmt)
+    row = result.first()
+    if row is None:
+        return None
+    membership, tenant = row
+    return tenant, membership
+
+
 # --- Endpoints ----------------------------------------------------------------
 
 
@@ -166,6 +186,11 @@ async def dev_login(
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+    # The tenant the app is currently signed into. Without it a refresh always
+    # re-pinned to the *first* membership, silently undoing a tenant switch on
+    # the next rotation. Optional for old clients; a stale or revoked value
+    # falls back to the first active membership rather than bricking refresh.
+    tenant_id: uuid.UUID | None = None
 
 
 @router.post(
@@ -208,10 +233,51 @@ async def refresh(
     if user is None:
         raise ForbiddenError("User not found")
 
-    tenant, membership = await _load_first_active_tenant(session, user.id)
+    preferred = None
+    if data.tenant_id is not None:
+        preferred = await _load_active_tenant(session, user.id, data.tenant_id)
+    tenant, membership = preferred or await _load_first_active_tenant(session, user.id)
     payload = await _issue_token_pair(user, tenant, membership)
 
     logger.info("mobile_refresh", user_id=str(user.id), old_jti=jti)
+    return {"data": payload}
+
+
+class SwitchTenantRequest(BaseModel):
+    tenant_id: uuid.UUID
+
+
+@router.post(
+    "/switch-tenant",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="mobile-switch-tenant"))],
+)
+async def switch_tenant(
+    data: SwitchTenantRequest,
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Re-issue the token pair for another of the caller's clubs.
+
+    The mobile counterpart of the web's cookie-rotating `/auth/switch-tenant`:
+    a mobile JWT is tenant-scoped, so switching *is* a re-issue. Membership is
+    checked here and nowhere weaker — the token that comes back carries the
+    role the target club actually granted, not the one the caller had.
+    """
+    stmt = select(User).where(User.id == auth.user_id)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise ForbiddenError("User not found")
+
+    loaded = await _load_active_tenant(session, user.id, data.tenant_id)
+    if loaded is None:
+        # Indistinguishable from a club that does not exist: whether the
+        # caller was never a member or was deactivated is not theirs to probe.
+        raise NotFoundError("Club not found")
+    tenant, membership = loaded
+
+    payload = await _issue_token_pair(user, tenant, membership)
+    logger.info("mobile_switch_tenant", user_id=str(user.id), tenant_id=str(tenant.id))
     return {"data": payload}
 
 

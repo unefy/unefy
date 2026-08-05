@@ -350,3 +350,185 @@ async def test_refresh_token_cannot_be_used_as_access_token(
         headers={"Authorization": f"Bearer {refresh_token}"},
     )
     assert response.status_code == 401
+
+
+# --- /switch-tenant -------------------------------------------------------------
+
+
+async def _second_membership(
+    db_session: AsyncSession,
+    user: User,
+    *,
+    role: str = "member",
+    is_active: bool = True,
+) -> Tenant:
+    other = Tenant(id=uuid.uuid4(), name="Zweitverein", slug=f"zweit-{uuid.uuid4().hex[:6]}")
+    db_session.add(other)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            tenant_id=other.id,
+            role=role,
+            is_active=is_active,
+        )
+    )
+    await db_session.flush()
+    return other
+
+
+async def test_switch_tenant_reissues_for_the_target_club(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    other = await _second_membership(db_session, test_user, role="member")
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    access = login.json()["data"]["access_token"]
+
+    response = await mobile_client.post(
+        "/api/v1/auth/mobile/switch-tenant",
+        json={"tenant_id": str(other.id)},
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["tenant"]["id"] == str(other.id)
+    # The role of the *target* club, not the one the caller arrived with.
+    assert data["role"] == "member"
+    assert data["access_token"] and data["refresh_token"]
+
+
+async def test_switch_tenant_refuses_a_club_without_membership(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    stranger_club = Tenant(id=uuid.uuid4(), name="Fremd", slug=f"fremd-{uuid.uuid4().hex[:6]}")
+    db_session.add(stranger_club)
+    await db_session.flush()
+
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    access = login.json()["data"]["access_token"]
+
+    response = await mobile_client.post(
+        "/api/v1/auth/mobile/switch-tenant",
+        json={"tenant_id": str(stranger_club.id)},
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert response.status_code == 404
+
+
+async def test_switch_tenant_refuses_an_inactive_membership(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    other = await _second_membership(db_session, test_user, is_active=False)
+
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    access = login.json()["data"]["access_token"]
+
+    response = await mobile_client.post(
+        "/api/v1/auth/mobile/switch-tenant",
+        json={"tenant_id": str(other.id)},
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert response.status_code == 404
+
+
+async def test_switch_tenant_requires_authentication(
+    mobile_client: AsyncClient, test_tenant: Tenant
+) -> None:
+    response = await mobile_client.post(
+        "/api/v1/auth/mobile/switch-tenant",
+        json={"tenant_id": str(test_tenant.id)},
+    )
+    assert response.status_code == 403
+
+
+async def test_refresh_keeps_the_switched_tenant(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """The regression the tenant_id field exists for: without it a refresh
+    silently re-pinned the session to the first membership."""
+    other = await _second_membership(db_session, test_user)
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    access = login.json()["data"]["access_token"]
+
+    switched = await mobile_client.post(
+        "/api/v1/auth/mobile/switch-tenant",
+        json={"tenant_id": str(other.id)},
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    refresh_token = switched.json()["data"]["refresh_token"]
+
+    refreshed = await mobile_client.post(
+        "/api/v1/auth/mobile/refresh",
+        json={"refresh_token": refresh_token, "tenant_id": str(other.id)},
+    )
+    assert refreshed.status_code == 200
+    assert refreshed.json()["data"]["tenant"]["id"] == str(other.id)
+
+
+async def test_refresh_falls_back_when_the_membership_is_gone(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    """A revoked membership must not brick the session — refresh falls back to
+    the first active club instead of failing forever."""
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    refresh_token = login.json()["data"]["refresh_token"]
+
+    response = await mobile_client.post(
+        "/api/v1/auth/mobile/refresh",
+        json={"refresh_token": refresh_token, "tenant_id": str(uuid.uuid4())},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["tenant"]["id"] == str(test_tenant.id)
+
+
+async def test_tenants_list_works_with_a_bearer_token(
+    mobile_client: AsyncClient,
+    db_session: AsyncSession,
+    test_user: User,
+    test_tenant: Tenant,
+    test_membership: TenantMembership,
+) -> None:
+    """The account menu's list: all clubs, the token's own marked current."""
+    other = await _second_membership(db_session, test_user)
+    login = await mobile_client.post(
+        "/api/v1/auth/mobile/dev/login", json={"email": test_user.email}
+    )
+    access = login.json()["data"]["access_token"]
+
+    response = await mobile_client.get(
+        "/api/v1/auth/tenants",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert response.status_code == 200, response.text
+    rows = {row["tenant_id"]: row for row in response.json()["data"]}
+    assert set(rows) == {str(test_tenant.id), str(other.id)}
+    assert rows[str(test_tenant.id)]["is_current"] is True
+    assert rows[str(other.id)]["is_current"] is False
