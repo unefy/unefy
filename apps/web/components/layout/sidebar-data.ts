@@ -1,5 +1,6 @@
 import {
   CalendarIcon,
+  CircleUserIcon,
   ClipboardCheckIcon,
   HouseIcon,
   ReceiptIcon,
@@ -45,6 +46,11 @@ export const sidebarData: SidebarData = {
           titleKey: "dashboard",
           url: "/",
           icon: HouseIcon,
+        },
+        {
+          titleKey: "myArea",
+          url: "/my",
+          icon: CircleUserIcon,
         },
       ],
     },

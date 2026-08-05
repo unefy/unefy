@@ -25,7 +25,8 @@
     "settingsGeneral": "General",
     "shooting": "Shooting",
     "shootingProof": "Proof",
-    "shootingRules": "Rules"
+    "shootingRules": "Rules",
+    "myArea": "My area"
   },
   "auth": {
     "signIn": "Sign in",
@@ -911,6 +912,35 @@
           "unreachable": "Server unreachable."
         }
       }
+    }
+  },
+  "my": {
+    "title": "My area",
+    "subtitle": "Your member record and your dues.",
+    "notLinked": "Your account is not linked to a member record. Ask the board to set up the link.",
+    "profile": "My member record",
+    "fields": {
+      "memberNumber": "Member number",
+      "name": "Name",
+      "joinedAt": "Joined",
+      "birthday": "Date of birth",
+      "gender": "Gender",
+      "email": "Email",
+      "address": "Address",
+      "category": "Category"
+    },
+    "dues": "My dues",
+    "noDues": "No dues on record.",
+    "dueFields": {
+      "fee": "Fee",
+      "period": "Year",
+      "amount": "Amount",
+      "status": "Status"
+    },
+    "dueStatus": {
+      "open": "Open",
+      "paid": "Paid",
+      "cancelled": "Cancelled"
     }
   }
 }

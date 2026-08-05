@@ -40,6 +40,16 @@ export async function getMember(memberId: string) {
   return apiCall<Member>(`/api/v1/members/${memberId}`)
 }
 
+/**
+ * The caller's own member record — self-service, any role. 404s when the
+ * account is not linked to a member; callers show an explanation, not an
+ * error, because unlinked accounts (treasurer, external trainer) are a
+ * normal state.
+ */
+export async function getMyMember() {
+  return apiCall<Member>("/api/v1/members/me")
+}
+
 export async function listMemberFederations(memberId: string) {
   const result = await apiList<MemberFederation>(
     `/api/v1/members/${memberId}/federations`

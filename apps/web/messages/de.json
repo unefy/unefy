@@ -25,7 +25,8 @@
     "settingsGeneral": "Allgemein",
     "shooting": "Schießsport",
     "shootingProof": "Nachweis",
-    "shootingRules": "Regeln"
+    "shootingRules": "Regeln",
+    "myArea": "Mein Bereich"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -911,6 +912,35 @@
           "unreachable": "Server nicht erreichbar."
         }
       }
+    }
+  },
+  "my": {
+    "title": "Mein Bereich",
+    "subtitle": "Ihr Mitgliedseintrag und Ihre Beiträge.",
+    "notLinked": "Ihr Konto ist keinem Mitgliedseintrag zugeordnet. Wenden Sie sich an den Vorstand, um die Verknüpfung herzustellen.",
+    "profile": "Mein Mitgliedseintrag",
+    "fields": {
+      "memberNumber": "Mitgliedsnummer",
+      "name": "Name",
+      "joinedAt": "Eintritt",
+      "birthday": "Geburtstag",
+      "gender": "Geschlecht",
+      "email": "E-Mail",
+      "address": "Anschrift",
+      "category": "Kategorie"
+    },
+    "dues": "Meine Beiträge",
+    "noDues": "Keine Beiträge vorhanden.",
+    "dueFields": {
+      "fee": "Beitrag",
+      "period": "Jahr",
+      "amount": "Betrag",
+      "status": "Status"
+    },
+    "dueStatus": {
+      "open": "Offen",
+      "paid": "Bezahlt",
+      "cancelled": "Storniert"
     }
   }
 }
