@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.unefy.app.R
+import com.unefy.core.auth.TenantOption
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.UnefySpacing
 
@@ -41,6 +42,9 @@ import com.unefy.core.designsystem.theme.UnefySpacing
 fun accountActions(
     email: String?,
     displayName: String?,
+    tenants: List<TenantOption> = emptyList(),
+    onOpenMenu: () -> Unit = {},
+    onSwitchTenant: (String) -> Unit = {},
     onSignOut: () -> Unit,
 ): @Composable RowScope.() -> Unit = {
     var expanded by remember { mutableStateOf(false) }
@@ -52,7 +56,13 @@ fun accountActions(
             modifier = Modifier
                 .size(AVATAR_SIZE)
                 .clip(CircleShape)
-                .clickable { expanded = true },
+                .clickable {
+                    expanded = true
+                    // The club list is fetched when the menu opens, not per
+                    // screen — most accounts belong to one club and never
+                    // need it.
+                    onOpenMenu()
+                },
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -64,9 +74,13 @@ fun accountActions(
         }
 
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            email?.let {
+            // The account's clubs, current one ticked. Only with a choice: a
+            // single-club account gets a menu that is just the sign-out, and
+            // the email deliberately does not appear here — the avatar's
+            // initials already say whose menu this is.
+            if (tenants.size > 1) {
                 Text(
-                    text = it,
+                    text = stringResource(R.string.account_switch_club),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(
@@ -74,6 +88,24 @@ fun accountActions(
                         vertical = UnefySpacing.sm,
                     ),
                 )
+                tenants.forEach { tenant ->
+                    DropdownMenuItem(
+                        text = { Text(tenant.name) },
+                        onClick = {
+                            expanded = false
+                            if (!tenant.isCurrent) onSwitchTenant(tenant.id)
+                        },
+                        trailingIcon = {
+                            if (tenant.isCurrent) {
+                                Icon(
+                                    painter = painterResource(DesignR.drawable.ic_check),
+                                    contentDescription =
+                                        stringResource(R.string.account_current_club),
+                                )
+                            }
+                        },
+                    )
+                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             DropdownMenuItem(

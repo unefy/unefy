@@ -9,8 +9,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.key
 import com.unefy.app.ui.login.LoginRoute
 import com.unefy.core.auth.AuthRepository
+import com.unefy.core.auth.TenantOption
+import com.unefy.core.network.ApiResult
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.ClubRole
 import com.unefy.core.model.Session
@@ -37,6 +41,46 @@ class SessionViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     /**
+     * Every club this account belongs to. Loaded lazily when the account menu
+     * first opens — most people belong to one club, and their menu should not
+     * cost a request per screen.
+     */
+    private val _tenants = MutableStateFlow<List<TenantOption>>(emptyList())
+    val tenants: StateFlow<List<TenantOption>> = _tenants
+
+    private var switching = false
+
+    fun loadTenants() {
+        viewModelScope.launch {
+            val result = authRepository.tenants()
+            // Silent on failure: the menu simply shows no switch, exactly like
+            // a single-club account. Retried the next time the menu opens.
+            if (result is ApiResult.Success) _tenants.value = result.data
+        }
+    }
+
+    /**
+     * Switches this device into another club. The session flow moves on
+     * success and UnefyRoot remounts the whole shell under the new tenant —
+     * no navigation call, same principle as [signOut].
+     */
+    fun switchTenant(tenantId: String) {
+        if (switching) return
+        switching = true
+        viewModelScope.launch {
+            try {
+                if (authRepository.switchTenant(tenantId) is ApiResult.Success) {
+                    _tenants.value = _tenants.value.map {
+                        it.copy(isCurrent = it.id == tenantId)
+                    }
+                }
+            } finally {
+                switching = false
+            }
+        }
+    }
+
+    /**
      * Clearing the encrypted store flips [isSignedIn], and UnefyRoot swaps back
      * to the login screen on its own. No navigation call is needed — the session
      * remains the single source of truth for which screen is shown.
@@ -59,17 +103,27 @@ fun UnefyRoot(viewModel: SessionViewModel = hiltViewModel()) {
     val signedIn by viewModel.isSignedIn.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
 
+    val tenants by viewModel.tenants.collectAsStateWithLifecycle()
+
     UnefyTheme {
         when (signedIn) {
             null -> Box(Modifier.fillMaxSize())
             false -> LoginRoute()
-            true -> MainNavigation(
-                clubName = session?.tenant?.name,
-                accountEmail = session?.user?.email,
-                accountName = session?.user?.name,
-                role = ClubRole.fromApi(session?.role),
-                onSignOut = viewModel::signOut,
-            )
+            // key(): a club switch replaces the whole shell. The back stack,
+            // the bar arrangement and every screen's view model belong to the
+            // club they were built in and must not survive into the next one.
+            true -> key(session?.tenant?.id) {
+                MainNavigation(
+                    clubName = session?.tenant?.name,
+                    accountEmail = session?.user?.email,
+                    accountName = session?.user?.name,
+                    role = ClubRole.fromApi(session?.role),
+                    tenants = tenants,
+                    onOpenAccountMenu = viewModel::loadTenants,
+                    onSwitchTenant = viewModel::switchTenant,
+                    onSignOut = viewModel::signOut,
+                )
+            }
         }
     }
 }

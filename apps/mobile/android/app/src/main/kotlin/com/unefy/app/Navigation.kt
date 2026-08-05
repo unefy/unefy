@@ -68,6 +68,7 @@ import com.unefy.app.nav.LocalNavDragState
 import com.unefy.app.nav.NavSettingsViewModel
 import com.unefy.app.nav.TopLevel
 import com.unefy.app.ui.accountActions
+import com.unefy.core.auth.TenantOption
 import com.unefy.core.model.ClubRole
 import com.unefy.feature.attendance.AttendanceListRoute
 import com.unefy.feature.attendance.MemberCodeRoute
@@ -130,11 +131,17 @@ fun MainNavigation(
     accountEmail: String?,
     accountName: String?,
     role: ClubRole,
+    tenants: List<TenantOption> = emptyList(),
+    onOpenAccountMenu: () -> Unit = {},
+    onSwitchTenant: (String) -> Unit = {},
     onSignOut: () -> Unit,
 ) {
     val accountActions = accountActions(
         email = accountEmail,
         displayName = accountName,
+        tenants = tenants,
+        onOpenMenu = onOpenAccountMenu,
+        onSwitchTenant = onSwitchTenant,
         onSignOut = onSignOut,
     )
 

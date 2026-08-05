@@ -14,6 +14,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -53,11 +55,18 @@ class PushRegistrar @Inject constructor(
     private var serverDisabled = false
 
     /**
-     * Registers whenever someone signs in, for as long as it is collected.
+     * Registers whenever someone signs in — or switches clubs, for as long as
+     * it is collected. Keyed on the tenant rather than the signed-in flag: a
+     * tenant switch keeps the account signed in but unregisters push as part
+     * of its clean-out, and without this nothing would register it again.
      * Launched from the activity alongside the sync coordinator.
      */
     suspend fun run() {
-        tokenManager.isSignedIn.distinctUntilChanged().filter { it }.collect { register() }
+        tokenManager.session
+            .map { it?.tenant?.id }
+            .distinctUntilChanged()
+            .filterNotNull()
+            .collect { register() }
     }
 
     /** One registration attempt. Safe to call at any time, from any state. */

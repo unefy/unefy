@@ -12,6 +12,12 @@ object ApiEndpoints {
     const val AUTH_LOGOUT = "$AUTH_PREFIX/mobile/logout"
     const val AUTH_ME = "$AUTH_PREFIX/me"
 
+    /** Every club the caller belongs to, with the current one marked. */
+    const val AUTH_TENANTS = "$AUTH_PREFIX/tenants"
+
+    /** Re-issues the mobile token pair for another of the caller's clubs. */
+    const val AUTH_SWITCH_TENANT = "$AUTH_PREFIX/mobile/switch-tenant"
+
     const val MEMBERS = "/api/v1/members"
 
     /** Self-service. The backend takes the member from the session, not the path. */

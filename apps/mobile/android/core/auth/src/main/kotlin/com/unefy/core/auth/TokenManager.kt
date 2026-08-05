@@ -50,8 +50,9 @@ class TokenManager @Inject constructor(
 
     override suspend fun refresh(): AuthTokens? = refreshMutex.withLock {
         val refreshToken = current()?.refreshToken ?: return@withLock null
+        val tenantId = context.authDataStore.data.first()[Keys.TENANT_ID]
 
-        when (val result = tokenApi.refresh(refreshToken)) {
+        when (val result = tokenApi.refresh(refreshToken, tenantId)) {
             is TokenApi.Result.Success -> {
                 persistTokens(result.tokens)
                 result.tokens

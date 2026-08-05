@@ -43,9 +43,11 @@ class TokenApi @Inject constructor(
         data object Unavailable : Result
     }
 
-    suspend fun refresh(refreshToken: String): Result = try {
+    suspend fun refresh(refreshToken: String, tenantId: String? = null): Result = try {
         val response = client.post(ApiEndpoints.AUTH_REFRESH) {
-            setBody(RefreshRequest(refreshToken))
+            // The tenant travels along so a rotation cannot silently undo a
+            // tenant switch — the server re-pins to the first club otherwise.
+            setBody(RefreshRequest(refreshToken, tenantId))
         }
         val envelope: ApiEnvelope<TokenPairDto> = response.body()
         // Local val: `data` comes from another module, so it cannot smart-cast.
@@ -103,6 +105,7 @@ class TokenApi @Inject constructor(
 @Serializable
 private data class RefreshRequest(
     @SerialName("refresh_token") val refreshToken: String,
+    @SerialName("tenant_id") val tenantId: String? = null,
 )
 
 @Serializable

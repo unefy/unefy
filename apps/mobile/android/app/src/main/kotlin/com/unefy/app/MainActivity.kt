@@ -19,6 +19,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -83,15 +85,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // A sign-in is a sync trigger of its own. Sign-out wipes every mirror,
-        // and the coordinator's other triggers do not fire here: the network
-        // did not change and no doorbell rings for data that did not change —
-        // without this the next account stared at empty screens until one did.
+        // A sign-in is a sync trigger of its own — and so is a club switch,
+        // which is why this keys on the tenant rather than the signed-in flag:
+        // both wipe every mirror, and the coordinator's other triggers do not
+        // fire here. The network did not change and no doorbell rings for data
+        // that did not change — without this the next account (or the next
+        // club) stared at empty screens until one did.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                authRepository.isSignedIn.distinctUntilChanged().filter { it }.collect {
-                    syncCoordinator.requestAll()
-                }
+                authRepository.session
+                    .map { it?.tenant?.id }
+                    .distinctUntilChanged()
+                    .filterNotNull()
+                    .collect { syncCoordinator.requestAll() }
             }
         }
 

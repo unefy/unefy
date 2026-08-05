@@ -26,6 +26,10 @@
     <string name="nav_directory">Verzeichnis</string>
     <string name="nav_my_dues">Meine Beiträge</string>
     <string name="account_sign_out">Abmelden</string>
+    <!-- Header above the club list in the account menu; the tick marks the
+         current club. No email here — the initials carry the identity. -->
+    <string name="account_switch_club">Verein wechseln</string>
+    <string name="account_current_club">Aktueller Verein</string>
     <string name="nav_competitions">Wettkämpfe</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">Mehr</string>
