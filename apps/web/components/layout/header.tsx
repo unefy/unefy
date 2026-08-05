@@ -41,6 +41,12 @@ export function Header({ className, fixed, children, ...props }: HeaderProps) {
       >
         <SidebarTrigger variant="outline" className="max-md:scale-125" />
         <Separator orientation="vertical" className="h-6" />
+        {/* Detail pages portal their title here once it scrolls out of view —
+            see HeaderScrollTitle. Empty until then. */}
+        <div
+          id="header-page-title"
+          className="flex min-w-0 flex-1 items-center overflow-hidden"
+        />
         {children}
       </div>
     </header>

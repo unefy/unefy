@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server"
 
 import { deleteMemberAction } from "@/actions/members"
 import { ConfirmDelete } from "@/components/admin/confirm-delete"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import { MemberDialog } from "@/components/members/member-dialog"
 import { MemberTabs, type MemberTab } from "@/components/members/member-tabs"
 import { Badge } from "@/components/ui/badge"
@@ -55,11 +56,9 @@ export default async function MemberDetailLayout({
 
   return (
     <>
-      {/* Sticky below the app topbar (h-16): name and tabs stay in view while
-          a long tab body scrolls. The negative margins undo the content
-          padding so the bar spans the full width and sits close under the
-          topbar instead of floating in it. */}
-      <div className="sticky top-16 z-40 -mx-4 -mt-4 space-y-2 border-b bg-background/95 px-4 pt-1 pb-3 backdrop-blur md:-mx-6 md:-mt-6 md:px-6">
+      {/* Normal flow — the header scrolls away with the page. Once the name
+          passes under the topbar, HeaderScrollTitle fades it in up there. */}
+      <div className="-mt-2 space-y-2 md:-mt-3">
         <Link
           href="/members"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -68,6 +67,9 @@ export default async function MemberDetailLayout({
           {t("detail.back")}
         </Link>
         <div className="flex flex-wrap items-center gap-3">
+          <HeaderScrollTitle
+            title={`${member.first_name} ${member.last_name}`}
+          />
           <h1 className="text-2xl font-semibold tracking-tight">
             {member.first_name} {member.last_name}
           </h1>
