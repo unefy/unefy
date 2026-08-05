@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import { notFound } from "next/navigation"
 import { getLocale, getTranslations } from "next-intl/server"
 
@@ -16,10 +17,7 @@ import {
   getClubTimeZone,
 } from "@/lib/attendance"
 import { getClub } from "@/lib/club"
-import {
-  listClubDisciplines,
-  listSessionShootingDetails,
-} from "@/lib/shooting"
+import { listClubDisciplines, listSessionShootingDetails } from "@/lib/shooting"
 import { formatDate, formatTime } from "@/lib/time"
 import { deleteSessionAction } from "@/actions/attendance"
 import { ArrowLeftIcon, LockIcon, Trash2Icon } from "lucide-react"
@@ -85,6 +83,7 @@ export default async function AttendanceSessionPage({
         </Link>
 
         <div className="flex flex-wrap items-center gap-3">
+          <HeaderScrollTitle title={session.title} />
           <h1 className="text-2xl font-semibold tracking-tight">
             {session.title}
           </h1>

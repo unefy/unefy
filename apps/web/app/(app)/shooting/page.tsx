@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import { getTranslations } from "next-intl/server"
 
 import { CertificatesTable } from "@/components/shooting/certificates-table"
@@ -32,6 +33,7 @@ export default async function ShootingPage() {
   return (
     <>
       <div className="space-y-1">
+        <HeaderScrollTitle title={t("title")} />
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
           {t("description", { count: certificates.meta.total })}

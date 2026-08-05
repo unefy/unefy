@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
 import { ClubSportsForm } from "@/components/settings/club-sports-form"
 import { getSession } from "@/lib/auth"
@@ -21,12 +22,17 @@ export default async function ClubSportsPage() {
   return (
     <>
       <div className="space-y-1">
+        <HeaderScrollTitle title={t("title")} />
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           {t("description")}
         </p>
       </div>
-      <ClubSportsForm catalog={catalog} active={club.sports} canEdit={canEdit} />
+      <ClubSportsForm
+        catalog={catalog}
+        active={club.sports}
+        canEdit={canEdit}
+      />
     </>
   )
 }

@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
 import { Badge } from "@/components/ui/badge"
 import { DateCell } from "@/components/ui/date-cell"
@@ -44,6 +45,7 @@ export default async function MyPage() {
   return (
     <>
       <div className="space-y-1">
+        <HeaderScrollTitle title={t("title")} />
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
@@ -128,9 +130,7 @@ export default async function MyPage() {
                     {dues.map((due) => (
                       <tr key={due.id} className="border-b last:border-b-0">
                         <td className="p-3">{due.fee_name}</td>
-                        <td className="p-3">
-                          {due.period_start.slice(0, 4)}
-                        </td>
+                        <td className="p-3">{due.period_start.slice(0, 4)}</td>
                         <td className="p-3 font-mono">
                           {Number(due.amount).toLocaleString("de-DE", {
                             style: "currency",
@@ -140,7 +140,9 @@ export default async function MyPage() {
                         <td className="p-3">
                           <Badge
                             variant={
-                              due.status === "open" ? "destructive" : "secondary"
+                              due.status === "open"
+                                ? "destructive"
+                                : "secondary"
                             }
                           >
                             {t(`dueStatus.${due.status}`)}

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import { getTranslations } from "next-intl/server"
 
 import { RuleDialog } from "@/components/shooting/rule-dialog"
@@ -28,6 +29,7 @@ export default async function ShootingRulesPage() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
+          <HeaderScrollTitle title={t("title")} />
           <h1 className="text-2xl font-semibold tracking-tight">
             {t("title")}
           </h1>

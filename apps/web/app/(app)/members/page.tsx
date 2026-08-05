@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
 import { MemberDialog } from "@/components/members/member-dialog"
 import { MembersTable } from "@/components/members/members-table"
@@ -14,6 +15,7 @@ export default async function MembersPage() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
+          <HeaderScrollTitle title={t("title")} />
           <h1 className="text-2xl font-semibold tracking-tight">
             {t("title")}
           </h1>

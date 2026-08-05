@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server"
+import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
 import { SessionDialog } from "@/components/attendance/session-dialog"
 import { SessionsTable } from "@/components/attendance/sessions-table"
@@ -15,6 +16,7 @@ export default async function AttendancePage() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
+          <HeaderScrollTitle title={t("title")} />
           <h1 className="text-2xl font-semibold tracking-tight">
             {t("title")}
           </h1>
