@@ -1,11 +1,14 @@
 """Mobile auth endpoints — JWT access + refresh tokens.
 
-MVP scope:
-- POST /dev/login    (DEBUG only, for local iOS development)
-- POST /refresh      (rotates refresh token)
-- POST /logout       (revokes refresh token)
+Scope:
+- POST /magic-link/request  (mails a one-time login code)
+- POST /magic-link/verify   (code → JWT pair; creates the user on first login)
+- POST /dev/login           (DEBUG only, for local development)
+- POST /refresh             (rotates refresh token)
+- POST /switch-tenant       (re-issues the pair for another club)
+- POST /logout              (revokes refresh token)
 
-Google OAuth / Magic Link / Passkey flows are added in later phases.
+Google OAuth and passkey flows are added in later phases.
 """
 
 import uuid
@@ -13,7 +16,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +34,7 @@ from app.dependencies import AuthContext, get_current_user
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 from app.redis import get_redis
+from app.services.magic_link import consume_otp, issue_otp, resolve_user, send_login_code
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -146,6 +150,67 @@ async def _load_active_tenant(
 
 
 # --- Endpoints ----------------------------------------------------------------
+
+
+class MagicLinkRequestBody(BaseModel):
+    email: EmailStr
+
+
+@router.post(
+    "/magic-link/request",
+    dependencies=[
+        # A mail sender behind an open endpoint; keep it slow.
+        Depends(RateLimit(limit=5, window=300, scope="mobile-magic-request")),
+    ],
+)
+async def magic_link_request(
+    data: MagicLinkRequestBody,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> dict[str, Any]:
+    """Mail a one-time login code.
+
+    Always 200, whether the account exists or not — the same
+    anti-enumeration stance as the web endpoint. The user is only created on
+    successful *verification*, so requesting codes for strangers' addresses
+    leaves no trace.
+    """
+    code = await issue_otp(data.email, settings)
+    await send_login_code(data.email, code, settings)
+    return {"data": {"sent": True}}
+
+
+class MagicLinkVerifyBody(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+@router.post(
+    "/magic-link/verify",
+    dependencies=[
+        # The service already caps guesses per code; this caps callers that
+        # rotate addresses.
+        Depends(RateLimit(limit=15, window=300, scope="mobile-magic-verify")),
+    ],
+)
+async def magic_link_verify(
+    data: MagicLinkVerifyBody,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> dict[str, Any]:
+    """Redeem a login code for a JWT pair, creating the user on first login.
+
+    412 when the fresh account belongs to no club yet — the app shows "ask
+    your club for an invitation" instead of a token it could do nothing with.
+    """
+    if not await consume_otp(data.email, data.code, settings):
+        raise ForbiddenError("Invalid or expired code")
+
+    user = await resolve_user(session, data.email)
+    tenant, membership = await _load_first_active_tenant(session, user.id)
+    payload = await _issue_token_pair(user, tenant, membership)
+
+    logger.info("mobile_magic_login", user_id=str(user.id), tenant_id=str(tenant.id))
+    return {"data": payload}
 
 
 class DevLoginRequest(BaseModel):

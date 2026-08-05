@@ -532,3 +532,169 @@ async def test_tenants_list_works_with_a_bearer_token(
     assert set(rows) == {str(test_tenant.id), str(other.id)}
     assert rows[str(test_tenant.id)]["is_current"] is True
     assert rows[str(other.id)]["is_current"] is False
+
+
+# --- /magic-link (one-time code) ----------------------------------------------
+
+
+async def _issue_code(email: str) -> str:
+    """Self-issue a code like the magic-link tests self-issue tokens — the
+    endpoint only ever mails it."""
+    from app.services.magic_link import issue_otp
+
+    return await issue_otp(email, get_settings())
+
+
+async def _verify(client: AsyncClient, email: str, code: str):  # type: ignore[no-untyped-def]
+    return await client.post(
+        "/api/v1/auth/mobile/magic-link/verify", json={"email": email, "code": code}
+    )
+
+
+async def test_magic_request_is_flat_for_known_and_unknown(
+    mobile_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The request endpoint must not work as an account-existence oracle."""
+    db_session.add(User(email="known-otp@example.com", name="Known", email_verified=True))
+    await db_session.flush()
+
+    known = await mobile_client.post(
+        "/api/v1/auth/mobile/magic-link/request", json={"email": "known-otp@example.com"}
+    )
+    unknown = await mobile_client.post(
+        "/api/v1/auth/mobile/magic-link/request", json={"email": "unknown-otp@example.com"}
+    )
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.json() == unknown.json() == {"data": {"sent": True}}
+
+
+async def test_magic_verify_returns_token_pair_for_member(
+    mobile_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    user = User(email="otp-member@example.com", name="OTP Member", email_verified=True)
+    db_session.add(user)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            tenant_id=test_tenant.id,
+            role="member",
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+
+    code = await _issue_code("otp-member@example.com")
+    resp = await _verify(mobile_client, "otp-member@example.com", code)
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["access_token"] and data["refresh_token"]
+    assert data["tenant"]["id"] == str(test_tenant.id)
+    assert data["role"] == "member"
+
+
+async def test_magic_verify_creates_the_user_but_412s_without_a_club(
+    mobile_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """First login proves the mailbox; without a club there is no token to
+    issue, and the app tells the person to ask for an invitation."""
+    from sqlalchemy import select
+
+    code = await _issue_code("fresh-otp@example.com")
+    resp = await _verify(mobile_client, "fresh-otp@example.com", code)
+
+    assert resp.status_code == 412, resp.text
+    created = (
+        await db_session.execute(select(User).where(User.email == "fresh-otp@example.com"))
+    ).scalar_one()
+    assert created.email_verified is True
+
+
+async def test_magic_verify_rejects_a_wrong_code_but_allows_a_retry(
+    mobile_client: AsyncClient,
+) -> None:
+    code = await _issue_code("retry-otp@example.com")
+
+    typo = "000000" if code != "000000" else "000001"
+    wrong = await _verify(mobile_client, "retry-otp@example.com", typo)
+    assert wrong.status_code == 403
+
+    right = await _verify(mobile_client, "retry-otp@example.com", code)
+    # 412 (no club), not 403 — the code itself was accepted after the typo.
+    assert right.status_code == 412, right.text
+
+
+async def test_magic_verify_code_works_exactly_once(
+    mobile_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    user = User(email="once-otp@example.com", name="Once", email_verified=True)
+    db_session.add(user)
+    await db_session.flush()
+    db_session.add(
+        TenantMembership(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            tenant_id=test_tenant.id,
+            role="member",
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+
+    code = await _issue_code("once-otp@example.com")
+    assert (await _verify(mobile_client, "once-otp@example.com", code)).status_code == 200
+    assert (await _verify(mobile_client, "once-otp@example.com", code)).status_code == 403
+
+
+async def test_magic_verify_kills_the_code_after_too_many_guesses(
+    mobile_client: AsyncClient,
+) -> None:
+    """Six digits only hold because guessing is capped: after the limit even
+    the correct code must be dead."""
+    from app.services.magic_link import OTP_MAX_ATTEMPTS
+
+    code = await _issue_code("bruteforce-otp@example.com")
+    wrong = "000000" if code != "000000" else "000001"
+
+    for _ in range(OTP_MAX_ATTEMPTS):
+        attempt = await _verify(mobile_client, "bruteforce-otp@example.com", wrong)
+        assert attempt.status_code == 403
+
+    assert (await _verify(mobile_client, "bruteforce-otp@example.com", code)).status_code == 403
+
+
+async def test_magic_verify_without_a_requested_code_fails(
+    mobile_client: AsyncClient,
+) -> None:
+    resp = await _verify(mobile_client, "never-requested@example.com", "123456")
+    assert resp.status_code == 403
+
+
+async def test_magic_verify_validates_the_code_shape(mobile_client: AsyncClient) -> None:
+    for bad in ("12345", "1234567", "abcdef", ""):
+        resp = await _verify(mobile_client, "shape@example.com", bad)
+        assert resp.status_code == 422, bad
+
+
+async def test_magic_flow_normalizes_the_address(
+    mobile_client: AsyncClient,
+) -> None:
+    """Requesting with one casing and verifying with another is the same
+    mailbox — people type their address, they do not paste it."""
+    code = await _issue_code("MiXeD-OTP@Example.COM")
+    resp = await _verify(mobile_client, "mixed-otp@example.com", code)
+    assert resp.status_code == 412, resp.text  # code accepted; no club yet
+
+
+async def test_a_new_request_replaces_the_previous_code(
+    mobile_client: AsyncClient,
+) -> None:
+    first = await _issue_code("replace-otp@example.com")
+    second = await _issue_code("replace-otp@example.com")
+
+    if first != second:  # 1-in-a-million collision would make both valid
+        assert (await _verify(mobile_client, "replace-otp@example.com", first)).status_code == 403
+    assert (await _verify(mobile_client, "replace-otp@example.com", second)).status_code == 412
