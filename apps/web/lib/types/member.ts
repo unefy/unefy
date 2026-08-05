@@ -8,6 +8,7 @@ export type Member = {
   phone: string | null
   mobile: string | null
   birthday: string | null
+  gender: string | null
   street: string | null
   zip_code: string | null
   city: string | null
@@ -25,6 +26,19 @@ export type Member = {
   sepa_mandate_date: string | null
   /** Set once the member has an account that can sign in. */
   user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** A member's membership in an external federation (DSB, BDS, …). */
+export type MemberFederation = {
+  id: string
+  member_id: string
+  federation: string
+  federation_number: string | null
+  joined_at: string | null
+  left_at: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }

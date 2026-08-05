@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { MEMBER_STATUS_KEYS } from "@/lib/labels"
+import { GENDER_KEYS, MEMBER_STATUS_KEYS } from "@/lib/labels"
 
 /**
  * An optional form field.
@@ -32,6 +32,10 @@ const memberSchema = z.object({
   phone: optionalText,
   mobile: optionalText,
   birthday: optionalDate,
+  gender: optionalText.refine(
+    (value) => value === null || (GENDER_KEYS as readonly string[]).includes(value),
+    { message: "invalid gender" }
+  ),
   street: optionalText,
   zip_code: optionalText,
   city: optionalText,

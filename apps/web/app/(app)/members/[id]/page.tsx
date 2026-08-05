@@ -8,8 +8,8 @@ import { MemberAccess } from "@/components/members/member-access"
 import { MemberDialog } from "@/components/members/member-dialog"
 import { Badge } from "@/components/ui/badge"
 import { DateCell } from "@/components/ui/date-cell"
-import { memberStatusLabel } from "@/lib/labels"
-import { getClubAccess, getMember } from "@/lib/members"
+import { genderLabel, memberStatusLabel } from "@/lib/labels"
+import { getClubAccess, getMember, listMemberFederations } from "@/lib/members"
 import { ArrowLeftIcon } from "lucide-react"
 
 function Fact({
@@ -47,6 +47,8 @@ export default async function MemberDetailPage({
   // Access management is restricted to owner/admin, so a board member reading
   // this page gets null rather than an error — the section then stays hidden.
   const access = await getClubAccess().catch(() => null)
+
+  const federations = await listMemberFederations(id).catch(() => [])
 
   const linkedAccount =
     access && member.user_id
@@ -134,8 +136,43 @@ export default async function MemberDetailPage({
           <Fact label={t("detail.fields.birthday")}>
             <DateCell value={member.birthday} dateOnly />
           </Fact>
+          <Fact
+            label={t("detail.fields.gender")}
+            value={member.gender ? genderLabel(tl, member.gender) : null}
+          />
         </dl>
       </section>
+
+      {federations.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t("detail.federations")}
+          </h2>
+          <div className="space-y-3">
+            {federations.map((federation) => (
+              <dl
+                key={federation.id}
+                className="grid gap-4 rounded-md border p-4 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <Fact
+                  label={t("detail.fields.federation")}
+                  value={federation.federation}
+                />
+                <Fact
+                  label={t("detail.fields.federationNumber")}
+                  value={federation.federation_number}
+                />
+                <Fact label={t("detail.fields.federationJoinedAt")}>
+                  <DateCell value={federation.joined_at} dateOnly />
+                </Fact>
+                <Fact label={t("detail.fields.federationLeftAt")}>
+                  <DateCell value={federation.left_at} dateOnly />
+                </Fact>
+              </dl>
+            ))}
+          </div>
+        </section>
+      )}
 
       {access && (
         <MemberAccess

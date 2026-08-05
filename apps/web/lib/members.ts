@@ -1,5 +1,5 @@
 import { apiCall, apiList } from "@/lib/api"
-import type { ClubAccess, Member } from "@/lib/types/member"
+import type { ClubAccess, Member, MemberFederation } from "@/lib/types/member"
 
 /**
  * Server-side readers for the club's own data.
@@ -38,6 +38,13 @@ export async function listMembers(
 
 export async function getMember(memberId: string) {
   return apiCall<Member>(`/api/v1/members/${memberId}`)
+}
+
+export async function listMemberFederations(memberId: string) {
+  const result = await apiList<MemberFederation>(
+    `/api/v1/members/${memberId}/federations`
+  )
+  return result.data
 }
 
 export async function getClubAccess() {

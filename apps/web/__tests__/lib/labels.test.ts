@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { memberStatusLabel, roleLabel } from "@/lib/labels"
+import { genderLabel, memberStatusLabel, roleLabel } from "@/lib/labels"
 
 /** Stands in for next-intl's `t`, echoing the key it was asked for. */
 const t = (key: string) => `translated:${key}`
@@ -16,9 +16,14 @@ describe("label lookup", () => {
     expect(roleLabel(t, "owner")).toBe("translated:roles.owner")
   })
 
+  it("translates a known gender", () => {
+    expect(genderLabel(t, "diverse")).toBe("translated:gender.diverse")
+  })
+
   it.each([
     ["member status", memberStatusLabel],
     ["role", roleLabel],
+    ["gender", genderLabel],
   ])("falls back to the raw key for an unknown %s", (_label, resolve) => {
     /**
      * The backend may add a value before the translation exists. Showing the

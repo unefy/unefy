@@ -35,7 +35,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { MEMBER_STATUS_KEYS, memberStatusLabel } from "@/lib/labels"
+import {
+  GENDER_KEYS,
+  MEMBER_STATUS_KEYS,
+  genderLabel,
+  memberStatusLabel,
+} from "@/lib/labels"
 import type { Member } from "@/lib/types/member"
 import { PencilIcon, PlusIcon } from "lucide-react"
 
@@ -79,6 +84,7 @@ export function MemberDialog({
 
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState(member?.status ?? "active")
+  const [gender, setGender] = useState(member?.gender ?? "")
   const [blockAccess, setBlockAccess] = useState(true)
 
   // The member is leaving and still has a working account — the one moment
@@ -166,6 +172,32 @@ export function MemberDialog({
                   type="date"
                   defaultValue={member?.birthday ?? ""}
                 />
+              </Field>
+              <Field id="gender" label={t("fields.gender")}>
+                {/* Hidden input for the same reason as `status` below. */}
+                <input type="hidden" name="gender" value={gender} />
+                <Select
+                  value={gender}
+                  onValueChange={(value) => setGender(String(value))}
+                >
+                  <SelectTrigger id="gender" className="w-full">
+                    <SelectValue>
+                      {(value: string) =>
+                        value === "" ? "—" : genderLabel(tl, value)
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="">—</SelectItem>
+                      {GENDER_KEYS.map((key) => (
+                        <SelectItem key={key} value={key}>
+                          {genderLabel(tl, key)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </Field>
               <Field id="category" label={t("fields.category")}>
                 <Input

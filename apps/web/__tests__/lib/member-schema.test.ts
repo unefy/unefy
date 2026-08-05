@@ -79,6 +79,27 @@ describe("parseMemberForm", () => {
     ).toBe(true)
   })
 
+  it("accepts a known gender and treats an empty one as null", () => {
+    const result = parseMemberForm(form({ ...REQUIRED, gender: "female" }))
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.gender).toBe("female")
+
+    const empty = parseMemberForm(form({ ...REQUIRED, gender: "" }))
+    expect(empty.success).toBe(true)
+    if (empty.success) expect(empty.data.gender).toBeNull()
+
+    // Not rendered at all (older cached form) must also pass.
+    const absent = parseMemberForm(form(REQUIRED))
+    expect(absent.success).toBe(true)
+    if (absent.success) expect(absent.data.gender).toBeNull()
+  })
+
+  it("rejects a gender outside the known set", () => {
+    expect(
+      parseMemberForm(form({ ...REQUIRED, gender: "unbekannt" })).success
+    ).toBe(false)
+  })
+
   it("rejects a status outside the known set", () => {
     // Status drives the leaving logic, so an arbitrary value must not pass.
     expect(

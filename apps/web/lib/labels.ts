@@ -17,12 +17,21 @@ export const MEMBER_STATUS_KEYS = [
 
 export const ROLE_KEYS = ["owner", "admin", "board", "member"] as const
 
+export const GENDER_KEYS = ["male", "female", "diverse"] as const
+
 type Translate = (key: string) => string
 
 /** Resolves `admin.memberStatus.<key>`, falling back to the raw key. */
 export function memberStatusLabel(t: Translate, key: string): string {
   return (MEMBER_STATUS_KEYS as readonly string[]).includes(key)
     ? t(`memberStatus.${key}`)
+    : key
+}
+
+/** Resolves `admin.gender.<key>`, falling back to the raw key. */
+export function genderLabel(t: Translate, key: string): string {
+  return (GENDER_KEYS as readonly string[]).includes(key)
+    ? t(`gender.${key}`)
     : key
 }
 
