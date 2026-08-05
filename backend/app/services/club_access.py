@@ -328,7 +328,8 @@ class ClubAccessService:
         tenant = (
             await self.session.execute(select(Tenant).where(Tenant.id == tenant_id))
         ).scalar_one()
-        await self._send_invitation(normalized, token, tenant.name, settings)
+        accept_url = f"{settings.BACKEND_URL}/api/v1/auth/invitation/accept?token={token}"
+        await self._send_invitation(normalized, accept_url, tenant.name, settings)
 
         logger.info(
             "club_invitation_created",
@@ -344,12 +345,15 @@ class ClubAccessService:
             "created_at": invitation.created_at,
             "is_expired": False,
             "member_id": invitation.member_id,
+            # The one and only time the plaintext link leaves the backend: the
+            # inviter may hand it over directly (clubs without working mail).
+            # Only the hash is stored, so it cannot be shown again later.
+            "accept_url": accept_url,
         }
 
     async def _send_invitation(
-        self, email: str, token: str, club_name: str, settings: Settings
+        self, email: str, link: str, club_name: str, settings: Settings
     ) -> None:
-        link = f"{settings.BACKEND_URL}/api/v1/auth/invitation/accept?token={token}"
         try:
             await send_email(
                 to=email,

@@ -644,3 +644,26 @@ async def test_unlink_clears_the_binding(
     # A second unlink has nothing to undo.
     resp = await auth_client.delete(f"{BASE}/links/{member.id}")
     assert resp.status_code == 409, resp.text
+
+
+async def test_invite_returns_the_accept_link_exactly_once(
+    auth_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The creation response carries the plaintext link (copy fallback for
+    clubs without working mail); the listing never does — only the hash is
+    stored, so the link cannot be reconstructed later."""
+    created = await _invite(auth_client, "copylink@example.com")
+    assert created.status_code == 201
+    accept_url = created.json()["data"]["accept_url"]
+    token = accept_url.split("token=")[1]
+
+    stored = (
+        await db_session.execute(
+            select(Invitation).where(Invitation.email == "copylink@example.com")
+        )
+    ).scalar_one()
+    assert stored.token_hash == _hash(token)
+
+    listing = await auth_client.get(BASE)
+    for invitation in listing.json()["data"]["invitations"]:
+        assert "accept_url" not in invitation

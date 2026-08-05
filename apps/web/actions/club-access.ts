@@ -14,7 +14,7 @@ export type ActionResult<T = unknown> =
  * The backend's own message is not surfaced: it is English and written for
  * developers. The codes it returns are stable enough to translate against.
  */
-function toError(error: unknown): ActionResult {
+function toError<T = unknown>(error: unknown): ActionResult<T> {
   if (error instanceof ApiError) {
     if (error.status === 409) return { success: false, error: "conflict" }
     if (error.status === 403) return { success: false, error: "forbidden" }
@@ -31,29 +31,36 @@ const role = z.enum(["owner", "admin", "board", "member"])
 export async function inviteMemberAction(
   memberId: string,
   requestedRole: string = "member"
-): Promise<ActionResult> {
+): Promise<ActionResult<{ accept_url: string }>> {
   const parsed = z
     .object({ member_id: uuid, role })
     .safeParse({ member_id: memberId, role: requestedRole })
   if (!parsed.success) return { success: false, error: "validation" }
 
+  let invitation: { accept_url: string }
   try {
     // The address deliberately is not sent — the backend takes it from the
     // member record, so a tampered request cannot bind a stranger's account.
-    await apiCall("/api/v1/club/access/invitations", {
-      method: "POST",
-      body: JSON.stringify({
-        member_id: parsed.data.member_id,
-        role: parsed.data.role,
-      }),
-    })
+    invitation = await apiCall<{ accept_url: string }>(
+      "/api/v1/club/access/invitations",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          member_id: parsed.data.member_id,
+          role: parsed.data.role,
+        }),
+      }
+    )
   } catch (error) {
     return toError(error)
   }
 
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
-  return { success: true }
+  // The link exists only in this response — the backend stores a hash. It is
+  // handed to the UI once so the inviter can pass it on by hand when the
+  // club's mail is not set up.
+  return { success: true, data: { accept_url: invitation.accept_url } }
 }
 
 export async function linkMemberAction(

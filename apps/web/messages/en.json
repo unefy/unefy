@@ -447,7 +447,12 @@
       "linkDescription": "Pick the account that belongs to {name}. That person will then see their own data (dues, attendance) in self-service.",
       "account": "Account",
       "pickAccount": "Pick an account …",
-      "unlink": "Remove link"
+      "unlink": "Remove link",
+      "linkReady": "Invitation link",
+      "linkReadyHint": "The invitation was sent by email. You can also pass this link on directly — for security it is shown only this once.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "close": "Close"
     },
     "form": {
       "create": "Member",

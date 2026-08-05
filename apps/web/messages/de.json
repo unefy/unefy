@@ -447,7 +447,12 @@
       "linkDescription": "Wählen Sie das Konto, das zu {name} gehört. Die Person sieht danach ihre eigenen Daten (Beiträge, Anwesenheit) im Selbstservice.",
       "account": "Konto",
       "pickAccount": "Konto wählen …",
-      "unlink": "Verknüpfung lösen"
+      "unlink": "Verknüpfung lösen",
+      "linkReady": "Einladungslink",
+      "linkReadyHint": "Die Einladung wurde per E-Mail verschickt. Der Link hier lässt sich zusätzlich direkt weitergeben — er wird aus Sicherheitsgründen nur dieses eine Mal angezeigt.",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "close": "Schließen"
     },
     "form": {
       "create": "Mitglied",

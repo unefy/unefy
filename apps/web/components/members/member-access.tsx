@@ -64,6 +64,9 @@ export function MemberAccess({
   const [role, setRole] = useState("member")
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUserId, setLinkUserId] = useState("")
+  /** Set after a successful invite — the one chance to copy the link. */
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const name = `${member.first_name} ${member.last_name}`
 
@@ -152,7 +155,16 @@ export function MemberAccess({
             {/* Without an address in the record there is nothing to invite to,
                 and the backend would refuse — so the control stays disabled
                 rather than offering an action that cannot succeed. */}
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog
+              open={open}
+              onOpenChange={(next) => {
+                setOpen(next)
+                if (!next) {
+                  setInviteLink(null)
+                  setCopied(false)
+                }
+              }}
+            >
               <DialogTrigger
                 render={
                   <Button
@@ -176,46 +188,91 @@ export function MemberAccess({
                 </DialogHeader>
 
                 <DialogBody>
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-role">{t("role")}</Label>
-                    <Select
-                      value={role}
-                      onValueChange={(value) => setRole(String(value))}
-                    >
-                      <SelectTrigger id="invite-role" className="w-full">
-                        <SelectValue>
-                          {(value: string) => roleLabel(tl, value)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {ROLE_KEYS.map((key) => (
-                            <SelectItem key={key} value={key}>
-                              {roleLabel(tl, key)}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {inviteLink ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-link">{t("linkReady")}</Label>
+                      <div className="flex gap-2">
+                        <input
+                          id="invite-link"
+                          readOnly
+                          value={inviteLink}
+                          className="w-full rounded-md border bg-muted px-2 py-1 font-mono text-xs"
+                          onFocus={(event) => event.currentTarget.select()}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(inviteLink)
+                            setCopied(true)
+                          }}
+                        >
+                          {copied ? t("copied") : t("copy")}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("linkReadyHint")}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role">{t("role")}</Label>
+                      <Select
+                        value={role}
+                        onValueChange={(value) => setRole(String(value))}
+                      >
+                        <SelectTrigger id="invite-role" className="w-full">
+                          <SelectValue>
+                            {(value: string) => roleLabel(tl, value)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {ROLE_KEYS.map((key) => (
+                              <SelectItem key={key} value={key}>
+                                {roleLabel(tl, key)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </DialogBody>
 
                 <DialogFooter>
                   <DialogClose
                     render={
                       <Button type="button" variant="outline">
-                        {t("cancel")}
+                        {inviteLink ? t("close") : t("cancel")}
                       </Button>
                     }
                   />
-                  <Button
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => inviteMemberAction(member.id, role))
-                    }
-                  >
-                    {pending ? t("inviting") : t("invite")}
-                  </Button>
+                  {!inviteLink && (
+                    <Button
+                      disabled={pending}
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await inviteMemberAction(
+                            member.id,
+                            role
+                          )
+                          if (result.success) {
+                            // Keep the dialog open: this response is the only
+                            // carrier of the link, closing would discard it.
+                            setInviteLink(result.data?.accept_url ?? null)
+                          } else {
+                            toast.error(
+                              t(`errors.${result.error ?? "unknown"}`)
+                            )
+                          }
+                        })
+                      }
+                    >
+                      {pending ? t("inviting") : t("invite")}
+                    </Button>
+                  )}
                 </DialogFooter>
               </DialogContent>
             </Dialog>
