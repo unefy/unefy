@@ -15,4 +15,12 @@ class MemberDtoDriftTest {
     fun `DirectoryDto mirrors MemberDirectoryEntry`() {
         MobileContract.assertMirrors(DirectoryDto.serializer().descriptor, "MemberDirectoryEntry")
     }
+
+    @Test
+    fun `FederationMembershipDto mirrors FederationMembershipResponse`() {
+        MobileContract.assertMirrors(
+            FederationMembershipDto.serializer().descriptor,
+            "FederationMembershipResponse",
+        )
+    }
 }

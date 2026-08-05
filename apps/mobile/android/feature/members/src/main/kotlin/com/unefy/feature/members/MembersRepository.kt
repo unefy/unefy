@@ -38,6 +38,7 @@ internal data class MemberDto(
     val phone: String? = null,
     val mobile: String? = null,
     val birthday: String? = null,
+    val gender: String? = null,
     val street: String? = null,
     @SerialName("zip_code") val zipCode: String? = null,
     val city: String? = null,
@@ -57,6 +58,7 @@ internal fun MemberDto.toDomain() = Member(
     phone = phone,
     mobile = mobile,
     birthday = birthday,
+    gender = gender,
     street = street,
     zipCode = zipCode,
     city = city,
@@ -82,6 +84,36 @@ internal data class DirectoryDto(
 internal fun DirectoryDto.toDomain() = DirectoryEntry(id, firstName, lastName, category)
 
 /**
+ * A member's membership in an external federation (DSB, BDS, …). Read-only on
+ * mobile; the detail screen shows it, nothing edits it. Lives in this feature
+ * because no other screen has a reason to know about federations.
+ */
+data class FederationMembership(
+    val id: String,
+    val federation: String,
+    val federationNumber: String?,
+    val joinedAt: String?,
+    val leftAt: String?,
+)
+
+@Serializable
+internal data class FederationMembershipDto(
+    val id: String,
+    val federation: String,
+    @SerialName("federation_number") val federationNumber: String? = null,
+    @SerialName("joined_at") val joinedAt: String? = null,
+    @SerialName("left_at") val leftAt: String? = null,
+)
+
+internal fun FederationMembershipDto.toDomain() = FederationMembership(
+    id = id,
+    federation = federation,
+    federationNumber = federationNumber,
+    joinedAt = joinedAt,
+    leftAt = leftAt,
+)
+
+/**
  * A mirror row as the domain model.
  *
  * `iban = null` is not a gap in the mapping, it is the mirror's design: the local
@@ -98,6 +130,7 @@ internal fun SyncedMember.toDomain() = Member(
     phone = phone,
     mobile = mobile,
     birthday = birthday,
+    gender = gender,
     street = street,
     zipCode = zipCode,
     city = city,
@@ -155,6 +188,14 @@ interface MembersRepository {
      */
     suspend fun byId(id: String): ApiResult<Member>
 
+    /**
+     * A member's federation memberships, from the server.
+     *
+     * Not mirrored: shown on one screen, changes rarely, and offline an absent
+     * section reads better than a stale one.
+     */
+    suspend fun federations(id: String): ApiResult<List<FederationMembership>>
+
     /** Self-service: the caller's own record, whatever their role. */
     suspend fun me(): ApiResult<Member>
 
@@ -187,6 +228,10 @@ class DefaultMembersRepository @Inject constructor(
     override suspend fun byId(id: String): ApiResult<Member> = apiClient
         .get<MemberDto>(ApiEndpoints.member(id))
         .map(MemberDto::toDomain)
+
+    override suspend fun federations(id: String): ApiResult<List<FederationMembership>> = apiClient
+        .get<List<FederationMembershipDto>>(ApiEndpoints.memberFederations(id))
+        .map { dtos -> dtos.map(FederationMembershipDto::toDomain) }
 
     override suspend fun me(): ApiResult<Member> = apiClient
         .get<MemberDto>(ApiEndpoints.MEMBERS_ME)

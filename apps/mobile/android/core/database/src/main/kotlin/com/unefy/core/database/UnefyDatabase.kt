@@ -38,7 +38,7 @@ import javax.inject.Singleton
         SyncedCompetition::class,
         SyncCursorEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -89,6 +89,7 @@ object DatabaseModule {
             MIGRATION_6_7,
             MIGRATION_7_8,
             MIGRATION_8_9,
+            MIGRATION_9_10,
         )
     }
 
@@ -357,6 +358,16 @@ object DatabaseModule {
     private val MIGRATION_8_9 = object : Migration(8, 9) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL("DROP TABLE IF EXISTS cached_members")
+        }
+    }
+
+    /**
+     * The member's gender, newly carried by `MemberResponse`. Nullable TEXT:
+     * existing rows stay NULL until the next sync page rewrites them.
+     */
+    private val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL("ALTER TABLE synced_members ADD COLUMN gender TEXT")
         }
     }
 

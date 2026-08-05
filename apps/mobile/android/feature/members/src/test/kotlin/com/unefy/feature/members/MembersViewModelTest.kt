@@ -254,6 +254,7 @@ private fun member(id: String, last: String = "Muster") = Member(
     phone = null,
     mobile = null,
     birthday = null,
+    gender = null,
     street = null,
     zipCode = null,
     city = null,
@@ -300,6 +301,9 @@ private class FakeMembersRepository(
         rows.value.firstOrNull { it.id == id }
             ?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure(ApiError.NotFound(null))
+
+    override suspend fun federations(id: String): ApiResult<List<FederationMembership>> =
+        ApiResult.Success(emptyList())
 
     override suspend fun me(): ApiResult<Member> =
         rows.value.firstOrNull()?.let { ApiResult.Success(it) }

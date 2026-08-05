@@ -24,6 +24,7 @@ class MemberMappersTest {
             phone = "030 1234",
             mobile = "0170 5678",
             birthday = "1990-04-01",
+            gender = "female",
             street = "Musterweg 1",
             zipCode = "10115",
             city = "Berlin",

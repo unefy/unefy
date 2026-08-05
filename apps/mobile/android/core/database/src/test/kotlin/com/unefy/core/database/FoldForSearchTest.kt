@@ -68,6 +68,7 @@ class FoldForSearchTest {
             phone = null,
             mobile = null,
             birthday = null,
+            gender = null,
             street = null,
             zipCode = null,
             city = null,

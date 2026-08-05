@@ -73,6 +73,7 @@ class MemberTest {
         phone = null,
         mobile = null,
         birthday = null,
+        gender = null,
         street = street,
         zipCode = zipCode,
         city = city,

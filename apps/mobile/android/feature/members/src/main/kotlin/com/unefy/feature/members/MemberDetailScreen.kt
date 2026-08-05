@@ -56,7 +56,11 @@ import kotlinx.coroutines.launch
 
 sealed interface MemberDetailUiState {
     data object Loading : MemberDetailUiState
-    data class Content(val member: Member) : MemberDetailUiState
+    data class Content(
+        val member: Member,
+        val federations: List<FederationMembership> = emptyList(),
+    ) : MemberDetailUiState
+
     data class Failure(val error: ApiError) : MemberDetailUiState
 }
 
@@ -85,14 +89,23 @@ class MemberDetailViewModel @Inject constructor(
     /** The server's answer, kept only for the fields the mirror leaves out. */
     private val remote = MutableStateFlow<ApiResult<Member>?>(null)
 
+    /**
+     * Federation memberships come only from the server — they are not mirrored.
+     * A failed fetch (offline, or a plain member's 403) leaves the list empty
+     * and the section simply does not render; there is no error state for a
+     * section that is optional to begin with.
+     */
+    private val federations = MutableStateFlow<List<FederationMembership>>(emptyList())
+
     val uiState: StateFlow<MemberDetailUiState> = combine(
         memberId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
         remote,
-    ) { mirrored, result ->
+        federations,
+    ) { mirrored, result, federationList ->
         val fetched = (result as? ApiResult.Success)?.data
         val member = mirrored?.copy(iban = fetched?.iban) ?: fetched
         when {
-            member != null -> MemberDetailUiState.Content(member)
+            member != null -> MemberDetailUiState.Content(member, federationList)
             // Only a failure when there is nothing to show. Replacing a mirrored
             // member with an error because the connection dropped for a second
             // would be a worse screen than one with an empty IBAN line.
@@ -109,9 +122,14 @@ class MemberDetailViewModel @Inject constructor(
         if (memberId.value == id) return
         memberId.value = id
         remote.value = null
+        federations.value = emptyList()
 
         viewModelScope.launch {
             remote.value = repository.byId(id)
+        }
+        viewModelScope.launch {
+            federations.value =
+                (repository.federations(id) as? ApiResult.Success)?.data.orEmpty()
         }
     }
 
@@ -150,13 +168,17 @@ fun MemberDetailScreen(
                 modifier = Modifier.padding(UnefySpacing.screen),
             )
 
-            is MemberDetailUiState.Content -> MemberDetailContent(state.member)
+            is MemberDetailUiState.Content ->
+                MemberDetailContent(state.member, state.federations)
         }
     }
 }
 
 @Composable
-internal fun MemberDetailContent(member: Member) {
+internal fun MemberDetailContent(
+    member: Member,
+    federations: List<FederationMembership> = emptyList(),
+) {
     val context = LocalContext.current
 
     Header(member)
@@ -203,6 +225,22 @@ internal fun MemberDetailContent(member: Member) {
             value = member.birthday?.let(UnefyFormat::date),
             mono = true,
         )
+        Field(stringResource(R.string.detail_gender), member.gender?.let { genderLabel(it) })
+    }
+
+    UnefyDetailSection(stringResource(R.string.detail_section_federations)) {
+        federations.forEach { federation ->
+            Field(
+                label = federation.federation,
+                value = listOfNotNull(
+                    federation.federationNumber,
+                    federation.joinedAt?.let {
+                        stringResource(R.string.federation_since, UnefyFormat.date(it))
+                    },
+                ).joinToString(" · ").ifBlank { null },
+                mono = true,
+            )
+        }
     }
 
     UnefyDetailSection(stringResource(R.string.detail_section_banking)) {
@@ -294,6 +332,18 @@ private fun StatusPill(status: MemberStatus) {
     UnefyPill(text = stringResource(label), container = container, content = content)
 }
 
+/**
+ * The backend stores gender as a free string; the three known values get their
+ * translation, anything future is shown as-is rather than dropped.
+ */
+@Composable
+private fun genderLabel(gender: String): String = when (gender) {
+    "male" -> stringResource(R.string.gender_male)
+    "female" -> stringResource(R.string.gender_female)
+    "diverse" -> stringResource(R.string.gender_diverse)
+    else -> gender
+}
+
 private val HEADER_AVATAR = 64.dp
 
 @Preview
@@ -311,6 +361,7 @@ private fun MemberDetailPreview() {
                     phone = "+49 170 1234567",
                     mobile = null,
                     birthday = "1981-06-14",
+                    gender = "female",
                     street = "Ringstraße 12",
                     zipCode = "72074",
                     city = "Tübingen",

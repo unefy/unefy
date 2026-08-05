@@ -14,6 +14,7 @@ data class Member(
     val phone: String?,
     val mobile: String?,
     val birthday: String?,
+    val gender: String?,
     val street: String?,
     val zipCode: String?,
     val city: String?,

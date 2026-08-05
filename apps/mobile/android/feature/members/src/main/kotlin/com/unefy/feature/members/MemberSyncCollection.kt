@@ -78,6 +78,7 @@ internal fun MemberDto.toRow(generation: Long) = SyncedMember(
     phone = phone,
     mobile = mobile,
     birthday = birthday,
+    gender = gender,
     street = street,
     zipCode = zipCode,
     city = city,

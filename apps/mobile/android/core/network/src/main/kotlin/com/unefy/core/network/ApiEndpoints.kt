@@ -67,6 +67,9 @@ object ApiEndpoints {
 
     fun member(id: String): String = "$MEMBERS/$id"
 
+    /** A member's federation memberships (DSB, BDS, …). Board-level, read-only. */
+    fun memberFederations(id: String): String = "$MEMBERS/$id/federations"
+
     /** The single event, with its registrations — what the detail screen shows. */
     fun event(id: String): String = "$EVENTS/$id"
 
