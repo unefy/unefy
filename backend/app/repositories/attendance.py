@@ -262,18 +262,45 @@ class AttendanceRecordRepository(
         limit: int = 20,
         from_date: date | None = None,
         to_date: date | None = None,
-    ) -> list[tuple[AttendanceRecord, str, str | None]]:
-        """A member's own attendance history, with the session as context."""
+    ) -> list[tuple[AttendanceRecord, str | None, str | None]]:
+        """A member's own attendance history, with the session as context.
+
+        An outer join, because an external self-entry has no session — the
+        member's history is the one list that must show both kinds.
+        """
         query = (
             self._member_query(member_id, from_date=from_date, to_date=to_date)
             .add_columns(AttendanceSession.title, AttendanceSession.location)
-            .join(AttendanceSession, AttendanceRecord.session_id == AttendanceSession.id)
+            .outerjoin(AttendanceSession, AttendanceRecord.session_id == AttendanceSession.id)
             .order_by(AttendanceRecord.occurred_on.desc(), AttendanceRecord.checked_in_at.desc())
             .offset(offset)
             .limit(limit)
         )
         result = await self.session.execute(query)
         return [(row[0], row[1], row[2]) for row in result.all()]
+
+    async def external_for_member(
+        self,
+        member_id: uuid.UUID,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> list[AttendanceRecord]:
+        """The member's own external self-entries, newest first."""
+        query = (
+            self._member_query(member_id)
+            .where(AttendanceRecord.origin == "external")
+            .order_by(AttendanceRecord.occurred_on.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def count_external_for_member(self, member_id: uuid.UUID) -> int:
+        query = self._member_query(member_id).where(AttendanceRecord.origin == "external")
+        result = await self.session.execute(select(func.count()).select_from(query.subquery()))
+        return result.scalar_one()
 
     async def count_for_member(
         self,

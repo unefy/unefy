@@ -133,6 +133,9 @@ class ShootingProofCertificate(TenantModel, AuditMixin):
     # self-certified day is worth is the authority's call, not this system's.
     self_certified_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     corroborated_self_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Days claimed on a foreign range — self-entries without even a session
+    # behind them. Frozen and hashed like the other two qualifications.
+    external_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     months_covered: Mapped[int] = mapped_column(Integer, nullable=False)
 
     result: Mapped[str] = mapped_column(String(10), nullable=False)

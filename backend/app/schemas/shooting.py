@@ -78,6 +78,9 @@ class ProofEvaluationResponse(BaseSchema):
     # reader can weigh the count instead of having to trust it.
     self_certified_days: int = 0
     corroborated_self_days: int = 0
+    # Days claimed on a foreign range — a subset of the self-certified ones.
+    # Whether an association accepts or caps them is the rule table's business.
+    external_days: int = 0
 
 
 class CertificateIssue(BaseSchema):
@@ -104,6 +107,7 @@ class CertificateResponse(BaseSchema):
     months_covered: int
     self_certified_days: int = 0
     corroborated_self_days: int = 0
+    external_days: int = 0
     result: str
     issued_at: datetime
     issued_by_user_id: uuid.UUID

@@ -96,7 +96,9 @@ async def list_record_details(
 async def update_record_detail(
     record_id: uuid.UUID,
     data: ShootingRecordDetailUpdate,
-    auth: AuthContext = Depends(require_board),  # noqa: B008
+    # Members too — but only for their own external self-entries; the service
+    # refuses everything else. The board keeps the club records.
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, object]:
     detail = await _service(session, auth).upsert_detail(record_id, data)

@@ -155,9 +155,25 @@ class AttendanceRecordUpdate(BaseSchema):
     reason: str = Field(min_length=REASON_MIN_LENGTH, max_length=1000)
 
 
+class SelfEntryCreate(BaseSchema):
+    """A member's own entry about a visit to some other range.
+
+    Only the claim itself: which day, which range. Method and assurance are
+    derived server-side, like everywhere else — a self-entry that could name
+    its own credibility would not have any.
+    """
+
+    occurred_on: date
+    location: str = Field(min_length=1, max_length=255)
+    note: str | None = Field(default=None, max_length=1000)
+
+
 class AttendanceRecordResponse(BaseSchema):
     id: uuid.UUID
-    session_id: uuid.UUID
+    # Null for an external self-entry, which has no session to hang off.
+    session_id: uuid.UUID | None = None
+    origin: str = "club"
+    external_location: str | None = None
     # Null for a guest, who is named by `guest_name` instead.
     member_id: uuid.UUID | None = None
     guest_name: str | None = None

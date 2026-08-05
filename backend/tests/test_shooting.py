@@ -614,6 +614,7 @@ async def test_certificate_freezes_what_was_counted(
     # member's own word.
     assert data["self_certified_days"] == 0
     assert data["corroborated_self_days"] == 0
+    assert data["external_days"] == 0
 
     # The hash is recomputable from the frozen fields — that is its whole claim.
     canonical = json.dumps(
@@ -629,6 +630,7 @@ async def test_certificate_freezes_what_was_counted(
             # edited away afterwards qualifies nothing.
             "self_certified_days": data["self_certified_days"],
             "corroborated_self_days": data["corroborated_self_days"],
+            "external_days": data["external_days"],
             "result": data["result"],
             "record_ids": sorted([str(first.id), str(second.id)]),
         },
@@ -803,3 +805,159 @@ async def test_member_role_cannot_reach_the_module(
         response = await client.get(f"{BASE}/rules")
 
     assert response.status_code == 403
+
+
+# --- External self-entries in the evaluation ---
+
+
+async def _add_external_entry(
+    db_session: AsyncSession,
+    tenant_id: uuid.UUID,
+    member_id: uuid.UUID,
+    occurred_on: date,
+) -> AttendanceRecord:
+    record = AttendanceRecord(
+        tenant_id=tenant_id,
+        session_id=None,
+        origin="external",
+        external_location="SV Nachbarort",
+        member_id=member_id,
+        occurred_on=occurred_on,
+        checked_in_at=datetime.combine(occurred_on, datetime.min.time(), tzinfo=UTC),
+        method="self",
+        assurance="low",
+    )
+    db_session.add(record)
+    await db_session.flush()
+    return record
+
+
+@pytest.mark.asyncio
+async def test_external_days_count_and_are_reported(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """A foreign-range day counts like any other and reads like what it is."""
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _create_rule(auth_client, min_total_days=2)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+    await _add_external_entry(db_session, shooting_tenant.id, member.id, date(2026, 6, 1))
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{member.id}", params={"rule_key": "dsb-standard", "as_of": "2026-08-04"}
+    )
+    data = response.json()["data"]
+    assert data["session_count"] == 2
+    assert data["passed"] is True
+    assert data["external_days"] == 1
+    # An external claim rests on nothing but the member's word.
+    assert data["self_certified_days"] == 1
+
+
+@pytest.mark.asyncio
+async def test_external_day_beside_a_club_day_adds_nothing(
+    auth_client: AsyncClient, db_session: AsyncSession, shooting_tenant: Tenant
+) -> None:
+    """Day granularity dedupes: two ranges on one day are one §14 day."""
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _create_rule(auth_client, min_total_days=2)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+    await _add_external_entry(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{member.id}", params={"rule_key": "dsb-standard", "as_of": "2026-08-04"}
+    )
+    data = response.json()["data"]
+    assert data["session_count"] == 1
+    # The day is attested by the club record; the external claim beside it
+    # does not drag it down to self-certified.
+    assert data["self_certified_days"] == 0
+    assert data["external_days"] == 1
+
+
+@pytest.mark.asyncio
+async def test_an_external_only_day_is_not_corroborated_by_desk_running(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Checking others in proves presence at the club — not at the claimed range."""
+    supervisor = await _add_member(db_session, shooting_tenant.id)
+    supervisor.user_id = test_user.id
+    other = await _add_member(db_session, shooting_tenant.id)
+    await _create_rule(auth_client, min_total_days=1)
+
+    day = date(2026, 7, 1)
+    await _add_external_entry(db_session, shooting_tenant.id, supervisor.id, day)
+    # The same account ran the club's check-in desk that day.
+    await _add_attendance(
+        db_session,
+        shooting_tenant.id,
+        other.id,
+        day,
+        verified_by_user_id=test_user.id,
+    )
+
+    response = await auth_client.get(
+        f"{BASE}/proof/{supervisor.id}",
+        params={"rule_key": "dsb-standard", "as_of": "2026-08-04"},
+    )
+    data = response.json()["data"]
+    assert data["self_certified_days"] == 1
+    assert data["external_days"] == 1
+    assert data["corroborated_self_days"] == 0
+
+
+# --- Members and their own shooting details ---
+
+
+@pytest.mark.asyncio
+async def test_a_member_fills_in_their_own_external_entry(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    member = await _add_member(db_session, shooting_tenant.id)
+    member.user_id = test_user.id
+    external = await _add_external_entry(
+        db_session, shooting_tenant.id, member.id, date(2026, 7, 1)
+    )
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, role="member"
+    ) as client:
+        response = await client.patch(f"{BASE}/records/{external.id}", json={"rounds_fired": 40})
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["rounds_fired"] == 40
+
+
+@pytest.mark.asyncio
+async def test_a_member_cannot_touch_club_records_or_foreign_entries(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    member = await _add_member(db_session, shooting_tenant.id)
+    member.user_id = test_user.id
+    club_record = await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 7, 1))
+    other = await _add_member(db_session, shooting_tenant.id)
+    foreign_external = await _add_external_entry(
+        db_session, shooting_tenant.id, other.id, date(2026, 7, 2)
+    )
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, role="member"
+    ) as client:
+        # Their own club record: the supervisor's list, not theirs.
+        response = await client.patch(f"{BASE}/records/{club_record.id}", json={"rounds_fired": 40})
+        assert response.status_code == 403
+
+        # Somebody else's external entry: not theirs either.
+        response = await client.patch(
+            f"{BASE}/records/{foreign_external.id}", json={"rounds_fired": 40}
+        )
+        assert response.status_code == 403

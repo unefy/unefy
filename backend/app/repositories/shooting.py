@@ -118,7 +118,7 @@ class ShootingProofRepository:
 
     def _countable(
         self, member_id: uuid.UUID, start: date, end: date
-    ) -> Select[tuple[uuid.UUID, date, str]]:
+    ) -> Select[tuple[uuid.UUID, date, str, str]]:
         """Live records of the member in the window, shooting sessions only.
 
         Guests fall out by construction (`member_id` is the join key). Sessions
@@ -136,8 +136,17 @@ class ShootingProofRepository:
             .where(~Sport.modules.any("shooting"))  # type: ignore[arg-type]
         )
         return (
-            select(AttendanceRecord.id, AttendanceRecord.occurred_on, AttendanceRecord.method)
-            .join(AttendanceSession, AttendanceRecord.session_id == AttendanceSession.id)
+            select(
+                AttendanceRecord.id,
+                AttendanceRecord.occurred_on,
+                AttendanceRecord.method,
+                AttendanceRecord.origin,
+            )
+            # Outer, because an external self-entry has no session and still
+            # counts — its qualification travels in `origin`, not in absence.
+            # The foreign-sport exclusion below correlates on the session's
+            # division and is simply false for a sessionless row.
+            .outerjoin(AttendanceSession, AttendanceRecord.session_id == AttendanceSession.id)
             .where(AttendanceRecord.tenant_id == self.tenant_id)
             .where(AttendanceRecord.member_id == member_id)
             .where(AttendanceRecord.deleted_at.is_(None))
@@ -148,15 +157,15 @@ class ShootingProofRepository:
 
     async def countable_records(
         self, member_id: uuid.UUID, start: date, end: date
-    ) -> list[tuple[uuid.UUID, date, str]]:
-        """(id, day, method) per countable record.
+    ) -> list[tuple[uuid.UUID, date, str, str]]:
+        """(id, day, method, origin) per countable record.
 
-        The method rides along because a day resting only on the member's own word
-        counts the same as any other but must not *read* the same — see
+        Method and origin ride along because a day resting only on the member's
+        own word counts the same as any other but must not *read* the same — see
         `ShootingService.evaluate`.
         """
         result = await self.session.execute(self._countable(member_id, start, end))
-        return [(row[0], row[1], row[2]) for row in result.all()]
+        return [(row[0], row[1], row[2], row[3]) for row in result.all()]
 
     async def days_confirming_others(
         self, user_id: uuid.UUID, member_id: uuid.UUID, start: date, end: date

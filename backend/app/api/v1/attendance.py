@@ -22,6 +22,7 @@ from app.schemas.attendance import (
     AttendanceSessionUpdate,
     AuditEntryResponse,
     MemberAttendanceRecordResponse,
+    SelfEntryCreate,
 )
 from app.services.attendance import RECORD_TARGET, SESSION_TARGET, AttendanceService
 from app.services.audit import list_tenant_audit
@@ -473,6 +474,77 @@ async def member_records_payload(
 
 # The board's view of one member's history lives on the members router
 # (`GET /api/v1/members/{id}/attendance`), where callers will look for it.
+
+
+async def _own_member(service: AttendanceService, auth: AuthContext) -> Any:
+    member = await service.members.get_by_user_id(auth.user_id)
+    if member is None:
+        raise NotFoundError("No member record is linked to this account")
+    return member
+
+
+@router.post("/me/entries", status_code=201)
+async def create_my_entry(
+    data: SelfEntryCreate,
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """A member records a range day the club did not run.
+
+    The self-kept side of the proof: whoever shoots alone on some other range
+    has neither session nor supervisor, and their §14 days still have to land
+    somewhere. Any member, because it is their own ledger — and honestly
+    marked, because the server derives `self`/`low` and the evaluation reports
+    those days as resting on the member's own word.
+    """
+    service = _get_service(session, auth)
+    member = await _own_member(service, auth)
+    row = await service.create_self_entry(member, data)
+    return {"data": MemberAttendanceRecordResponse.model_validate(row).model_dump(mode="json")}
+
+
+@router.get("/me/entries")
+async def list_my_entries(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    """The member's own external entries, newest first."""
+    service = _get_service(session, auth)
+    member = await _own_member(service, auth)
+    rows = await service.records.external_for_member(
+        member.id, offset=(page - 1) * per_page, limit=per_page
+    )
+    total = await service.records.count_external_for_member(member.id)
+    return {
+        "data": [
+            MemberAttendanceRecordResponse.model_validate(row).model_dump(mode="json")
+            for row in rows
+        ],
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": math.ceil(total / per_page) if total > 0 else 1,
+        },
+    }
+
+
+@router.delete("/me/entries/{record_id}", status_code=204)
+async def delete_my_entry(
+    record_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> None:
+    """A member takes their own external entry back.
+
+    Own and external only; refused with 409 once a certificate references it.
+    """
+    service = _get_service(session, auth)
+    member = await _own_member(service, auth)
+    await service.delete_self_entry(member, record_id, request=request)
 
 
 @router.get("/proof-chain/status")

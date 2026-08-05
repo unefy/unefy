@@ -38,6 +38,13 @@ IMPLEMENTED_METHODS = ("manual", "staff_scan", "self")
 
 ASSURANCE_LEVELS = ("low", "medium", "high")
 
+# Where a record comes from. `club` is the default and the strong case: the
+# session, its supervisor and the close chain stand behind it. `external` is a
+# member's own entry about a visit to some other range — no session, no
+# witness, and the honest levels to go with that: method `self`, assurance
+# `low`. The §14 evaluation counts both and says which is which.
+RECORD_ORIGINS = ("club", "external")
+
 # Derived server-side, never accepted from a client: the level of proof is a
 # property of the procedure, not a claim the caller gets to make.
 ASSURANCE_BY_METHOD = {
@@ -134,14 +141,41 @@ class AttendanceRecord(TenantModel, AuditMixin, SoftDeleteMixin):
             "(member_id IS NOT NULL) <> (guest_name IS NOT NULL)",
             name="ck_attendance_records_member_xor_guest",
         ),
+        # A club record hangs off a session; an external one names the range
+        # instead and always belongs to a member — a guest has no proof to
+        # keep, and nobody keeps one for them. Enforced by the database, so no
+        # write path can produce a record that is neither.
+        CheckConstraint(
+            "(origin = 'club' AND session_id IS NOT NULL AND external_location IS NULL)"
+            " OR (origin = 'external' AND session_id IS NULL"
+            " AND member_id IS NOT NULL AND external_location IS NOT NULL)",
+            name="ck_attendance_records_origin_shape",
+        ),
+        # One external entry per member and day. Two ranges on one day are
+        # still one §14 day, and a second row would only pad the list.
+        Index(
+            "uq_attendance_records_external_member_day",
+            "tenant_id",
+            "member_id",
+            "occurred_on",
+            unique=True,
+            postgresql_where=text("origin = 'external' AND deleted_at IS NULL"),
+        ),
         # Carries the 12-month evaluation for the §14 proof.
         Index("ix_attendance_tenant_member_date", "tenant_id", "member_id", "occurred_on"),
         Index("ix_attendance_records_tenant_session", "tenant_id", "session_id"),
     )
 
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("attendance_sessions.id", ondelete="CASCADE"), nullable=False
+    # Null only for an external self-entry — see the origin CHECK above.
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("attendance_sessions.id", ondelete="CASCADE"), nullable=True
     )
+
+    # "club" | "external" — where this record's credibility comes from.
+    origin: Mapped[str] = mapped_column(String(20), nullable=False, default="club")
+
+    # The foreign range's name, as the member gave it. Only for `external`.
+    external_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Null for a guest. The club still has to know who was on the range —
     # supervision duty and insurance do not care about membership — but a guest

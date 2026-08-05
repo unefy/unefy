@@ -18,7 +18,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.dependencies import AuthContext
 from app.models.member import Member
 from app.models.shooting import (
@@ -81,7 +81,7 @@ def _evaluate(rule: ShootingProofRule, days: set[date]) -> tuple[int, int, bool]
     return len(days), len(months), passed
 
 
-def _self_certified(rows: list[tuple[uuid.UUID, date, str]]) -> set[date]:
+def _self_certified(rows: list[tuple[uuid.UUID, date, str, str]]) -> set[date]:
     """Days that rest on nothing but the member's own word.
 
     A day is *not* self-certified as soon as one record of it came from somebody
@@ -89,8 +89,25 @@ def _self_certified(rows: list[tuple[uuid.UUID, date, str]]) -> set[date]:
     colleague has an attested evening, and the weaker record beside it changes
     nothing.
     """
-    attested = {day for _, day, method in rows if method != "self"}
-    return {day for _, day, method in rows if method == "self"} - attested
+    attested = {day for _, day, method, _ in rows if method != "self"}
+    return {day for _, day, method, _ in rows if method == "self"} - attested
+
+
+def _external_days(rows: list[tuple[uuid.UUID, date, str, str]]) -> set[date]:
+    """Days claimed on a foreign range — always self-entries, by construction."""
+    return {day for _, day, _, origin in rows if origin == "external"}
+
+
+def _external_only_days(rows: list[tuple[uuid.UUID, date, str, str]]) -> set[date]:
+    """Days whose only countable records are external claims.
+
+    These can never be corroborated by desk-running: checking other people in
+    proves presence at the *club*, while the claim under examination is about a
+    different range entirely. A day that also carries a club record keeps the
+    ordinary corroboration path.
+    """
+    club = {day for _, day, _, origin in rows if origin == "club"}
+    return _external_days(rows) - club
 
 
 class ShootingService:
@@ -128,6 +145,16 @@ class ShootingService:
         )
         if record is None:
             raise NotFoundError("Attendance record not found")
+
+        # A plain member may fill in exactly one kind of row: their own
+        # external self-entry. Club records are the supervisor's list — a
+        # member writing their own round count into the club's evidence would
+        # be the self-certification problem all over again, one field deeper.
+        if self.auth.role not in ("owner", "admin", "board"):
+            own = await self.members.get_by_user_id(self.auth.user_id)
+            if own is None or record.member_id != own.id or record.origin != "external":
+                raise ForbiddenError("Only the board edits club records")
+
         if record.member_id is None:
             # A guest's shots are the club's supervision problem, not anyone's
             # §14 proof — and the proof join would silently drop the detail
@@ -247,7 +274,7 @@ class ShootingService:
 
         start, end = await self._window(rule, as_of)
         rows = await self.proof.countable_records(member_id, start, end)
-        count, months, passed = _evaluate(rule, {occurred for _, occurred, _ in rows})
+        count, months, passed = _evaluate(rule, {occurred for _, occurred, _, _ in rows})
         self_days, corroborated = await self._self_entry_counts(member, rows, start, end)
         return {
             "member_id": member_id,
@@ -259,12 +286,13 @@ class ShootingService:
             "passed": passed,
             "self_certified_days": self_days,
             "corroborated_self_days": corroborated,
+            "external_days": len(_external_days(rows)),
         }
 
     async def _self_entry_counts(
         self,
         member: Member,
-        rows: list[tuple[uuid.UUID, date, str]],
+        rows: list[tuple[uuid.UUID, date, str, str]],
         start: date,
         end: date,
     ) -> tuple[int, int]:
@@ -284,7 +312,11 @@ class ShootingService:
         if not self_days or member.user_id is None:
             return len(self_days), 0
         confirming = await self.proof.days_confirming_others(member.user_id, member.id, start, end)
-        return len(self_days), len(self_days & confirming)
+        # Minus the purely external days: running the club's check-in desk
+        # proves presence at the club, and cannot vouch for a visit the claim
+        # places on some other range that same day.
+        corroborated = (self_days & confirming) - _external_only_days(rows)
+        return len(self_days), len(corroborated)
 
     # --- Certificates ---
 
@@ -298,9 +330,9 @@ class ShootingService:
 
         start, end = await self._window(rule, data.as_of)
         rows = await self.proof.countable_records(data.member_id, start, end)
-        count, months, passed = _evaluate(rule, {occurred for _, occurred, _ in rows})
+        count, months, passed = _evaluate(rule, {occurred for _, occurred, _, _ in rows})
         self_days, corroborated = await self._self_entry_counts(member, rows, start, end)
-        record_ids = sorted(str(record_id) for record_id, _, _ in rows)
+        record_ids = sorted(str(record_id) for record_id, _, _, _ in rows)
 
         certificate = ShootingProofCertificate(
             tenant_id=self.tenant_id,
@@ -312,6 +344,7 @@ class ShootingService:
             months_covered=months,
             self_certified_days=self_days,
             corroborated_self_days=corroborated,
+            external_days=len(_external_days(rows)),
             result="passed" if passed else "failed",
             issued_at=datetime.now(UTC),
             issued_by_user_id=self.auth.user_id,
@@ -424,6 +457,7 @@ def _content_hash(certificate: ShootingProofCertificate) -> str:
             "months_covered": certificate.months_covered,
             "self_certified_days": certificate.self_certified_days,
             "corroborated_self_days": certificate.corroborated_self_days,
+            "external_days": certificate.external_days,
             "result": certificate.result,
             "record_ids": sorted(certificate.record_ids),
         },

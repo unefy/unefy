@@ -22,6 +22,7 @@ from app.models.attendance import (
 )
 from app.models.event import Event
 from app.models.member import Member
+from app.models.shooting import ShootingProofCertificate
 from app.models.tenant import Tenant
 from app.redis import get_redis
 from app.repositories.attendance import (
@@ -37,6 +38,7 @@ from app.schemas.attendance import (
     AttendanceSeedResponse,
     AttendanceSessionCreate,
     AttendanceSessionUpdate,
+    SelfEntryCreate,
 )
 from app.services.attendance_code import (
     CODE_INTERVAL_SECONDS,
@@ -58,6 +60,10 @@ logger = structlog.get_logger()
 
 SESSION_TARGET = "attendance_session"
 RECORD_TARGET = "attendance_record"
+
+# How far back a member may record a visit to a foreign range. A proof is kept
+# close to the visit; older memories belong on paper with a stamp.
+SELF_ENTRY_MAX_AGE_DAYS = 30
 
 #: Entity name of the addressed hint a member's own device listens for.
 #:
@@ -551,6 +557,88 @@ class AttendanceService:
             audience_user_id=member.user_id,
         )
 
+    # --- External self-entries ---
+
+    async def create_self_entry(self, member: Member, data: SelfEntryCreate) -> AttendanceRecord:
+        """A member's own entry about a visit to some other range.
+
+        No session, no witness — origin `external`, method `self`, assurance
+        `low`, all derived here. `checked_in_at` is when the entry was made;
+        the claimed day lives in `occurred_on`, which is what the §14 count
+        reads. A proof is kept close to the visit, hence the recording window:
+        old enough memories belong on paper with a stamp, not in a form.
+        """
+        timezone = await self.club_timezone()
+        today = datetime.now(UTC).astimezone(timezone).date()
+        if data.occurred_on > today:
+            raise ValidationError("A range visit cannot lie in the future")
+        if (today - data.occurred_on).days > SELF_ENTRY_MAX_AGE_DAYS:
+            raise ValidationError(
+                f"A self-entry must be recorded within {SELF_ENTRY_MAX_AGE_DAYS} days"
+            )
+
+        row = AttendanceRecord(
+            tenant_id=self.tenant_id,
+            session_id=None,
+            origin="external",
+            external_location=data.location,
+            member_id=member.id,
+            occurred_on=data.occurred_on,
+            checked_in_at=datetime.now(UTC),
+            method="self",
+            assurance="low",
+            note=data.note,
+            created_by=self.auth.user_id,
+            updated_by=self.auth.user_id,
+        )
+        self.session.add(row)
+        try:
+            await self.session.flush()
+        except IntegrityError as error:
+            # The partial unique index: one external entry per member and day.
+            raise ConflictError(
+                "An entry for this day already exists", code="SELF_ENTRY_EXISTS"
+            ) from error
+        await self.session.refresh(row)
+        return row
+
+    async def delete_self_entry(
+        self, member: Member, record_id: uuid.UUID, *, request: Request | None = None
+    ) -> None:
+        """A member takes their own external entry back.
+
+        Only their own and only external ones — a club record is the board's
+        evidence, corrected through the board's path with a reason. Refused
+        once a certificate references the entry: what has been certified can
+        no longer quietly lose its basis.
+        """
+        row = await self.records.get_by_id(record_id)
+        if row is None or row.origin != "external" or row.member_id != member.id:
+            raise NotFoundError("Attendance record not found")
+
+        certified = await self.session.execute(
+            select(ShootingProofCertificate.id)
+            .where(ShootingProofCertificate.tenant_id == self.tenant_id)
+            .where(ShootingProofCertificate.revoked_at.is_(None))
+            .where(ShootingProofCertificate.record_ids.contains([str(record_id)]))
+            .limit(1)
+        )
+        if certified.first() is not None:
+            raise ConflictError("A certificate references this entry", code="RECORD_CERTIFIED")
+
+        row.deleted_at = datetime.now(UTC)
+        row.updated_by = self.auth.user_id
+        await self.session.flush()
+        await record_tenant_action(
+            self.session,
+            self.auth,
+            f"{RECORD_TARGET}.deleted",
+            target_type=RECORD_TARGET,
+            target_id=row.id,
+            request=request,
+            reason="external self-entry removed by its member",
+        )
+
     # --- Rotating code ---
 
     async def member_seed(self, member: Member) -> AttendanceSeedResponse:
@@ -701,6 +789,10 @@ class AttendanceService:
 
     async def check_out(self, record_id: uuid.UUID) -> AttendanceRecord:
         record = await self.get_record(record_id)
+        if record.session_id is None:
+            # An external self-entry claims a day, not a span — there is no
+            # session whose window a check-out could close.
+            raise ConflictError("A self-entry has no check-out")
         await self._require_open(await self.get_session(record.session_id))
         if record.checked_out_at is not None:
             raise ConflictError("Member is already checked out")
@@ -718,8 +810,12 @@ class AttendanceService:
         request: Request | None = None,
     ) -> AttendanceRecord:
         record = await self.get_record(record_id)
-        session_row = await self.get_session(record.session_id)
-        amendment = self._amendment(session_row, data.reason)
+        # An external self-entry has no session and therefore no closed state
+        # to amend against — a board correction to one is an ordinary edit.
+        session_row = (
+            await self.get_session(record.session_id) if record.session_id is not None else None
+        )
+        amendment = self._amendment(session_row, data.reason) if session_row is not None else None
 
         changes = data.model_dump(exclude_unset=True, exclude={"reason"})
         before = {field: getattr(record, field) for field in changes}
@@ -742,7 +838,7 @@ class AttendanceService:
                 changes=applied | (amendment or {}),
                 reason=data.reason,
             )
-            if amendment is not None:
+            if amendment is not None and session_row is not None:
                 await self._chain_amendment(
                     record, session_row, action="updated", changes=applied, reason=data.reason
                 )
@@ -794,8 +890,11 @@ class AttendanceService:
         [_amendment].
         """
         record = await self.get_record(record_id)
-        session_row = await self.get_session(record.session_id)
-        amendment = self._amendment(session_row, reason)
+        # Sessionless (external self-entry): nothing closed to amend against.
+        session_row = (
+            await self.get_session(record.session_id) if record.session_id is not None else None
+        )
+        amendment = self._amendment(session_row, reason) if session_row is not None else None
 
         # Who and when are kept in the entry: once the row is soft-deleted it
         # drops out of every ordinary query, and the trail has to stand alone.
@@ -817,7 +916,7 @@ class AttendanceService:
             changes=removed,
             reason=reason,
         )
-        if amendment is not None:
+        if amendment is not None and session_row is not None:
             await self._chain_amendment(
                 record, session_row, action="deleted", changes=removed, reason=reason
             )
