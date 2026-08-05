@@ -8,6 +8,8 @@ object ApiEndpoints {
     const val AUTH_PREFIX = "/api/v1/auth"
 
     const val AUTH_DEV_LOGIN = "$AUTH_PREFIX/mobile/dev/login"
+    const val AUTH_MAGIC_REQUEST = "$AUTH_PREFIX/mobile/magic-link/request"
+    const val AUTH_MAGIC_VERIFY = "$AUTH_PREFIX/mobile/magic-link/verify"
     const val AUTH_REFRESH = "$AUTH_PREFIX/mobile/refresh"
     const val AUTH_LOGOUT = "$AUTH_PREFIX/mobile/logout"
     const val AUTH_ME = "$AUTH_PREFIX/me"

@@ -78,6 +78,39 @@ class TokenApi @Inject constructor(
         ApiResult.Failure(ApiError.Unknown(e))
     }
 
+    /** Asks the backend to mail a one-time login code. Flat success by design. */
+    suspend fun requestLoginCode(email: String): ApiResult<Unit> = try {
+        val response = client.post(ApiEndpoints.AUTH_MAGIC_REQUEST) {
+            setBody(MagicRequestBody(email))
+        }
+        if (response.status.isSuccess()) {
+            ApiResult.Success(Unit)
+        } else {
+            ApiResult.Failure(ApiError.Http(response.status.value, null, null))
+        }
+    } catch (e: IOException) {
+        ApiResult.Failure(ApiError.Network(e))
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
+        ApiResult.Failure(ApiError.Unknown(e))
+    }
+
+    /** Redeems the mailed code for a token pair. */
+    suspend fun verifyLoginCode(email: String, code: String): ApiResult<Pair<AuthTokens, Session>> =
+        try {
+            val response = client.post(ApiEndpoints.AUTH_MAGIC_VERIFY) {
+                setBody(MagicVerifyBody(email, code))
+            }
+            response.toSessionResult()
+        } catch (e: IOException) {
+            ApiResult.Failure(ApiError.Network(e))
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            ApiResult.Failure(ApiError.Unknown(e))
+        }
+
     private suspend fun HttpResponse.toSessionResult(): ApiResult<Pair<AuthTokens, Session>> {
         val envelope: ApiEnvelope<TokenPairDto> = body()
         val payload = envelope.data
@@ -110,6 +143,12 @@ private data class RefreshRequest(
 
 @Serializable
 private data class DevLoginRequest(val email: String)
+
+@Serializable
+private data class MagicRequestBody(val email: String)
+
+@Serializable
+private data class MagicVerifyBody(val email: String, val code: String)
 
 @Serializable
 internal data class TokenPairDto(

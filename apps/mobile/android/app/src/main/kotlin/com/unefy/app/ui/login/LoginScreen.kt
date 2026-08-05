@@ -12,6 +12,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -25,12 +26,16 @@ import com.unefy.app.R
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 
+private const val CODE_LENGTH = 6
+
 @Composable
 fun LoginRoute(viewModel: LoginViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LoginScreen(
         state = state,
         onEmailChange = viewModel::onEmailChange,
+        onCodeChange = viewModel::onCodeChange,
+        onEditEmail = viewModel::editEmail,
         onSubmit = viewModel::submit,
     )
 }
@@ -39,6 +44,8 @@ fun LoginRoute(viewModel: LoginViewModel = hiltViewModel()) {
 fun LoginScreen(
     state: LoginUiState,
     onEmailChange: (String) -> Unit = {},
+    onCodeChange: (String) -> Unit = {},
+    onEditEmail: () -> Unit = {},
     onSubmit: () -> Unit = {},
 ) {
     Column(
@@ -53,21 +60,42 @@ fun LoginScreen(
             text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.headlineMedium,
         )
-        Text(
-            text = stringResource(R.string.login_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
-        OutlinedTextField(
-            value = state.email,
-            onValueChange = onEmailChange,
-            label = { Text(stringResource(R.string.login_email)) },
-            singleLine = true,
-            isError = state.errorMessage != null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        when (state.step) {
+            LoginStep.EMAIL -> {
+                Text(
+                    text = stringResource(R.string.login_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = state.email,
+                    onValueChange = onEmailChange,
+                    label = { Text(stringResource(R.string.login_email)) },
+                    singleLine = true,
+                    isError = state.errorMessage != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            LoginStep.CODE -> {
+                Text(
+                    text = stringResource(R.string.login_code_sent, state.email),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = state.code,
+                    onValueChange = onCodeChange,
+                    label = { Text(stringResource(R.string.login_code)) },
+                    singleLine = true,
+                    isError = state.errorMessage != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
 
         state.errorMessage?.let { message ->
             Text(
@@ -89,10 +117,26 @@ fun LoginScreen(
         // The single filled emphasis on this screen.
         Button(
             onClick = onSubmit,
-            enabled = !state.isSubmitting && state.email.isNotBlank(),
+            enabled = !state.isSubmitting && when (state.step) {
+                LoginStep.EMAIL -> state.email.isNotBlank()
+                LoginStep.CODE -> state.code.length == CODE_LENGTH
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(R.string.login_submit))
+            Text(
+                stringResource(
+                    when (state.step) {
+                        LoginStep.EMAIL -> R.string.login_submit
+                        LoginStep.CODE -> R.string.login_verify
+                    },
+                ),
+            )
+        }
+
+        if (state.step == LoginStep.CODE) {
+            TextButton(onClick = onEditEmail, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.login_edit_email))
+            }
         }
     }
 }
@@ -101,4 +145,18 @@ fun LoginScreen(
 @Composable
 private fun LoginPreview() {
     UnefyTheme { LoginScreen(state = LoginUiState(email = "andreas@widmer.im")) }
+}
+
+@Preview
+@Composable
+private fun LoginCodePreview() {
+    UnefyTheme {
+        LoginScreen(
+            state = LoginUiState(
+                email = "andreas@widmer.im",
+                step = LoginStep.CODE,
+                code = "123",
+            ),
+        )
+    }
 }

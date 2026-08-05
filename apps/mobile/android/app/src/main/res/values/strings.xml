@@ -18,6 +18,12 @@
     <string name="login_submit">Anmelden</string>
     <string name="login_failed">Anmeldung fehlgeschlagen. Prüfe die E-Mail-Adresse.</string>
     <string name="login_offline">Backend nicht erreichbar.</string>
+    <string name="login_code_sent">Wir haben einen Anmeldecode an %1$s geschickt. Gib ihn hier ein.</string>
+    <string name="login_code">Anmeldecode</string>
+    <string name="login_verify">Code bestätigen</string>
+    <string name="login_edit_email">Andere E-Mail-Adresse</string>
+    <string name="login_code_rejected">Der Code ist ungültig oder abgelaufen.</string>
+    <string name="login_no_club">Dein Konto gehört noch keinem Verein an. Bitte lass dich von deinem Verein einladen.</string>
     <string name="sign_out">Abmelden</string>
     <string name="nav_members">Mitglieder</string>
     <string name="nav_events">Termine</string>

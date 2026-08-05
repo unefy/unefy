@@ -18,10 +18,10 @@ import kotlinx.serialization.Serializable
 /**
  * The app's entry point to authentication state.
  *
- * Only the dev-login endpoint is wired so far. Magic link, Google OAuth and
- * passkeys via Credential Manager are the MVP methods per apps/mobile/CLAUDE.md
- * and slot in here as further methods — the token handling below them does not
- * change.
+ * Production sign-in is the mailed one-time code ([requestLoginCode] /
+ * [verifyLoginCode]); [devLogin] stays as the DEBUG shortcut. Google OAuth and
+ * passkeys via Credential Manager are the remaining MVP methods per
+ * apps/mobile/CLAUDE.md and slot in here — the token handling does not change.
  */
 @Singleton
 class AuthRepository @Inject constructor(
@@ -34,6 +34,23 @@ class AuthRepository @Inject constructor(
 ) {
     val session: Flow<Session?> = tokenManager.session
     val isSignedIn: Flow<Boolean> = tokenManager.isSignedIn
+
+    /** Asks the backend to mail a one-time login code. */
+    suspend fun requestLoginCode(email: String): ApiResult<Unit> =
+        tokenApi.requestLoginCode(email.trim())
+
+    /** Redeems the mailed code; on success the session flow flips to signed-in. */
+    suspend fun verifyLoginCode(email: String, code: String): ApiResult<Session> {
+        val result = tokenApi.verifyLoginCode(email.trim(), code.trim())
+        if (result is ApiResult.Success) {
+            val (tokens, session) = result.data
+            // Same order as devLogin: the previous account's leftovers go
+            // first, while its tokens are still valid.
+            forgetPreviousAccount()
+            tokenManager.persist(tokens, session)
+        }
+        return result.map { (_, session) -> session }
+    }
 
     suspend fun devLogin(email: String): ApiResult<Session> {
         val result = tokenApi.devLogin(email.trim())
