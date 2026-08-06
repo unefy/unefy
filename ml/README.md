@@ -4,11 +4,13 @@ Treffer auf Schießscheiben finden — Scheibe lokalisieren, entzerren, Löcher
 erkennen. Die Referenzimplementierung liegt hier in Python; die Apps portieren
 sie (Kotlin/Swift) und werden gegen diese Skripte gegengeprüft.
 
-**Für die 25-m-Scheibe wird dafür kein Modell gebraucht.** Klassische
-Bildverarbeitung über lokalen Kontrast erreicht auf handgeprüften Fotos 97,4 %
-Präzision bei 100 % Recall — Details und Messmethode in
-[NOTES-real-targets.md](NOTES-real-targets.md) §8b. Die YOLO-Strecke weiter
-unten bleibt für die Fälle stehen, die sie nicht sicher trennt.
+**Die Geometrie braucht kein Modell**, die Treffererkennung womöglich doch.
+Scheibe finden und entzerren ist gelöst: 142/142 lokalisiert, Fehler unter einem
+Zehntel Ring. Löcher über lokalen Kontrast zu finden trägt auf elf von zwölf
+handgeprüften Scheiben (97,5 % Präzision, 74 von 74 Löchern) — und scheitert auf
+der zwölften an einer physikalischen Grenze, weil dort ein heller Kugelfang
+durch die Löcher scheint. Beide Stände stehen unten, gemessen mit demselben
+Maßstab. Details in [NOTES-real-targets.md](NOTES-real-targets.md) §8b.
 
 ## Setup
 
@@ -57,53 +59,52 @@ python scripts/test_rectify.py
 python scripts/test_detect_hits.py
 ```
 
-## Die Strecke mit Modell (offen)
+## Die Strecke mit Modell
 
-Erst anfangen, wenn ein gemessener Fall zeigt, dass die Pipeline oben ihn nicht
-löst — überlappende Löcher näher als ein halber Durchmesser, Treffer genau auf
-einer Ringlinie, ein Scheibentyp mit anderem Druckbild. `score_hits.py` sagt,
-welche das sind.
+Der gemessene Fall ist da. Auf IMG_6717 findet der Regel-Detektor 3 von 9
+Treffern, und der Grund ist strukturell: die Löcher auf dem Papier haben dort
+Kernwerte von 33–40 bei einer Druckfarbe von 49 — sie sind **nicht dunkler als
+der Druck**, weil ein heller Kugelfang durchscheint. Genau darauf beruht aber
+die ganze Regel. Vier Auswege wurden durchgemessen (Schwelle auf Papier lockern,
+Helligkeit unverwaschen prüfen, Suchbereich aufs Blatt ausdehnen, Kernschwelle
+anheben) — jeder kostete mehr Präzision als er Treffer brachte, weil ein Loch
+über hellem Kugelfang und eine gedruckte Ziffer denselben lokalen Kontrast
+haben. Was sie trennt, ist Form und Textur.
+
+**Die Geometrie bleibt klassisch.** Trainiert wird auf den entzerrten Crops, wo
+ein Pixel 0,39 mm ist und die Scheibe immer gleich im Bild sitzt; das Modell
+bekommt genau eine Aufgabe — Loch oder nicht.
+
+```bash
+# Crops + Vorab-Labels schreiben. Wo ein Foto in hits-truth.json steht, kommen
+# die handgeprüften Löcher hinein, sonst die des Regel-Detektors.
+python scripts/export_dataset.py --input ~/Documents/Scheiben
+
+# ... Labels korrigieren (labelImg, Roboflow) ...
+
+python scripts/split_dataset.py
+python scripts/train.py
+```
+
+Gemessen wird das Modell mit **demselben** `score_hits.py` gegen dieselben
+handgeprüften Löcher wie der Regel-Detektor. Alles andere wäre kein Vergleich.
 
 ## Daten vorbereiten
 
-### Schritt 1: Fotos in `data/images/` kopieren
-
-```bash
-cp ~/Desktop/scheiben-fotos/*.jpg data/images/
-```
-
-### Schritt 2: Annotieren
-
-**Option A: Roboflow (empfohlen, webbasiert)**
-1. https://roboflow.com → neues Projekt "unefy-targets"
-2. Upload alle Bilder
-3. Klassen: `hit`, `patch`, `target_center`
-4. Bounding Box um jeden Treffer, jedes Schusspflaster, und die Scheibenmitte
-5. Export als "YOLOv8" Format → in `data/` entpacken
-
-**Option B: labelImg (lokal)**
-```bash
-labelImg data/images/ data/labels/ data/classes.txt
-```
-Zeichne Bounding Boxes:
-- `hit` — echter Einschuss (kleines Loch, ausgefranste Ränder)
-- `patch` — Schusspflaster (großer runder Aufkleber)
-- `target_center` — Scheibenmittelpunkt (für Kalibrierung)
+`export_dataset.py` oben schreibt Crops und Vorab-Labels; annotiert wird
+ausschließlich darauf. Die frühere Strecke über die Rohfotos mit den Klassen
+`hit`/`patch`/`target_center` ist entfallen — `target_center` löst die Geometrie
+schon deterministisch, und `patch` kostete sechstausend Boxen für eine
+Unterscheidung, die der Hintergrund dem Detektor ohnehin beibringt.
 
 ### Annotation-Tipps
-- **hit**: Bounding Box eng um das Loch, nicht den Hof/Riss
-- **patch**: Box um den ganzen Aufkleber
-- **target_center**: Kleine Box genau auf dem Zentrum der Scheibe
-- Hintergrund-Löcher (außerhalb der Scheibe) NICHT annotieren
-- Wenn Treffer und Pflaster überlappen → beide annotieren
-
-### Schritt 3: Dataset aufteilen
-
-```bash
-python scripts/split_dataset.py
-```
-
-Erstellt `train/` (80%), `val/` (20%) Split.
+- Box eng um Loch **plus ausgefransten Rand**, so wie die Vorab-Labels es tun
+- Was der Regel-Detektor gesetzt hat, ist meistens richtig: **korrigieren, nicht
+  neu zeichnen**. Fehlende Treffer ergänzen, Fehlmeldungen löschen.
+- Pflaster **nicht** annotieren — sie sind Hintergrund
+- Löcher im Kugelfang außerhalb des Blattes **nicht** annotieren
+- Im Zweifel: bei 4-facher Vergrößerung nachsehen. Ein offenes Loch ist
+  ausgefranst, ein gepflastertes eine glatte runde Scheibe (NOTES §8b)
 
 ## Training
 
@@ -125,6 +126,7 @@ Erzeugt `models/TargetDetector.mlpackage` → in die iOS-App kopieren.
 
 | ID | Klasse | Beschreibung |
 |---|---|---|
-| 0 | `hit` | Echter Einschuss (Kugel-/Diabolo-Loch) |
-| 1 | `patch` | Schusspflaster (Aufkleber zum Abdecken) |
-| 2 | `target_center` | Scheibenmittelpunkt (Kalibrierungsanker) |
+| 0 | `hit` | Offenes Einschussloch auf dem Blatt |
+
+Eine Klasse. Was kein Loch ist — Pflaster, Ringlinien, Ziffern, Kugelfang —
+lernt der Detektor als Hintergrund.

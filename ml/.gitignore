@@ -15,3 +15,4 @@ data/fit-report.json
 # data/images/       ← tracked
 # data/labels/       ← tracked
 # data/hits-truth.json  ← tracked
+data/dataset/

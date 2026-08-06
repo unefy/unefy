@@ -1,5 +1,5 @@
 {
- "note": "Hand-checked open shot holes in rectified crops of photos from ~/Documents/Scheiben, in millimetres from the centre of the target, x right and y down. Judged at 4x zoom, one tile per candidate: an open hole is black and torn, a patched one is a smooth grey disc, and NOTES \u00a78 is why those two are what has to be told apart. 'unsure' are holes that may have been patched from behind \u2014 scored neither way. The candidates came from a deliberately over-sensitive pass, so a hole even that pass missed is not in here: recall below is an upper bound.",
+ "note": "Hand-checked open shot holes in rectified crops of photos from ~/Documents/Scheiben, in millimetres from the centre of the target, x right and y down. Judged at 4x zoom, one tile per candidate: an open hole is black and torn, a patched one is a smooth grey disc, and NOTES \u00a78 is why those two are what has to be told apart. IMG_6717 is the exception to the method above: its holes were identified by the shooter who fired them, after the detector reported three of nine. It is the only sheet in here with BLACK patches over the aiming mark, and the only one with shots outside ring 1. 'unsure' are holes that may have been patched from behind \u2014 scored neither way. The candidates came from a deliberately over-sensitive pass, so a hole even that pass missed is not in here: recall below is an upper bound.",
  "crop_size": 1280,
  "targets": {
   "IMG_0684": {
@@ -357,6 +357,47 @@
     [
      20.16,
      -64.16
+    ]
+   ],
+   "unsure": []
+  },
+  "IMG_6717": {
+   "holes": [
+    [
+     -264.4,
+     138.0
+    ],
+    [
+     -252.0,
+     63.2
+    ],
+    [
+     -179.1,
+     46.8
+    ],
+    [
+     -111.3,
+     173.5
+    ],
+    [
+     -37.9,
+     25.4
+    ],
+    [
+     -33.1,
+     155.6
+    ],
+    [
+     -15.3,
+     255.0
+    ],
+    [
+     41.5,
+     -216.6
+    ],
+    [
+     47.8,
+     57.5
     ]
    ],
    "unsure": []
