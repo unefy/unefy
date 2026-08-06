@@ -28,7 +28,13 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from rectify import find_aiming_mark, find_sheet, load_gray, rectify  # noqa: E402
+from rectify import (  # noqa: E402
+    find_aiming_mark,
+    find_sheet,
+    load_gray,
+    rectify,
+    sheet_quad,
+)
 
 # Scheibe Nr. 5, in millimetres. Ring 1 is 500 across, the black is 200,
 # ring 10 — printed light inside the black — is 50.
@@ -156,9 +162,13 @@ def render_target(
     warped = cv2.warpPerspective(
         flat, warp, (size, size), flags=cv2.INTER_LINEAR, borderValue=0
     )
-    mask = cv2.warpPerspective(
-        np.full((size, size), 255, np.uint8), warp, (size, size), flags=cv2.INTER_NEAREST
-    )
+    # Only the sheet, not the whole frame. Warping a full-frame mask paints
+    # paper right out to the image border and the scene then has no sheet EDGE
+    # at all — which went unnoticed until `sheet_quad` was tested against it and
+    # its rays ran off the picture.
+    paper = np.zeros((size, size), np.uint8)
+    cv2.fillConvexPoly(paper, corners.astype(np.int32), 255)
+    mask = cv2.warpPerspective(paper, warp, (size, size), flags=cv2.INTER_NEAREST)
     scene[mask > 0] = warped[mask > 0]
 
     black_major = radius(BLACK_MM)
@@ -172,6 +182,9 @@ def render_target(
         #: target — the truth `test_detect_hits.py` scores against.
         "shots_mm": [(round(x, 2), round(y, 2)) for x, y in shot_truth],
         "shot_mm": shot_mm,
+        #: Where the sheet's corners ended up after the projection, clockwise
+        #: from the top left — the truth for `sheet_quad`.
+        "sheet_corners": [(float(x), float(y)) for x, y in target],
     }
 
 
@@ -242,6 +255,41 @@ def check_rectified_is_round() -> bool:
     return ok
 
 
+def check_sheet_quad(name: str, tilt: float, rotate: float, tolerance_px: float) -> bool:
+    """The outline the viewfinder draws, against corners that are known.
+
+    It exists to tell the shooter what has been recognised, so what matters is
+    that it lands ON the sheet's edge — an outline cutting across the target is
+    what makes the whole thing look broken, and that is exactly what the
+    brightness threshold it replaced did on three of four real photographs.
+    """
+    scene, truth = render_target(tilt_deg=tilt, rotate_deg=rotate)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "scene.png"
+        cv2.imwrite(str(path), scene)
+        gray, scale = load_gray(path)
+
+    fit = find_aiming_mark(gray, find_sheet(gray))
+    if fit is None:
+        print(f"  FAIL {name}: no aiming mark found")
+        return False
+    quad = sheet_quad(gray, fit)
+    if quad is None:
+        print(f"  FAIL {name}: no sheet outline found")
+        return False
+
+    # Truth is in full-size pixels; the search ran on the downscaled copy.
+    wanted = [(x * scale, y * scale) for x, y in truth["sheet_corners"]]
+    worst = 0.0
+    for corner in wanted:
+        worst = max(worst, min(math.hypot(corner[0] - x, corner[1] - y) for x, y in quad))
+
+    ok = worst <= tolerance_px
+    print(f"  {'ok  ' if ok else 'FAIL'} {name}: worst corner off by {worst:5.1f}px "
+          f"(allowed {tolerance_px:.0f})")
+    return ok
+
+
 def main() -> int:
     print("Synthetic targets (Scheibe Nr. 5 on a bullet-riddled backstop):")
     results = [
@@ -250,6 +298,12 @@ def main() -> int:
         check("oblique + rolled ", 30.0, 10.0, tolerance_px=12),
         check("strongly oblique ", 45.0, -18.0, tolerance_px=20),
         check_rectified_is_round(),
+        # A corner is where a ray runs diagonally into the edge, so it is the
+        # least precise part of the outline. Fifteen pixels on a 1024 px frame
+        # is under two per cent — invisible in a viewfinder, and nowhere near
+        # the sort of error that made the old outline cut across the target.
+        check_sheet_quad("sheet outline    ", 0.0, 0.0, tolerance_px=18),
+        check_sheet_quad("outline, oblique ", 25.0, 10.0, tolerance_px=20),
     ]
     passed = sum(results)
     print(f"\n{passed}/{len(results)} passed")

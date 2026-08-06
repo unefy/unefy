@@ -90,10 +90,50 @@ dem Spiegel**, nie aus dem Blatt; das Blatt liefert nur die Entzerrung.
 
 ## 5. Blatt ist größer als der Ringbereich
 
-Ring 1 reicht nicht bis zum Blattrand — Verhältnis Blattkante zu Ring-1-Radius
-grob 1,05…1,1. Das Canvas muss diesen Rand mitzeichnen, sonst sieht die digitale
-Scheibe falsch aus. Ringzahlen stehen an vier Positionen (oben, unten, links,
-rechts), außerhalb wie innerhalb des Spiegels.
+Ring 1 reicht nicht bis zum Blattrand. Das Canvas muss diesen Rand mitzeichnen,
+sonst sieht die digitale Scheibe falsch aus. Ringzahlen stehen an vier
+Positionen (oben, unten, links, rechts), außerhalb wie innerhalb des Spiegels.
+
+**Nachgemessen im entzerrten Crop** (dort ist der Maßstab bekannt), sechs Fotos:
+Blatt **~600 mm breit**, also 300 mm vom Zentrum zur Kante. Das Verhältnis
+Blattkante zu Ring-1-Radius ist damit **1,2** — die frühere Schätzung 1,05…1,1
+war zu klein. Bezogen auf den Spiegelradius: **3,0**. Diese Zahl ist der
+Maßstab, an dem sich jede Blatterkennung messen lassen muss.
+
+Praktische Folge: Treffer können **außerhalb von Ring 1** auf dem Blatt liegen —
+auf der Scheibe des Schützen taten es drei von neun. Ein Detektor, der nur die
+Ringfläche absucht, verliert sie.
+
+## 5b. Den Blattrand findet man nicht über Helligkeit
+
+Der grüne Rahmen im Sucher saß auf drei von vier echten Fotos falsch: die
+Unterkante schnitt quer durch die Scheibe. Ursache ist keine Kleinigkeit im
+Code, sondern das Verfahren — die Blattmaske entstand aus zwei globalen
+Otsu-Schwellen, und die untere Blatthälfte liegt fast immer im Schatten. Sie
+fällt damit auf die falsche Seite der Schwelle.
+
+Gemessen über alle 142 Fotos, Maßstab ist das Verhältnis oben (Sollwert 3,00):
+
+```
+Helligkeitsschwelle   2,68   systematisch 11 % zu klein
+Canny + Konturen      3,76   und nur 25 von 142 überhaupt gefunden
+Strahlen vom Spiegel  3,02
+```
+
+Dokumentenscanner nehmen deshalb **Kanten** statt Helligkeit: ein Gradient hat
+keinen Schattenverlauf. Ein Scanner muss das Blatt aber in einer unbekannten
+Szene finden — wir kennen an dieser Stelle den Spiegel längst. Von ihm nach
+außen zu tasten ist einfacher *und* genauer: entlang jedes Strahls ist Papier
+hell, hinter der Kante dunkel, **und es bleibt dunkel**. Genau daran erkennt man
+die Kante gegen einen Schatten, der wieder aufhellt.
+
+Zwei Details, die es braucht:
+- Ein einzelnes dunkles Pixel beendet den Strahl nicht (sonst endet er am ersten
+  Loch oder Pflaster) — erst wenn der Median der nächsten zehn Pixel dunkel
+  bleibt.
+- Ausreißer-Strahlen werden verworfen, aber erst oberhalb von **1,41** des
+  Medianradius: die Ecken eines Quadrats liegen legitim genau dort. Bei 1,25
+  schneidet man sie ab und das Blatt kommt 8 % zu klein heraus.
 
 ## 6. Perspektive in der Praxis — gemessen
 

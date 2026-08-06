@@ -100,6 +100,23 @@ OBLIQUE_WARN = 0.80
 MIN_MARK_OF_SHEET = 0.08
 MAX_MARK_OF_SHEET = 0.65
 
+#: How far the paper's brightness may fall before the sheet is taken to have
+#: ended. Well below the paper, because a sheet is never evenly lit; well above
+#: the grey of a backstop.
+SHEET_EDGE_OF_PAPER = 0.72
+
+#: How many directions the sheet's edge is probed in, and how far out — in
+#: multiples of the aiming mark's radius. The sheet measures three mark radii to
+#: its edge and 4.2 to its corners, so five leaves room for an oblique photo.
+SHEET_RAYS = 180
+SHEET_REACH = 5.0
+
+#: A ray that got much further than the rest went through a gap in the edge. The
+#: corners of a square legitimately reach 1.41 times the edge distance, so the
+#: bar has to sit above that or it cuts the corners off — measured, that alone
+#: shrank the sheet by eight per cent.
+SHEET_RAY_TRIM = 1.7
+
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".heic", ".webp", ".bmp"}
 
 
@@ -308,6 +325,85 @@ def find_aiming_mark(gray: np.ndarray, sheet: np.ndarray | None) -> TargetFit | 
             best = (score, fit)
 
     return best[1] if best else None
+
+
+def sheet_quad(gray: np.ndarray, fit: TargetFit) -> np.ndarray | None:
+    """The four corners of the sheet, for the viewfinder's outline.
+
+    Walks outward from the aiming mark and stops where the paper stops. Two
+    other ways were measured over 142 club photographs, with the sheet's own
+    geometry as the yardstick — the mark is standardised, so half the sheet's
+    width divided by the mark's radius is a constant of the printed sheet, and
+    it is 3.00 for these:
+
+        brightness threshold   2.68   systematically 11 % short
+        Canny + contours       3.76   and found a sheet in only 25 of 142
+        rays from the mark     3.02
+
+    The threshold falls short because it is a threshold: the lower part of a
+    sheet is nearly always in shadow, the global split puts it on the wrong
+    side, and the outline then cuts straight across the target. Edges do not
+    care about a shadow, which is what document scanners rely on — but a
+    scanner has to find a sheet in an unknown scene, and by this point we
+    already know exactly where the target is and how big. Starting from it is
+    both simpler and better.
+    """
+    height, width = gray.shape
+
+    # Paper, sampled just outside the mark where the sheet certainly is.
+    ring = []
+    for index in range(64):
+        angle = 2.0 * math.pi * index / 64
+        x = int(fit.cx + math.cos(angle) * fit.major * 1.3)
+        y = int(fit.cy + math.sin(angle) * fit.major * 1.3)
+        if 0 <= x < width and 0 <= y < height:
+            ring.append(gray[y, x])
+    if not ring:
+        return None
+    edge_level = float(np.median(ring)) * SHEET_EDGE_OF_PAPER
+
+    points = []
+    for index in range(SHEET_RAYS):
+        angle = 2.0 * math.pi * index / SHEET_RAYS
+        dx, dy = math.cos(angle), math.sin(angle)
+        last = None
+        distance = fit.major * 1.3
+        while distance < fit.major * SHEET_REACH:
+            x, y = int(fit.cx + dx * distance), int(fit.cy + dy * distance)
+            if not (0 <= x < width and 0 <= y < height):
+                break
+            if gray[y, x] < edge_level:
+                # Only a step that STAYS down is the edge. A shadow falls off
+                # again; the background does not.
+                ahead = [
+                    gray[int(fit.cy + dy * (distance + k)), int(fit.cx + dx * (distance + k))]
+                    for k in range(2, 12)
+                    if 0 <= int(fit.cx + dx * (distance + k)) < width
+                    and 0 <= int(fit.cy + dy * (distance + k)) < height
+                ]
+                if ahead and float(np.median(ahead)) < edge_level:
+                    break
+            last = (x, y)
+            distance += 2
+        if last is not None:
+            points.append(last)
+
+    if len(points) < 20:
+        return None
+    found = np.array(points, dtype=np.int32)
+    radii = np.hypot(found[:, 0] - fit.cx, found[:, 1] - fit.cy)
+    kept = found[radii < SHEET_RAY_TRIM * np.median(radii)]
+    if len(kept) < 20:
+        kept = found
+
+    hull = cv2.convexHull(kept).reshape(-1, 2)
+    total, difference = hull.sum(axis=1), hull[:, 0] - hull[:, 1]
+    return np.array([
+        hull[total.argmin()],       # top left
+        hull[difference.argmax()],  # top right
+        hull[total.argmax()],       # bottom right
+        hull[difference.argmin()],  # bottom left
+    ])
 
 
 def rectify(
