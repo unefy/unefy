@@ -1,3 +1,8 @@
+# Target localisation and rectification (scripts/rectify.py).
+opencv-python-headless>=4.10
+numpy>=1.26
+
+# Model training and export.
 ultralytics>=8.3
 coremltools>=8.0
 roboflow
