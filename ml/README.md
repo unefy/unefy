@@ -36,7 +36,18 @@ python scripts/detect_hits.py --input ~/Documents/Scheiben --overlay out/ --repo
 # 4. Gegen die von Hand geprüften Löcher in data/hits-truth.json messen.
 #    Nach JEDER Änderung am Detektor, vor jedem Glauben daran.
 python scripts/score_hits.py --input ~/Documents/Scheiben --per-image
+
+# 5. Fixtures für die Android-Tests neu schreiben — nur nötig, wenn sich die
+#    gemeldeten Positionen ändern. Der Diff ist die Regressionskontrolle.
+python scripts/export_fixtures.py
 ```
+
+Die Android-App trägt dieselbe Pipeline in Kotlin (`TargetLocator`,
+`HitDetector`), weil OpenCV auf dem Telefon 30 MB und ein
+16-KB-Alignment-Problem kostet. Beide Seiten werden gegen dieselben echten Fotos
+gemessen: `HitDetectorTest` lässt die Kotlin-Fassung über die von
+`export_fixtures.py` geschriebenen Crops laufen und vergleicht mit dem, was hier
+herauskommt. Wer eine Schwelle hier ändert, ändert sie dort mit.
 
 Beide Stufen haben synthetische Tests, die ohne echte Fotos laufen und sagen,
 wie weit daneben es liegt statt nur ob etwas gefunden wurde:

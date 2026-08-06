@@ -26,14 +26,20 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 from detect_hits import find_hits, tone_anchors  # noqa: E402
-from rectify import downscale, find_aiming_mark, find_sheet, rectify  # noqa: E402
+from rectify import (  # noqa: E402
+    CROP_SIZE,
+    downscale,
+    find_aiming_mark,
+    find_sheet,
+    rectify,
+)
 from test_rectify import render_target  # noqa: E402
 
 #: A report and a shot this far apart are the same shot. Half a hole.
 MATCH_MM = 5.0
 
 
-def detect(scene: np.ndarray, size: int = 1280) -> list:
+def detect(scene: np.ndarray, size: int = CROP_SIZE) -> list:
     """The whole chain a photo goes through: locate, rectify, find holes."""
     gray, scale = downscale(scene)
     fit = find_aiming_mark(gray, find_sheet(gray))

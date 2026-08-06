@@ -63,6 +63,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 from rectify import (  # noqa: E402
     CROP_SIZE,
+    DEFAULT_BLACK_RATIO,
     IMAGE_SUFFIXES,
     SCORING_MM,
     locate,
@@ -71,11 +72,14 @@ from rectify import (  # noqa: E402
 )
 
 #: Where the ink anchor is read: an annulus well inside the aiming mark, clear
-#: of the light ring-10 core and of the mark's own edge.
-INK_ANNULUS_MM = (35.0, 85.0)
+#: of the light ring-10 core and of the mark's own edge. As fractions of the
+#: mark's RADIUS, so the same bands land correctly on an air rifle target, whose
+#: black is 30.5 mm rather than 200.
+INK_BAND = (0.35, 0.85)
 
-#: Where the paper anchor is read: outside the mark, inside ring 1.
-PAPER_ANNULUS_MM = (115.0, 230.0)
+#: Where the paper anchor is read: outside the mark, inside ring 1. The inner
+#: edge is a fraction of the mark's radius, the outer one of the scoring radius.
+PAPER_BAND = (1.15, 0.92)
 
 #: How dark a pixel must be, as a fraction of the ink level, to be part of a
 #: hole at all. Generous: it decides how far a hole's torn rim is followed, and
@@ -109,16 +113,16 @@ MIN_CONTRAST_SPAN = 0.10
 #: around the projectile, and only the part that is properly black makes the
 #: mask. Measured on this corpus: 7.2 mm of core for a 9 mm hole, 3.1 mm for
 #: what is almost certainly .22, and under 2 mm for a grey, half-closed hole in
-#: paper. The floor is therefore nowhere near the 4.5 mm of a diabolo — at
-#: 1.6 mm every hole in hits-truth.json is found, at 2.0 mm three are lost, and
-#: under 1.3 mm precision starts falling away (score_hits.py). The ceiling sits
-#: above .45 for a badly torn one.
+#: paper. The floor is therefore nowhere near the 4.5 mm of a diabolo: at 2.0 mm
+#: every hole in hits-truth.json is found and two things that are not one get
+#: through, and below that precision falls away fast (score_hits.py). The
+#: ceiling sits above .45 for a badly torn hole.
 #:
 #: The core is measured against a fixed fraction of the ink level, so it is the
 #: same measurement on paper as on the black — which is what makes it usable for
 #: telling two calibers on one sheet apart (NOTES §1b). It is a size ORDER, not
 #: a caliber in millimetres, and nothing should treat it as one.
-MIN_HOLE_MM = 1.6
+MIN_HOLE_MM = 2.0
 MAX_HOLE_MM = 14.0
 
 #: Smallest seed worth keeping, in pixels. Sensor noise and paper fibres make
@@ -184,13 +188,20 @@ def _disk(diameter_px: float) -> np.ndarray:
     return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
 
 
+def _square(side_px: float) -> np.ndarray:
+    size = max(3, int(side_px) | 1)
+    return cv2.getStructuringElement(cv2.MORPH_RECT, (size, size))
+
+
 def _radius_map(size: int) -> np.ndarray:
     """Distance of every pixel from the crop's centre, in pixels."""
     axis = np.arange(size, dtype=np.float32) - (size - 1) / 2.0
     return np.sqrt(axis[None, :] ** 2 + axis[:, None] ** 2)
 
 
-def tone_anchors(crop: np.ndarray) -> tuple[float, float]:
+def tone_anchors(
+    crop: np.ndarray, black_ratio: float = DEFAULT_BLACK_RATIO
+) -> tuple[float, float]:
     """The brightness of the target's own ink and of its paper, in this photo.
 
     Medians over two large annuli: shots and patches are a minority inside both,
@@ -200,18 +211,23 @@ def tone_anchors(crop: np.ndarray) -> tuple[float, float]:
     """
     scale = px_per_mm(crop.shape[0])
     radius = _radius_map(crop.shape[0])
+    scoring_mm = SCORING_MM / 2
+    mark_mm = scoring_mm * black_ratio
 
     def band(inner_mm: float, outer_mm: float) -> float:
         mask = (radius >= inner_mm * scale) & (radius <= outer_mm * scale)
         return float(np.median(crop[mask]))
 
-    return band(*INK_ANNULUS_MM), band(*PAPER_ANNULUS_MM)
+    return (
+        band(INK_BAND[0] * mark_mm, INK_BAND[1] * mark_mm),
+        band(PAPER_BAND[0] * mark_mm, PAPER_BAND[1] * scoring_mm),
+    )
 
 
 def local_contrast(crop: np.ndarray) -> np.ndarray:
     """How much darker each pixel is than its own surroundings.
 
-    Closing with a disk wider than any hole paints the hole over with whatever
+    Closing with a shape wider than any hole paints the hole over with whatever
     it sits on — mark, paper or an old patch — so the difference is the hole's
     depth alone, with the background subtracted out. Everything after this works
     on depth rather than on brightness, which is what lets one set of thresholds
@@ -219,7 +235,7 @@ def local_contrast(crop: np.ndarray) -> np.ndarray:
     """
     scale = px_per_mm(crop.shape[0])
     blurred = cv2.GaussianBlur(crop, (3, 3), 0)
-    closed = cv2.morphologyEx(blurred, cv2.MORPH_CLOSE, _disk(1.4 * MAX_HOLE_MM * scale))
+    closed = cv2.morphologyEx(blurred, cv2.MORPH_CLOSE, _square(1.4 * MAX_HOLE_MM * scale))
     return cv2.subtract(closed, blurred)
 
 
@@ -332,15 +348,20 @@ def find_hits(
     singles: list[tuple[np.ndarray, float, float, float, float, float]] = []
     clumps: list[tuple[np.ndarray, float, float]] = []
     for contour in contours:
-        area = cv2.contourArea(contour)
+        blob = np.zeros(crop.shape, np.uint8)
+        cv2.drawContours(blob, [contour], -1, 255, cv2.FILLED)
+
+        # The pixels, not `cv2.contourArea`. The polygon through the pixel
+        # CENTRES leaves out about half the boundary — on a 19-pixel blob it
+        # reads 12 — and a hole is its pixels. It also has to be a number the
+        # Kotlin port can produce without OpenCV, which counting is and
+        # Green's theorem over a chain code is not.
+        area = float(cv2.countNonZero(blob))
         if area < MIN_SEED_PX:
             continue
         diameter = 2.0 * np.sqrt(area / np.pi) / scale
         if diameter < MIN_HOLE_MM:
             continue
-
-        blob = np.zeros(crop.shape, np.uint8)
-        cv2.drawContours(blob, [contour], -1, 255, cv2.FILLED)
         inner, outer = _measure(crop, blob)
         tone = inner / ink if ink > 0 else 1.0
         contrast = outer - inner

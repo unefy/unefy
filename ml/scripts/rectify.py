@@ -53,16 +53,28 @@ WORK_SIZE = 1024
 #: Side length of the rectified crop. Square, centred on the target, so every
 #: image the detector ever sees is in the same frame.
 #:
-#: 1280 and not 640: at 640 a 9 mm hole is ten pixels across and a 4.5 mm
+#: 1600 and not 640: at 640 a 9 mm hole is ten pixels across and a 4.5 mm
 #: diabolo five — too little for the hit detector and for a human placing a shot
 #: by hand (NOTES-real-targets.md §9). The crop is warped from the ORIGINAL
 #: photo, not from the downscaled working copy, so those pixels carry real
 #: detail instead of interpolation.
-CROP_SIZE = 1280
+#:
+#: 1600 over a 1.25 frame is 2.56 pixels per millimetre, and that number is what
+#: actually matters — it was picked by scoring the hit detector at each size
+#: against hits-truth.json. Coarser loses holes; FINER loses precision, because
+#: paper grain and JPEG noise start resolving into blobs the size of a small
+#: hole. Both directions were measured (score_hits.py).
+CROP_SIZE = 1600
 
-#: How much of the scoring radius the crop covers. Slightly over 1.0 so ring 1
-#: and a little paper around it stay inside.
-CROP_MARGIN = 1.15
+#: How much of the scoring radius the crop covers. Over 1.0 so that ring 1, the
+#: paper around it and a shot that missed the scoring area entirely all stay
+#: inside the frame.
+#:
+#: Must equal `TargetGeometry.FRAME_TO_SCORING` in the Android app, which draws
+#: its rings in the same frame and lays this crop underneath them. They were
+#: 1.15 here and 1.25 there, which quietly meant the reference implementation
+#: and the app were measuring different pictures.
+CROP_MARGIN = 1.25
 
 #: Diameter of the scoring area — ring 1 — of the target being scanned. The
 #: crop is scaled so this fits it, which is what makes a crop pixel a known
@@ -154,8 +166,8 @@ def locate(path: Path) -> tuple[np.ndarray, TargetFit] | None:
 
     Searching runs on the downscaled copy — the aiming mark is hundreds of
     pixels across either way — but the crop must be warped from the full
-    resolution, or the extra pixels of a 1280 crop are interpolation rather than
-    detail. The returned fit is therefore expressed in the original's pixels.
+    resolution, or the extra pixels of a large crop are interpolation rather
+    than detail. The returned fit is therefore expressed in the original's pixels.
     """
     full = load_full(path)
     gray, scale = downscale(full)

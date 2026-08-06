@@ -36,7 +36,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from detect_hits import Hit, crop_for, tone_anchors, find_hits  # noqa: E402
+from detect_hits import Hit, crop_for, find_hits, tone_anchors
+from rectify import CROP_SIZE  # noqa: E402
 
 #: How far a reported hole may sit from a checked one and still be the same
 #: hole. A shot is 5-9 mm across, so anything within half of that is plainly the
@@ -72,7 +73,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=Path.home() / "Documents/Scheiben")
     parser.add_argument("--truth", type=Path, default=Path("data/hits-truth.json"))
-    parser.add_argument("--crop-size", type=int, default=1280)
+    parser.add_argument("--crop-size", type=int, default=CROP_SIZE)
     parser.add_argument("--per-image", action="store_true", help="one line per photo")
     args = parser.parse_args()
 

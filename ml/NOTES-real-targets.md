@@ -120,7 +120,7 @@ Wie genau die Entzerrung dabei ist, sagt `measure_accuracy.py` über die
 gedruckten Ringlinien — 568 Messungen aus denselben 142 Fotos:
 
 ```
-Crop 1280:  Median +2,3 mm   Streuung 6,5 mm   (9 % eines 25-mm-Rings)
+Crop 1600:  Median +2,2 mm   Streuung 6,3 mm   (9 % eines 25-mm-Rings)
 Crop  640:  Median +1,6 mm   Streuung 7,1 mm   (6 %)
 ```
 
@@ -216,6 +216,30 @@ Drei Dinge, die erst die echten Fotos gezeigt haben:
    falsch. Genau dafür ist der Kontaktbogen aus Einzelkacheln da, mit dem
    `hits-truth.json` entstanden ist.
 
+### 8b2. Was der Kotlin-Port erzwungen hat
+
+Die App führt dieselbe Erkennung ohne OpenCV aus. Drei Stellen, an denen die
+Python-Fassung etwas benutzt hat, das drüben nicht existiert — alle drei wurden
+in **Python** geändert, damit beide Seiten dieselbe Größe berechnen:
+
+1. **Fläche**: `cv2.contourArea` legt das Polygon durch die Pixel*mitten* und
+   verliert damit den halben Rand — bei einem 19-Pixel-Blob misst es 12. Jetzt
+   zählen beide Seiten Pixel. Danach musste `MIN_HOLE_MM` von 1,6 auf 2,0, weil
+   dieselben Blobs plötzlich größer messen; Präzision und Recall blieben gleich.
+2. **Strukturelement**: der Hintergrund wurde mit einer Kreisscheibe geschlossen.
+   Ein Quadrat ist separabel und damit in vier linearen Durchläufen statt einem
+   quadratischen zu haben — bei 50 px Kernel der Unterschied zwischen
+   Millisekunden und Minuten. Gemessen gegen die geprüften Löcher: identisch.
+3. **Umfang**: `arcLength` läuft über die Kettencodierung der Kontur. Kotlin
+   verfolgt den Rand jetzt selbst (Moore-Nachbarschaft, Diagonale als √2) und
+   kommt auf dieselbe Zahl.
+
+Dazu ein Fehler, der nur im Port sichtbar wurde und für jeden JVM-Test mit
+Graustufenbildern gilt: **`BufferedImage.getRGB()` rechnet bei einem
+Graustufenbild von linearem Grau nach sRGB um.** Ein Loch mit Wert 68 kommt als
+141 an, und alle Schwellen sitzen woanders. Direkt aus dem Raster lesen
+(`raster.getSample`).
+
 ### 8c. Die Entzerrung dreht nicht mit
 
 Aufgefallen bei den synthetischen Tests, gilt aber für jedes Foto: `rectify.py`
@@ -241,12 +265,17 @@ Rahmen des Fotos.
 | 1600 | 0,36  | 25 px     | 13 px          |
 
 640 war zu klein — für einen Detektor wie für einen Menschen, der einen Treffer
-genau setzen will. Die App entzerrt jetzt auf 1280. Für Luftdruck (4,5 mm) wäre
+genau setzen will. Die App entzerrt jetzt auf 1600 über einen 1,25-fachen
+Rahmen, also 2,56 px/mm. Für Luftdruck (4,5 mm) wäre
 selbst das knapp; falls die Erkennung dort gebraucht wird, muss der Crop mit dem
 Scheibentyp skalieren statt fest zu sein.
 
-Nachtrag aus den Detektor-Tests: begrenzend ist nicht die Cropgröße, sondern die
-**Auflösung des Fotos**. Bei 2 px/mm auf dem Blatt verschwindet der schwarze Kern
+Die Cropgröße selbst wurde gemessen, nicht geschätzt: gegen `hits-truth.json`
+gewinnt 1600 gegen 1280 (mehr Löcher) **und** gegen 1800/2000 — feiner löst
+Papierkorn und JPEG-Rauschen in Blobs von Lochgröße auf und kostet Präzision.
+
+Nachtrag aus den Detektor-Tests: begrenzend ist bei Luftdruck nicht die
+Cropgröße, sondern die **Auflösung des Fotos**. Bei 2 px/mm auf dem Blatt verschwindet der schwarze Kern
 eines 4,5-mm-Lochs unter 2 mm und kein Crop holt ihn zurück; ab etwa 3,4 px/mm
 werden alle gefunden. Für Luftdruck heißt das: Blatt formatfüllend aufnehmen.
 Der Crop muss außerdem aus dem **Originalfoto** gewarpt werden, nicht aus der
