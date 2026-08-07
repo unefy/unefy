@@ -30,6 +30,16 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_MOBILE_CLIENT_IDS: ${GOOGLE_MOBILE_CLIENT_IDS:-[]}
+      # Without SMTP_HOST the backend logs messages instead of sending them —
+      # which in production means every login code sits in the log in clear
+      # text and reaches nobody. Unset stays unset here so that failure mode
+      # is still reachable on purpose, not by forgetting to pass it through.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-unefy <noreply@localhost>}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       DEBUG: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     healthcheck:
