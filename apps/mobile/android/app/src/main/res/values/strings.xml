@@ -22,6 +22,14 @@
     <string name="login_code">Anmeldecode</string>
     <string name="login_verify">Code bestätigen</string>
     <string name="login_edit_email">Andere E-Mail-Adresse</string>
+    <string name="login_server_label">Server</string>
+    <string name="login_server_change">Anderen Server verwenden</string>
+    <string name="login_server_title">Server wählen</string>
+    <string name="login_server_hint">Adresse der unefy-Instanz, z. B. verein.example.org</string>
+    <string name="login_server_invalid">Das ist keine gültige Adresse.</string>
+    <string name="login_server_save">Übernehmen</string>
+    <string name="login_server_reset">Zurücksetzen</string>
+    <string name="login_server_cancel">Abbrechen</string>
     <string name="login_code_rejected">Der Code ist ungültig oder abgelaufen.</string>
     <string name="login_no_club">Dein Konto gehört noch keinem Verein an. Bitte lass dich von deinem Verein einladen.</string>
     <string name="sign_out">Abmelden</string>

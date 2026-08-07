@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -15,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,6 +42,8 @@ fun LoginRoute(viewModel: LoginViewModel = hiltViewModel()) {
         onCodeChange = viewModel::onCodeChange,
         onEditEmail = viewModel::editEmail,
         onSubmit = viewModel::submit,
+        onServerChange = viewModel::useServer,
+        onServerReset = viewModel::useDefaultServer,
     )
 }
 
@@ -47,7 +54,20 @@ fun LoginScreen(
     onCodeChange: (String) -> Unit = {},
     onEditEmail: () -> Unit = {},
     onSubmit: () -> Unit = {},
+    onServerChange: (String) -> Unit = {},
+    onServerReset: () -> Unit = {},
 ) {
+    var choosingServer by remember { mutableStateOf(false) }
+
+    if (choosingServer) {
+        ServerDialog(
+            current = state.serverUrl,
+            onDismiss = { choosingServer = false },
+            onConfirm = { choosingServer = false; onServerChange(it) },
+            onReset = { choosingServer = false; onServerReset() },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -138,13 +158,83 @@ fun LoginScreen(
                 Text(stringResource(R.string.login_edit_email))
             }
         }
+
+        // Quiet, and at the foot of the screen on purpose. Almost nobody needs
+        // it — but a self-hosted club cannot reach their own server without it,
+        // and telling them to build their own APK to change a hostname is not an
+        // answer. The address itself is shown so it is obvious which server a
+        // failed sign-in was talking to.
+        TextButton(
+            onClick = { choosingServer = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = "${stringResource(R.string.login_server_change)} · ${state.serverUrl}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
+}
+
+@Composable
+private fun ServerDialog(
+    current: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    onReset: () -> Unit,
+) {
+    var value by remember(current) { mutableStateOf(current) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.login_server_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(UnefySpacing.sm)) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    label = { Text(stringResource(R.string.login_server_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.login_server_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(value) }) {
+                Text(stringResource(R.string.login_server_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onReset) {
+                    Text(stringResource(R.string.login_server_reset))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.login_server_cancel))
+                }
+            }
+        },
+    )
 }
 
 @Preview
 @Composable
 private fun LoginPreview() {
-    UnefyTheme { LoginScreen(state = LoginUiState(email = "andreas@widmer.im")) }
+    UnefyTheme {
+        LoginScreen(
+            state = LoginUiState(
+                email = "andreas@widmer.im",
+                serverUrl = "https://test.unefy.app",
+            ),
+        )
+    }
 }
 
 @Preview
@@ -156,6 +246,7 @@ private fun LoginCodePreview() {
                 email = "andreas@widmer.im",
                 step = LoginStep.CODE,
                 code = "123",
+                serverUrl = "https://test.unefy.app",
             ),
         )
     }

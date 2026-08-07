@@ -14,11 +14,28 @@ if (file("google-services.json").exists()) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
 }
 
-// No hardcoded URLs (apps/mobile/CLAUDE.md). The default targets the emulator's
-// host alias; override in gradle.properties with the machine's LAN address when
-// running on a physical device.
-val apiBaseUrl: String = providers.gradleProperty("unefy.apiBaseUrl")
-    .getOrElse("http://10.0.2.2:8013")
+// No hardcoded URLs (apps/mobile/CLAUDE.md). This is the address a build ships
+// with, not the only one it can reach: the login screen can point the app at
+// another server, which is what a self-hosted club needs. Override in
+// gradle.properties with the emulator alias (10.0.2.2) or the machine's LAN
+// address while developing.
+// Read from local.properties too, and that file is gitignored on purpose. The
+// override used to sit in the tracked gradle.properties, where one developer's
+// LAN address silently pinned every build in the repository — including one
+// meant for a phone that has never seen that network.
+//
+// `takeIf` and not `getOrElse`: an empty property is present, so `getOrElse`
+// hands back "" and the app ships with no address at all.
+val localApiBaseUrl: String? = rootProject.file("local.properties")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.firstOrNull { it.trimStart().startsWith("unefy.apiBaseUrl=") }
+    ?.substringAfter('=')
+    ?.trim()
+
+val apiBaseUrl: String = (providers.gradleProperty("unefy.apiBaseUrl").orNull ?: localApiBaseUrl)
+    ?.takeIf { it.isNotBlank() }
+    ?: "https://test.unefy.app"
 
 android {
     namespace = "com.unefy.app"

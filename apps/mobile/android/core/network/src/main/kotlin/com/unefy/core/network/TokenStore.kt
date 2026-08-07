@@ -22,11 +22,18 @@ interface TokenStore {
 }
 
 /**
- * Base URL is injected rather than compiled into this module: it differs
- * per build type and per device (an emulator reaches the host at 10.0.2.2, a
- * phone needs the machine's LAN address). No hardcoded URLs — see
- * apps/mobile/CLAUDE.md.
+ * Base URL is injected rather than compiled into this module: it differs per
+ * build type, per device and — since unefy is self-hostable — per installation.
+ * No hardcoded URLs, see apps/mobile/CLAUDE.md.
+ *
+ * Resolved per request rather than captured once. The address is a setting a
+ * person can change on the login screen, and the HTTP clients are singletons
+ * built long before that happens; holding a `String` here meant a new server
+ * only took effect after killing the app.
  */
-data class ApiConfig(
-    val baseUrl: String,
-)
+class ApiConfig(private val resolve: () -> String) {
+
+    constructor(baseUrl: String) : this({ baseUrl })
+
+    val baseUrl: String get() = resolve()
+}

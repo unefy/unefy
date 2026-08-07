@@ -18,6 +18,14 @@
     <string name="login_code">Login code</string>
     <string name="login_verify">Confirm code</string>
     <string name="login_edit_email">Use a different email</string>
+    <string name="login_server_label">Server</string>
+    <string name="login_server_change">Use a different server</string>
+    <string name="login_server_title">Choose a server</string>
+    <string name="login_server_hint">Address of the unefy instance, e.g. club.example.org</string>
+    <string name="login_server_invalid">That is not a valid address.</string>
+    <string name="login_server_save">Use it</string>
+    <string name="login_server_reset">Reset</string>
+    <string name="login_server_cancel">Cancel</string>
     <string name="login_code_rejected">The code is invalid or has expired.</string>
     <string name="login_no_club">Your account does not belong to a club yet. Ask your club for an invitation.</string>
     <string name="sign_out">Sign out</string>

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unefy.app.BuildConfig
 import com.unefy.app.R
+import com.unefy.app.di.ServerUrlStore
 import com.unefy.core.auth.AuthRepository
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
@@ -31,6 +32,8 @@ data class LoginUiState(
      * carries the actual exception so the screen can say which.
      */
     val debugDetail: String? = null,
+    /** Which backend the next request goes to. Shown at the foot of the screen. */
+    val serverUrl: String = "",
 )
 
 private const val CODE_LENGTH = 6
@@ -38,10 +41,53 @@ private const val CODE_LENGTH = 6
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val servers: ServerUrlStore,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LoginUiState())
+    private val _uiState = MutableStateFlow(LoginUiState(serverUrl = servers.current()))
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    /**
+     * Point the app at another backend.
+     *
+     * The code the user is part-way through was issued by the old server and is
+     * meaningless to the new one, so the form goes back to the address step
+     * rather than leaving a stale code in a field that will silently fail.
+     */
+    fun useServer(url: String) {
+        if (!ServerUrlStore.isValid(url)) {
+            _uiState.update { it.copy(errorMessage = R.string.login_server_invalid) }
+            return
+        }
+        viewModelScope.launch {
+            servers.set(url)
+            _uiState.update {
+                it.copy(
+                    serverUrl = servers.current(),
+                    step = LoginStep.EMAIL,
+                    code = "",
+                    errorMessage = null,
+                    debugDetail = null,
+                )
+            }
+        }
+    }
+
+    /** Back to the address the build shipped with. */
+    fun useDefaultServer() {
+        viewModelScope.launch {
+            servers.reset()
+            _uiState.update {
+                it.copy(
+                    serverUrl = servers.current(),
+                    step = LoginStep.EMAIL,
+                    code = "",
+                    errorMessage = null,
+                    debugDetail = null,
+                )
+            }
+        }
+    }
 
     fun onEmailChange(value: String) {
         _uiState.update { it.copy(email = value, errorMessage = null) }
