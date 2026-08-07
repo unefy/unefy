@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,8 +30,21 @@ async def _own_member(db_session: AsyncSession, tenant_id: uuid.UUID, user_id: u
     return member
 
 
+def _club_today() -> date:
+    """Today in the club's zone, which is the only "today" the service knows.
+
+    `AttendanceService` bounds a self-entry against
+    `datetime.now(UTC).astimezone(club_timezone).date()`, and the test tenant
+    defaults to Europe/Berlin. `date.today()` agrees with that only when the
+    machine running the tests happens to sit in the same zone — so on a UTC CI
+    runner, every evening between 22:00 and midnight UTC, "tomorrow" here was
+    the club's today and the bound tests failed for two hours a day.
+    """
+    return datetime.now(UTC).astimezone(ZoneInfo("Europe/Berlin")).date()
+
+
 def _yesterday() -> str:
-    return (date.today() - timedelta(days=1)).isoformat()
+    return (_club_today() - timedelta(days=1)).isoformat()
 
 
 async def test_create_entry_derives_its_credibility(
@@ -96,11 +110,11 @@ async def test_entry_dates_are_bounded(
 ) -> None:
     await _own_member(db_session, test_tenant.id, test_user.id)
 
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (_club_today() + timedelta(days=1)).isoformat()
     resp = await auth_client.post(ENTRIES, json={"occurred_on": tomorrow, "location": "X"})
     assert resp.status_code == 422
 
-    long_ago = (date.today() - timedelta(days=45)).isoformat()
+    long_ago = (_club_today() - timedelta(days=45)).isoformat()
     resp = await auth_client.post(ENTRIES, json={"occurred_on": long_ago, "location": "X"})
     assert resp.status_code == 422
 
