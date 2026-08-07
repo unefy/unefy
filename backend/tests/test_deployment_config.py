@@ -106,6 +106,30 @@ def test_every_required_variable_is_in_the_example_file() -> None:
     assert not missing, f"required but absent from .env.prod.example: {missing}"
 
 
+#: Variables in the example that configure the stack around the backend rather
+#: than the backend itself, so their absence from its environment is correct.
+_INFRASTRUCTURE_ONLY = {
+    "IMAGE_TAG",
+    "WEB_PORT",
+    "API_PORT",
+    # Reaches the backend inside DATABASE_URL, not as a key of its own.
+    "POSTGRES_PASSWORD",
+}
+
+
+def test_every_documented_variable_reaches_the_backend() -> None:
+    """The example file is a promise; a setting listed there must have effect.
+
+    This is the inverse of the test above and the one that catches the sort of
+    gap SMTP and COOKIE_DOMAIN both were: documented, filled in by the
+    operator, and then quietly dropped because no line forwarded it.
+    """
+    forwarded = "\n".join(_backend_environment().values())
+    documented = _example_keys() - _INFRASTRUCTURE_ONLY
+    ignored = sorted(name for name in documented if f"${{{name}" not in forwarded)
+    assert not ignored, f"documented in .env.prod.example but never forwarded: {ignored}"
+
+
 def test_mail_is_configurable_in_production() -> None:
     """Every SMTP setting reaches the container.
 

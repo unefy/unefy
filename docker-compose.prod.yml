@@ -28,6 +28,12 @@ services:
       ATTENDANCE_SECRET: ${ATTENDANCE_SECRET}
       BACKEND_URL: ${BACKEND_URL}
       WEB_APP_URL: ${WEB_APP_URL}
+      # Needed whenever api and app are different hostnames: the magic link is
+      # redeemed on the API host, which sets the session cookie and redirects
+      # to the app. Without a shared parent domain that cookie belongs to the
+      # API host alone, the app never receives it, and the user lands back on
+      # the login form having just proved who they are.
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_MOBILE_CLIENT_IDS: ${GOOGLE_MOBILE_CLIENT_IDS:-[]}
