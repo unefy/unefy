@@ -51,9 +51,9 @@ import com.unefy.core.network.ApiResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -67,7 +67,7 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class SeriesDetailViewModel @Inject constructor(
     private val repository: ScoringRepository,
-    private val scans: ScanStore,
+    private val scans: SeriesScans,
 ) : ViewModel() {
 
     private var seriesId: String = ""
@@ -102,9 +102,14 @@ class SeriesDetailViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<ShotSeries?> = repository.myHistory()
-        .map { all -> all.firstOrNull { it.id == seriesId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
+    /**
+     * Both sources — the club list opens this screen too, and its series are in
+     * the board-only mirror. See [findSeries] for the precedence rule.
+     */
+    val uiState: StateFlow<ShotSeries?> =
+        combine(repository.myHistory(), repository.clubHistory()) { mine, club ->
+            findSeries(seriesId, mine, club)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
 
     fun bind(id: String) {
         seriesId = id

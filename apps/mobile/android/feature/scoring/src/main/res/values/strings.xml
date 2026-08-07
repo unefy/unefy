@@ -56,6 +56,8 @@
     <string name="detail_shot_number">Schuss %1$d</string>
     <string name="history_title">Trefferaufnahme</string>
     <string name="history_record">Serie aufnehmen</string>
+    <string name="history_scope_mine">Meine</string>
+    <string name="history_scope_club">Verein</string>
     <string name="history_empty">Noch keine Serien aufgenommen</string>
     <string name="history_empty_action">Nimm deine erste Serie auf, indem du die Treffer auf der digitalen Scheibe setzt.</string>
     <string name="history_pending">Nicht übertragen</string>
@@ -72,7 +74,7 @@
     <string name="detail_edit">Treffer korrigieren</string>
     <string name="detail_delete">Serie löschen</string>
     <string name="detail_delete_title">Serie löschen?</string>
-    <string name="detail_delete_message">Die Serie wird zurückgezogen und verschwindet aus allen Listen. Rückgängig machen lässt sich das nur im Vorstandsbereich.</string>
+    <string name="detail_delete_message">Die Serie wird zurückgezogen und verschwindet aus allen Listen. Rückgängig machen lässt sich das nicht.</string>
     <string name="detail_delete_confirm">Löschen</string>
     <string name="detail_delete_cancel">Abbrechen</string>
     <string name="detail_delete_failed">Löschen fehlgeschlagen — ohne Verbindung nicht möglich.</string>

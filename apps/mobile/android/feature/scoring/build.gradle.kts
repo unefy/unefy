@@ -44,4 +44,10 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // The repository's mirror writes are worth testing against a real ApiClient:
+    // the DAOs are interfaces, so only the HTTP engine has to be swapped.
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.ktor.client.core)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.serialization.kotlinx.json)
 }

@@ -79,7 +79,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -105,12 +105,23 @@ class MigrationTest {
         helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).close()
     }
 
+    /**
+     * The club-wide entry mirror. Additive — a board member's own history lives
+     * in `cached_my_entries` and must not be touched by this.
+     */
+    @Test
+    fun migrates_from_11_to_12() {
+        helper.createDatabase(DB, 11).close()
+
+        helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).close()
+    }
+
     /** Every migration creates its new tables, so a fresh sync has somewhere to land. */
     @Test
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",
@@ -119,6 +130,7 @@ class MigrationTest {
                 "synced_competitions",
                 "pending_shot_entries",
                 "cached_my_entries",
+                "synced_entries",
             )) {
                 db.query("SELECT COUNT(*) FROM $table").use {
                     it.moveToFirst()

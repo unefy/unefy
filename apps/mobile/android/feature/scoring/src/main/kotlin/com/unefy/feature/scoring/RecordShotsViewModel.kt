@@ -117,8 +117,12 @@ class RecordShotsViewModel @Inject constructor(
             // on screen are the ones that were recorded rather than an empty
             // sheet. Its photograph comes back too — a correction usually starts
             // with looking at the sheet again.
+            // Both sources: the board corrects series it did not shoot, and
+            // those live in the club mirror. Reading only the own history left
+            // the sheet empty and the shooter unset — and saving that would have
+            // written the blank draft over somebody else's series.
             val existing = seriesId?.let { id ->
-                repository.myHistory().first().firstOrNull { it.id == id }
+                findSeries(id, repository.myHistory().first(), repository.clubHistory().first())
             }
             if (existing != null) {
                 update { content ->
@@ -242,6 +246,33 @@ class RecordShotsViewModel @Inject constructor(
 
         _uiState.value = content.copy(saving = true, error = null)
         viewModelScope.launch {
+            // Correcting rewrites the series that was opened; only recording
+            // fresh creates one. Without this branch the screen saved *every*
+            // edit as a new series and left the original standing, so a
+            // corrected series appeared twice with two different results.
+            val correcting = seriesId
+            if (correcting != null) {
+                when (val result = repository.correct(correcting, content.draft)) {
+                    is ApiResult.Success -> {
+                        if (content.photo != null) scans.attach(correcting)
+                        // A queued series stays queued after a local rewrite; one
+                        // already on the server was just corrected there.
+                        repository.drainQueue()
+                        val stillQueued = repository.myHistory().first()
+                            .firstOrNull { it.id == correcting }?.pending == true
+                        _uiState.value = content.copy(saving = false, savedPending = stillQueued)
+                        onSaved(stillQueued)
+                    }
+                    // Correcting a series the server already has needs a
+                    // connection — unlike recording, it cannot be queued: two
+                    // devices editing the same series offline is a different
+                    // problem. So say so rather than pretending it saved.
+                    is ApiResult.Failure ->
+                        _uiState.value = content.copy(saving = false, error = result.error)
+                }
+                return@launch
+            }
+
             // Always lands in the local queue first. Saving cannot fail for want
             // of a network — that is the entire point on a range in a basement.
             val seriesId = repository.record(

@@ -38,9 +38,10 @@ import javax.inject.Singleton
         SyncedCompetition::class,
         PendingShotEntry::class,
         CachedShotEntry::class,
+        SyncedEntry::class,
         SyncCursorEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -61,6 +62,8 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun pendingShotEntryDao(): PendingShotEntryDao
 
     abstract fun cachedShotEntryDao(): CachedShotEntryDao
+
+    abstract fun syncedEntryDao(): SyncedEntryDao
 
     abstract fun syncCursorDao(): SyncCursorDao
 }
@@ -97,6 +100,7 @@ object DatabaseModule {
             MIGRATION_8_9,
             MIGRATION_9_10,
             MIGRATION_10_11,
+            MIGRATION_11_12,
         )
     }
 
@@ -442,6 +446,49 @@ object DatabaseModule {
     @Provides
     fun provideCachedShotEntryDao(database: UnefyDatabase): CachedShotEntryDao =
         database.cachedShotEntryDao()
+
+    /**
+     * The club-wide mirror of recorded series, for the board's view of the
+     * range. A new table only — `cached_my_entries` stays exactly as it is,
+     * because every account has one and only board accounts get this.
+     */
+    private val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_entries (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT NOT NULL,
+                    memberId TEXT NOT NULL,
+                    scoreValue REAL NOT NULL,
+                    scoreUnit TEXT NOT NULL,
+                    discipline TEXT,
+                    targetType TEXT,
+                    caliberMm REAL,
+                    shotsJson TEXT,
+                    innerTens INTEGER,
+                    groupingMm REAL,
+                    source TEXT NOT NULL,
+                    recordedAt TEXT NOT NULL,
+                    notes TEXT,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_entries_recordedAt " +
+                    "ON synced_entries (recordedAt)",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_entries_memberId " +
+                    "ON synced_entries (memberId)",
+            )
+        }
+    }
+
+    @Provides
+    fun provideSyncedEntryDao(database: UnefyDatabase): SyncedEntryDao =
+        database.syncedEntryDao()
 
     private const val DATABASE_NAME = "unefy.db"
 }

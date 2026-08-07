@@ -11,6 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,62 +34,144 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.unefy.core.designsystem.component.TargetCanvas
 import com.unefy.core.designsystem.component.UnefyCenteredState
 import com.unefy.core.designsystem.component.UnefyListScaffold
+import com.unefy.core.designsystem.component.UnefyStaleBanner
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.UnefySpacing
 import java.time.LocalDate
 import com.unefy.core.designsystem.theme.UnefyTheme
+import com.unefy.core.model.ClubRole
 import com.unefy.core.model.scoring.PlacedShot
 import com.unefy.core.model.scoring.TargetGeometrySeed
+import com.unefy.core.network.ApiError
+import com.unefy.core.sync.SyncCoordinator
+import com.unefy.core.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** Whose series the history shows. */
+enum class ShotHistoryScope { MINE, CLUB }
 
 sealed interface ShotHistoryUiState {
     data object Loading : ShotHistoryUiState
     data class Content(
         val series: List<ShotSeries>,
         val pendingCount: Int,
+        val isRefreshing: Boolean = false,
+        val scope: ShotHistoryScope = ShotHistoryScope.MINE,
+        /**
+         * Why the club mirror is not current, if it is not. Only ever set in
+         * [ShotHistoryScope.CLUB] — the personal list is a cache with its own
+         * refresh, not a synced collection.
+         */
+        val staleBecause: ApiError? = null,
     ) : ShotHistoryUiState
 }
 
 /**
- * The member's own recorded series.
+ * Recorded series — the caller's own, or the whole club's.
  *
- * Reads the local queue and the cache together, so a series recorded two minutes
- * ago in a basement is visible immediately and looks no different from one the
- * server already has, apart from a "not sent" marker.
+ * The personal list reads the local queue and the cache together, so a series
+ * recorded two minutes ago in a basement is visible immediately and looks no
+ * different from one the server already has, apart from a "not sent" marker.
+ *
+ * The club list reads the board-only mirror instead. Two separate sources rather
+ * than one filtered query: the personal history has to work for every account,
+ * and it cannot depend on a collection most accounts are not allowed to sync.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ShotHistoryViewModel @Inject constructor(
     private val repository: ScoringRepository,
+    private val coordinator: SyncCoordinator,
 ) : ViewModel() {
 
+    private val refreshing = MutableStateFlow(false)
+    private val scope = MutableStateFlow(ShotHistoryScope.MINE)
+
     val uiState: StateFlow<ShotHistoryUiState> =
-        combine(repository.myHistory(), repository.pendingCount()) { series, pending ->
-            ShotHistoryUiState.Content(series, pending) as ShotHistoryUiState
+        scope.flatMapLatest { active ->
+            when (active) {
+                ShotHistoryScope.MINE -> mineState()
+                ShotHistoryScope.CLUB -> clubState()
+            }
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000L),
             ShotHistoryUiState.Loading,
         )
 
-    init {
-        // Two jobs, deliberately in this order: drain first so anything queued
-        // is on the server before the refresh reads back the authoritative list.
-        viewModelScope.launch {
-            repository.drainQueue()
-            repository.refreshHistory()
-        }
+    private fun mineState(): Flow<ShotHistoryUiState> = combine(
+        repository.myHistory(),
+        repository.pendingCount(),
+        refreshing,
+    ) { series, pending, isRefreshing ->
+        ShotHistoryUiState.Content(
+            series = series,
+            pendingCount = pending,
+            isRefreshing = isRefreshing,
+            scope = ShotHistoryScope.MINE,
+        )
     }
 
-    fun refresh() {
+    private fun clubState(): Flow<ShotHistoryUiState> = combine(
+        repository.clubHistory(),
+        coordinator.status(EntrySyncCollection.COLLECTION),
+        refreshing,
+    ) { series, status, isRefreshing ->
+        ShotHistoryUiState.Content(
+            series = series,
+            // The pending queue is the caller's own, whichever list is shown —
+            // counting it here would claim the club has unsent series.
+            pendingCount = 0,
+            isRefreshing = isRefreshing,
+            scope = ShotHistoryScope.CLUB,
+            staleBecause = (status as? SyncStatus.Failed)?.error,
+        )
+    }
+
+    init {
+        reload()
+    }
+
+    fun refresh() = reload()
+
+    /** Switching lists reloads: the mirror may be days old on this device. */
+    fun setScope(next: ShotHistoryScope) {
+        if (scope.value == next) return
+        scope.value = next
+        reload()
+    }
+
+    private fun reload() {
+        // Claimed before launching, as in MembersViewModel: the pull gesture
+        // fires while the finger is still moving, so three drags would
+        // otherwise start three drains of the same queue.
+        if (!refreshing.compareAndSet(expect = false, update = true)) return
+
         viewModelScope.launch {
-            repository.drainQueue()
-            repository.refreshHistory()
+            try {
+                // Two calls, deliberately in this order: drain first so anything
+                // queued is on the server before the refresh reads back the
+                // authoritative list. Done in both scopes — a board member
+                // looking at the club list still wants their own bench's series
+                // to have arrived.
+                repository.drainQueue()
+                repository.refreshHistory()
+                if (scope.value == ShotHistoryScope.CLUB) {
+                    coordinator.syncNow(EntrySyncCollection.COLLECTION)
+                }
+            } finally {
+                refreshing.value = false
+            }
         }
     }
 }
@@ -94,6 +179,7 @@ class ShotHistoryViewModel @Inject constructor(
 @Composable
 fun ShotHistoryRoute(
     onRecord: () -> Unit,
+    role: ClubRole = ClubRole.UNKNOWN,
     onOpenSeries: (String) -> Unit = {},
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     viewModel: ShotHistoryViewModel = hiltViewModel(),
@@ -102,8 +188,14 @@ fun ShotHistoryRoute(
     ShotHistoryScreen(
         state = state,
         actions = actions,
+        // The server refuses the club collection to anyone below board, so the
+        // mirror is empty for them anyway. Hiding the switch as well keeps them
+        // out of a list that would only ever be blank.
+        canSeeClub = role.canAdminister,
         onRecord = onRecord,
         onOpenSeries = onOpenSeries,
+        onRefresh = viewModel::refresh,
+        onScopeChange = viewModel::setScope,
     )
 }
 
@@ -113,6 +205,9 @@ fun ShotHistoryScreen(
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     onRecord: () -> Unit = {},
     onOpenSeries: (String) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    canSeeClub: Boolean = false,
+    onScopeChange: (ShotHistoryScope) -> Unit = {},
 ) {
     // Read once per composition rather than per heading: "today" is the same
     // for every row, and asking the clock in a loop is how a list ends up
@@ -122,6 +217,21 @@ fun ShotHistoryScreen(
     UnefyListScaffold(
         title = stringResource(R.string.history_title),
         actions = actions,
+        isRefreshing = (state as? ShotHistoryUiState.Content)?.isRefreshing == true,
+        onRefresh = onRefresh,
+        banner = {
+            val stale = (state as? ShotHistoryUiState.Content)?.staleBecause
+            UnefyStaleBanner(
+                visible = stale != null,
+                text = stringResource(
+                    if (stale is ApiError.Network) {
+                        DesignR.string.stale_offline
+                    } else {
+                        DesignR.string.stale_generic
+                    },
+                ),
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onRecord) {
                 Icon(
@@ -136,6 +246,19 @@ fun ShotHistoryScreen(
                 item { UnefyCenteredState(title = stringResource(R.string.history_title)) }
 
             is ShotHistoryUiState.Content -> {
+                if (canSeeClub) {
+                    item {
+                        ScopeSwitch(
+                            scope = state.scope,
+                            onScopeChange = onScopeChange,
+                            modifier = Modifier.padding(
+                                horizontal = UnefySpacing.screen,
+                                vertical = UnefySpacing.sm,
+                            ),
+                        )
+                    }
+                }
+
                 if (state.pendingCount > 0) {
                     item {
                         Text(
@@ -235,6 +358,33 @@ private fun SeriesRow(series: ShotSeries, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Mine / club. A segmented row rather than a filter chip: the two are mutually
+ * exclusive and one of them is always on, which is exactly what this control
+ * means and what a chip does not.
+ */
+@Composable
+private fun ScopeSwitch(
+    scope: ShotHistoryScope,
+    onScopeChange: (ShotHistoryScope) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val options = listOf(
+        ShotHistoryScope.MINE to R.string.history_scope_mine,
+        ShotHistoryScope.CLUB to R.string.history_scope_club,
+    )
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (option, label) ->
+            SegmentedButton(
+                selected = scope == option,
+                onClick = { onScopeChange(option) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                label = { Text(stringResource(label)) },
+            )
         }
     }
 }

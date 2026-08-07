@@ -151,6 +151,81 @@ class RecordShotsViewModelTest {
         assertEquals(null, state.member)
     }
 
+    @Test
+    fun `correcting a club series seeds the draft from the mirror`() = runTest(dispatcher) {
+        // The board corrects a series it did not shoot. It is in the club
+        // mirror, not in the caller's own history — and an empty draft here
+        // would be written over the real series on save.
+        val someone_elses = recordedSeries(id = "s2", memberId = "m3", label = "Tobias Widmer")
+        val repository = FakeRepository(
+            targets = CompletableDeferred(TargetGeometrySeed.ALL),
+            history = emptyList(),
+            club = listOf(someone_elses),
+            members = listOf(MemberOption("m3", "Tobias Widmer")),
+        )
+        val viewModel = viewModel(repository)
+
+        viewModel.start(
+            sessionId = null,
+            discipline = null,
+            memberId = null,
+            canPickMember = true,
+            expectedShots = null,
+            seriesId = "s2",
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as RecordShotsUiState.Content
+        assertEquals("the recorded shots must seed the draft", 3, state.draft.shots.size)
+        assertEquals("m3", state.member?.id)
+        assertEquals("Tobias Widmer", state.member?.label)
+    }
+
+    @Test
+    fun `saving a correction rewrites the series instead of creating a second one`() =
+        runTest(dispatcher) {
+            // What the screen did before: it seeded the draft from the series
+            // being corrected and then saved it as a *new* one, so the club list
+            // showed the same shooter twice with two different results and the
+            // original, wrong series stayed.
+            val existing = recordedSeries(id = "s1", memberId = "m7", label = "Uwe Bauknecht")
+            val repository = FakeRepository(
+                targets = CompletableDeferred(TargetGeometrySeed.ALL),
+                history = listOf(existing),
+                members = listOf(MemberOption("m7", "Uwe Bauknecht")),
+            )
+            val viewModel = viewModel(repository)
+            viewModel.start(null, null, null, canPickMember = true, expectedShots = null, seriesId = "s1")
+            advanceUntilIdle()
+
+            val content = viewModel.uiState.value as RecordShotsUiState.Content
+            viewModel.onDraftChange(content.draft.place("d", 0.05, 0.05))
+            viewModel.save {}
+            advanceUntilIdle()
+
+            assertEquals(listOf("s1"), repository.corrected)
+            assertTrue("no new series may be created", repository.recorded.isEmpty())
+        }
+
+    @Test
+    fun `recording fresh still creates a series`() = runTest(dispatcher) {
+        val repository = FakeRepository(
+            targets = CompletableDeferred(TargetGeometrySeed.ALL),
+            members = listOf(MemberOption("m7", "Uwe Bauknecht")),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.start(null, null, "m7", canPickMember = false, expectedShots = null)
+        advanceUntilIdle()
+
+        val content = viewModel.uiState.value as RecordShotsUiState.Content
+        viewModel.onDraftChange(content.draft.place("a", 0.0, 0.0))
+        viewModel.save {}
+        advanceUntilIdle()
+
+        assertEquals(1, repository.recorded.size)
+        assertTrue("nothing to correct", repository.corrected.isEmpty())
+    }
+
     private fun recordedSeries(id: String, memberId: String, label: String) = ShotSeries(
         id = id,
         memberId = memberId,
@@ -178,6 +253,7 @@ class RecordShotsViewModelTest {
 private class FakeRepository(
     private val targets: CompletableDeferred<List<TargetGeometry>>,
     private val history: List<ShotSeries> = emptyList(),
+    private val club: List<ShotSeries> = emptyList(),
     private val members: List<MemberOption> = emptyList(),
 ) : ScoringRepository {
     override suspend fun targetTypes(): List<TargetGeometry> = targets.await()
@@ -195,14 +271,24 @@ private class FakeRepository(
         discipline: String?,
         recordedAt: String,
         notes: String?,
-    ): String = "id"
+    ): String {
+        recorded += memberId
+        return "id"
+    }
+
+    /** What the screen asked the repository to do — the whole point of the test. */
+    val recorded = mutableListOf<String>()
+    val corrected = mutableListOf<String>()
 
     override fun myHistory(): Flow<List<ShotSeries>> = flowOf(history)
+    override fun clubHistory(): Flow<List<ShotSeries>> = flowOf(club)
     override fun pendingCount(): Flow<Int> = flowOf(0)
     override suspend fun refreshHistory(): ApiResult<Unit> = ApiResult.Success(Unit)
     override suspend fun drainQueue(): Int = 0
-    override suspend fun correct(seriesId: String, draft: ShotSeriesDraft): ApiResult<Unit> =
-        ApiResult.Success(Unit)
+    override suspend fun correct(seriesId: String, draft: ShotSeriesDraft): ApiResult<Unit> {
+        corrected += seriesId
+        return ApiResult.Success(Unit)
+    }
 
     override suspend fun delete(seriesId: String): ApiResult<Unit> = ApiResult.Success(Unit)
 

@@ -426,6 +426,7 @@ internal fun unefyEntryProvider(
     entry<ShotHistoryKey> {
         ShotHistoryRoute(
             actions = accountActions,
+            role = role,
             onRecord = { onOpen(RecordShotsKey()) },
             onOpenSeries = { id -> onOpen(SeriesDetailKey(id)) },
         )

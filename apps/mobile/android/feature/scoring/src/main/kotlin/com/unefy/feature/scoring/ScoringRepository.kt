@@ -4,6 +4,8 @@ import com.unefy.core.database.CachedShotEntry
 import com.unefy.core.database.CachedShotEntryDao
 import com.unefy.core.database.PendingShotEntry
 import com.unefy.core.database.PendingShotEntryDao
+import com.unefy.core.database.SyncedEntry
+import com.unefy.core.database.SyncedEntryDao
 import com.unefy.core.database.SyncedMemberDao
 import com.unefy.core.model.scoring.PlacedShot
 import com.unefy.core.model.scoring.ShotSeriesDraft
@@ -189,6 +191,25 @@ internal fun mergeSeries(pending: List<ShotSeries>, cached: List<ShotSeries>): L
     return pending + cached.filterNot { it.id in queuedIds }
 }
 
+/**
+ * One series by id, from either source, personal first.
+ *
+ * A plain function over both lists rather than a repository method, because the
+ * two callers need it in different shapes — the detail screen as a live flow,
+ * the correction screen as a single read — and both got it wrong the same way
+ * when they each rolled their own: looking only in the caller's own history,
+ * which does not contain a single series from the club list.
+ *
+ * Personal wins where a series is in both, which is every series a board member
+ * recorded themselves. Only that copy knows the queue, so preferring the mirror
+ * would drop the "not sent" marker and the retry error.
+ */
+internal fun findSeries(
+    id: String,
+    mine: List<ShotSeries>,
+    club: List<ShotSeries>,
+): ShotSeries? = mine.firstOrNull { it.id == id } ?: club.firstOrNull { it.id == id }
+
 /** One member a series can be recorded for. */
 data class MemberOption(val id: String, val label: String)
 
@@ -216,6 +237,16 @@ interface ScoringRepository {
 
     /** Everything the caller has recorded, queued rows first. */
     fun myHistory(): Flow<List<ShotSeries>>
+
+    /**
+     * Every series in the club, from the board-only mirror.
+     *
+     * Empty for an account that may not sync the collection — the server
+     * refuses the drain, so nothing is ever written. Callers still have to gate
+     * on the role: a device demoted from board keeps the rows it already has
+     * until the next sign-out.
+     */
+    fun clubHistory(): Flow<List<ShotSeries>>
 
     fun pendingCount(): Flow<Int>
 
@@ -254,6 +285,7 @@ internal class DefaultScoringRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val pendingDao: PendingShotEntryDao,
     private val cacheDao: CachedShotEntryDao,
+    private val syncedEntryDao: SyncedEntryDao,
     private val memberDao: SyncedMemberDao,
 ) : ScoringRepository {
 
@@ -326,6 +358,15 @@ internal class DefaultScoringRepository @Inject constructor(
             )
         }
 
+    override fun clubHistory(): Flow<List<ShotSeries>> =
+        kotlinx.coroutines.flow.combine(
+            syncedEntryDao.all(),
+            memberDao.search(""),
+        ) { entries, members ->
+            val names = members.associate { it.id to "${it.firstName} ${it.lastName}" }
+            entries.map { toSeries(it, names) }
+        }
+
     override fun pendingCount(): Flow<Int> = pendingDao.countStream()
 
     override suspend fun correct(seriesId: String, draft: ShotSeriesDraft): ApiResult<Unit> {
@@ -350,6 +391,19 @@ internal class DefaultScoringRepository @Inject constructor(
         return when (val result = apiClient.patch<EntryDto>("${ApiEndpoints.ENTRIES}/$seriesId", body)) {
             is ApiResult.Success -> {
                 cacheDao.upsert(listOf(toCached(result.data)))
+                // And the club mirror, if this series is in it. Without this the
+                // detail screen of a series the caller did not shoot kept showing
+                // the old rings until the next sync — which looks exactly like a
+                // correction that failed to save.
+                //
+                // The existing row's generation is carried over rather than
+                // invented: a lower one would be swept away by the next
+                // bootstrap, a higher one would survive a sweep it should not.
+                // No row means the series is not mirrored here, and the next
+                // sync is the right thing to bring it.
+                syncedEntryDao.byId(seriesId)?.let { row ->
+                    syncedEntryDao.upsert(listOf(result.data.toRow(json, row.generation)))
+                }
                 ApiResult.Success(Unit)
             }
             is ApiResult.Failure -> ApiResult.Failure(result.error)
@@ -367,6 +421,10 @@ internal class DefaultScoringRepository @Inject constructor(
         ) {
             is ApiResult.Success -> {
                 cacheDao.deleteById(seriesId)
+                // Same reason as in `correct`: the club list has to lose the row
+                // now, not at the next sync. The server's tombstone arrives
+                // later and finds nothing left to delete, which is harmless.
+                syncedEntryDao.deleteByIds(listOf(seriesId))
                 ApiResult.Success(Unit)
             }
             is ApiResult.Failure -> ApiResult.Failure(result.error)
@@ -479,6 +537,27 @@ internal class DefaultScoringRepository @Inject constructor(
         // server answers with member ids, and a list that cannot say whose shots
         // these are is unreadable the moment somebody records for a second
         // person. Null while the mirror is still empty on a fresh device.
+        memberLabel = names[row.memberId],
+        discipline = row.discipline,
+        targetTypeSlug = row.targetType,
+        caliberMm = row.caliberMm,
+        total = row.scoreValue.toInt(),
+        innerTens = row.innerTens,
+        groupingMm = row.groupingMm,
+        shots = decodeCached(row.shotsJson),
+        recordedAt = row.recordedAt,
+        notes = row.notes,
+        pending = false,
+    )
+
+    /**
+     * The mirror row, mapped exactly like the cached one — the two tables hold
+     * the same shape on purpose, so the history list cannot render a club series
+     * differently from an own one.
+     */
+    private fun toSeries(row: SyncedEntry, names: Map<String, String>) = ShotSeries(
+        id = row.id,
+        memberId = row.memberId,
         memberLabel = names[row.memberId],
         discipline = row.discipline,
         targetTypeSlug = row.targetType,
