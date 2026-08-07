@@ -6,10 +6,10 @@ recomputes every ring server-side (so two clients cannot disagree about a score)
 """
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.jwt import create_access_token
@@ -20,6 +20,7 @@ from app.models.member import Member
 from app.models.target_type import TargetType
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
+from app.sync.cursor import CURSOR_SAFETY_LAG
 
 RECORDED_AT = datetime(2026, 8, 5, 18, 30, tzinfo=UTC)
 OCCURRED_ON = "2026-08-05"
@@ -492,6 +493,71 @@ async def test_the_board_may_record_for_anyone(
 
     resp = await client.post("/api/v1/entries", json=_payload(member.id), headers=headers)
     assert resp.status_code == 201, resp.text
+
+
+# --- /sync/entries: the board's club-wide view ---
+
+
+async def test_sync_entries_returns_every_members_series_for_the_board(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The club view the app's "Verein" list is built on.
+
+    Deliberately the mirror image of `/entries/me`: that route is hard-scoped to
+    the caller, this one must return the series the caller had nothing to do
+    with — otherwise a board member syncing the collection sees only their own
+    bench and the club list is a slower copy of the personal one.
+    """
+    await _seed_target_types(db_session)
+    mine = await _seed_member(db_session, test_tenant.id, number="001", user_id=test_user.id)
+    other = await _seed_member(db_session, test_tenant.id, number="002", name="Other")
+    headers = await _as_role(db_session, test_user, test_tenant, "board")
+
+    resp = await client.post("/api/v1/entries", json=_payload(mine.id), headers=headers)
+    assert resp.status_code == 201, resp.text
+
+    db_session.add(
+        Entry(
+            tenant_id=test_tenant.id,
+            session_id=(await db_session.execute(select(Entry.session_id))).scalars().first(),
+            member_id=other.id,
+            score_value=10,
+            score_unit="rings",
+            source="manual",
+            # Somebody else entirely — neither the shooter nor the recorder is
+            # the caller, which is exactly what `/entries/me` filters out.
+            recorded_by=uuid.uuid4(),
+            recorded_at=datetime.now(UTC),
+        )
+    )
+    # Both rows carry `now()`, which sits *inside* the cursor's safety lag and
+    # is therefore deliberately not served yet. Backdated rather than slept
+    # through: the lag is five seconds, and the delay is what is under test in
+    # test_sync.py, not here.
+    behind_the_lag = datetime.now(UTC) - CURSOR_SAFETY_LAG - timedelta(minutes=1)
+    await db_session.execute(update(Entry).values(updated_at=behind_the_lag))
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/sync/entries", headers=headers)
+    assert resp.status_code == 200, resp.text
+    members = {row["member_id"] for row in resp.json()["data"]["changed"]}
+    assert members == {str(mine.id), str(other.id)}
+
+
+async def test_sync_entries_is_refused_for_a_plain_member(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Which is what keeps every member's scores off every member's phone."""
+    headers = await _as_role(db_session, test_user, test_tenant, "member")
+
+    resp = await client.get("/api/v1/sync/entries", headers=headers)
+    assert resp.status_code == 403
 
 
 # --- /entries/me ---
