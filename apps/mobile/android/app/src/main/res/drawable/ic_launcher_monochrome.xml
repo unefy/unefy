@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Vordergrundebene des Adaptive Icons: offener Ring plus Kern, auf 68 Prozent
-  eingerueckt, damit nichts in die Maskenzone der Launcher faellt.
-
-  Die Quell-SVG zeichnet den Ring als vollen Kreis mit stroke-dasharray. Das
-  kennt VectorDrawable nicht, also steht hier der sichtbare Bogen als eigener
-  Pfad: Radius 26 um (50,50), von -42,2 Grad im Uhrzeigersinn ueber 264,4 Grad
-  bis 222,2 Grad. Uebrig bleibt oben eine Luecke, die die runden Strichenden
-  auf die spezifizierten 73 Grad verkleinern.
+  Monochrome Ebene fuer getoente Icons (Themed Icons ab Android 13). Gleiche
+  Geometrie und gleiche Einrueckung wie der Vordergrund, nur einfarbig weiss:
+  das System ersetzt die Farbe durch die des Nutzer-Themes.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -21,7 +16,7 @@
         android:scaleY="0.68">
         <path
             android:pathData="M69.26,32.534 A26,26 0 1 1 30.74,32.534"
-            android:strokeColor="#4A6BFF"
+            android:strokeColor="#FFFFFF"
             android:strokeWidth="10"
             android:strokeLineCap="round" />
         <path
