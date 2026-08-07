@@ -5,4 +5,9 @@
     <string name="refresh_failed">Aktualisieren fehlgeschlagen</string>
     <string name="stale_offline">Keine Verbindung — Stand vom letzten Abgleich</string>
     <string name="stale_generic">Nicht aktuell — Abgleich fehlgeschlagen</string>
+    <!-- Formularbausteine. Der Datumswähler öffnet sich über den Knopf im Feld;
+         getippt wird ein Datum bewusst nicht. -->
+    <string name="form_pick_date">Wählen</string>
+    <string name="form_confirm_date">Übernehmen</string>
+    <string name="form_cancel">Abbrechen</string>
 </resources>

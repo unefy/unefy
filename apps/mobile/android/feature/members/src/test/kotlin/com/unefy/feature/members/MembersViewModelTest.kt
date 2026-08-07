@@ -314,4 +314,22 @@ private class FakeMembersRepository(
         perPage: Int,
         search: String?,
     ): ApiResult<List<DirectoryEntry>> = ApiResult.Success(emptyList())
+
+    val pending = MutableStateFlow<Set<String>>(emptySet())
+
+    override suspend fun save(id: String?, draft: MemberDraft): String {
+        val recordId = id ?: "new-id"
+        pending.value = pending.value + recordId
+        return recordId
+    }
+
+    override fun pendingIds(): Flow<Set<String>> = pending
+
+    override fun draftFor(id: String): Flow<MemberDraft?> = rows.map { list ->
+        list.firstOrNull { it.id == id }?.toDraft()
+    }
+
+    override suspend fun discardPending(id: String) {
+        pending.value = pending.value - id
+    }
 }

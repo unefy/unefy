@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** What the supervisor sees after each scan. One line, gone on the next code. */
@@ -137,21 +139,40 @@ class ScannerViewModel @Inject constructor(
     /** Codes already sent, so one QR held under the lens is not posted 30 times. */
     private val handled = mutableSetOf<String>()
 
+    /**
+     * True once a load has answered, so the refreshes that follow no longer
+     * claim the screen has nothing yet.
+     */
+    private var sessionsLoaded = false
+
     private val analysisExecutor = Executors.newSingleThreadExecutor()
 
-    private val previewUseCase = Preview.Builder().build().apply {
-        setSurfaceProvider { request -> _uiState.update { it.copy(surfaceRequest = request) } }
-    }
+    /** Serialises binding and unbinding — see [bindToCamera]. */
+    private val cameraLock = Mutex()
 
-    private val analysisUseCase = ImageAnalysis.Builder()
-        // The newest frame is the only one worth reading. Queueing frames would
-        // make the scanner lag further behind the longer it runs.
-        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-        .build()
+    // Built on first bind rather than with the view model. CameraX is Android
+    // through and through, and constructing a use case in a field initialiser
+    // made this class impossible to build in a JVM test — which is where the
+    // session and queue rules below belong.
+    private val preview = lazy {
+        Preview.Builder().build().apply {
+            setSurfaceProvider { request -> _uiState.update { it.copy(surfaceRequest = request) } }
+        }
+    }
+    private val previewUseCase by preview
+
+    private val analysis = lazy {
+        ImageAnalysis.Builder()
+            // The newest frame is the only one worth reading. Queueing frames
+            // would make the scanner lag further behind the longer it runs.
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .apply { setAnalyzer(analysisExecutor, QrAnalyzer(::onCodeScanned)) }
+    }
+    private val analysisUseCase by analysis
 
     init {
         loadSessions()
-        analysisUseCase.setAnalyzer(analysisExecutor, QrAnalyzer(::onCodeScanned))
 
         viewModelScope.launch {
             queue.pendingCount.collect { count -> _uiState.update { it.copy(pending = count) } }
@@ -167,10 +188,15 @@ class ScannerViewModel @Inject constructor(
     }
 
     fun loadSessions() {
-        _uiState.update { it.copy(loadingSessions = true, sessionsError = null) }
+        // Only until the first answer. This screen reloads on every resume, and
+        // flipping back to "loading" each time took the chips — and, until the
+        // camera was moved out of this branch, the viewfinder — off screen for
+        // as long as the request took. Offline that is the full timeout.
+        _uiState.update { it.copy(loadingSessions = !sessionsLoaded, sessionsError = null) }
         viewModelScope.launch {
             when (val result = repository.openSessions()) {
                 is ApiResult.Success -> {
+                    sessionsLoaded = true
                     _uiState.update { state ->
                         state.copy(
                             sessions = result.data,
@@ -287,20 +313,30 @@ class ScannerViewModel @Inject constructor(
         // usually a background one. Calling straight through happened to work
         // by hand and threw "Not in application's main thread" under test.
         withContext(Dispatchers.Main.immediate) {
-            provider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                previewUseCase,
-                analysisUseCase,
-            )
-            try {
-                // Holds the binding for as long as the composable is on screen;
-                // cancellation is what releases the camera.
-                awaitCancellation()
-            } finally {
-                // NonCancellable, or this would be skipped by the very
-                // cancellation that is asking for the camera back.
-                withContext(NonCancellable) { provider.unbindAll() }
+            // One binding at a time, in order. Cancelling the previous caller
+            // does not wait for its unbind to run, so a screen that re-mounted
+            // the viewfinder could bind and then have the *outgoing* coroutine
+            // unbind the use cases it had just taken over — a black viewfinder
+            // that nothing on screen explains, and no way back but leaving the
+            // screen. The lock makes the release happen before the next bind.
+            cameraLock.withLock {
+                provider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    previewUseCase,
+                    analysisUseCase,
+                )
+                try {
+                    // Holds the binding for as long as the composable is on
+                    // screen; cancellation is what releases the camera.
+                    awaitCancellation()
+                } finally {
+                    // NonCancellable, or this would be skipped by the very
+                    // cancellation that is asking for the camera back.
+                    withContext(NonCancellable) {
+                        provider.unbind(previewUseCase, analysisUseCase)
+                    }
+                }
             }
         }
     }
@@ -600,7 +636,9 @@ class ScannerViewModel @Inject constructor(
         error is ApiError.Http && error.code == ALREADY_CHECKED_IN
 
     override fun onCleared() {
-        analysisUseCase.clearAnalyzer()
+        // Only if the camera was ever bound — touching the delegate here would
+        // otherwise build a use case just to tear it down.
+        if (analysis.isInitialized()) analysisUseCase.clearAnalyzer()
         analysisExecutor.shutdown()
         super.onCleared()
     }

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -22,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
@@ -142,23 +146,38 @@ class MemberDetailViewModel @Inject constructor(
 fun MemberDetailRoute(
     memberId: String,
     onBack: () -> Unit,
+    /** Null for roles that may not edit — the action is then absent. */
+    onEdit: (() -> Unit)? = null,
     viewModel: MemberDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(memberId) { viewModel.load(memberId) }
-    MemberDetailScreen(state = state, onBack = onBack)
+    MemberDetailScreen(state = state, onBack = onBack, onEdit = onEdit)
 }
 
 @Composable
 fun MemberDetailScreen(
     state: MemberDetailUiState,
     onBack: () -> Unit = {},
+    onEdit: (() -> Unit)? = null,
 ) {
     UnefyDetailScaffold(
         // The name lives in the header below and slides up beside the arrow
         // once it scrolls out — never the same word twice on one screen.
         collapsedTitle = (state as? MemberDetailUiState.Content)?.member?.displayName,
         onBack = onBack,
+        actions = {
+            // Only once there is something to edit: offering it over a spinner
+            // opens a form that would fill itself in a moment later.
+            if (onEdit != null && state is MemberDetailUiState.Content) {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_edit),
+                        contentDescription = stringResource(R.string.member_form_edit_title),
+                    )
+                }
+            }
+        },
     ) {
         when (state) {
             MemberDetailUiState.Loading -> Unit

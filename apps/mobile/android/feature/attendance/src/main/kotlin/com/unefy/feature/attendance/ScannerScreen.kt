@@ -200,49 +200,17 @@ fun ScannerScreen(
             actions()
         },
     ) {
-        when {
-            state.sessionsError != null -> item("error") {
-                Message(
-                    title = stringResource(R.string.scanner_sessions_error_title),
-                    body = stringResource(R.string.scanner_sessions_error_body),
-                    action = stringResource(R.string.attendance_retry) to onRetrySessions,
-                )
-            }
-
-            state.loadingSessions -> Unit
-
-            state.sessions.isEmpty() -> item("empty") {
-                Message(
-                    title = stringResource(R.string.scanner_no_sessions_title),
-                    // With no session there is nothing to check into, and the
-                    // supervisor is standing at the range. Sending them to a
-                    // laptop is how an evening goes unrecorded.
-                    body = stringResource(R.string.scanner_no_sessions_body),
-                    action = stringResource(R.string.scanner_create_session) to onCreateSession,
-                ) {
-                    // Today's Termine, so the evening starts under the name it
-                    // was announced with — the ad-hoc button above stays for
-                    // everything the calendar does not know about.
-                    state.todaysEvents.forEach { event ->
-                        OutlinedButton(
-                            onClick = { onCreateSessionFromEvent(event) },
-                            enabled = !state.creatingSession,
-                        ) {
-                            Text(stringResource(R.string.scanner_start_from_event, event.title))
-                        }
-                    }
-                }
-            }
-
-            else -> scannerContent(
-                state = state,
-                cameraGranted = cameraGranted,
-                onGrantCamera = onGrantCamera,
-                onSelectSession = onSelectSession,
-                bindCamera = bindCamera,
-                onOpenAttendance = onOpenAttendance,
-            )
-        }
+        scannerContent(
+            state = state,
+            cameraGranted = cameraGranted,
+            onGrantCamera = onGrantCamera,
+            onSelectSession = onSelectSession,
+            bindCamera = bindCamera,
+            onOpenAttendance = onOpenAttendance,
+            onRetrySessions = onRetrySessions,
+            onCreateSession = onCreateSession,
+            onCreateSessionFromEvent = onCreateSessionFromEvent,
+        )
     }
 }
 
@@ -253,6 +221,9 @@ private fun LazyListScope.scannerContent(
     onSelectSession: (String) -> Unit,
     bindCamera: suspend (android.content.Context, androidx.lifecycle.LifecycleOwner) -> Unit,
     onOpenAttendance: () -> Unit,
+    onRetrySessions: () -> Unit,
+    onCreateSession: () -> Unit,
+    onCreateSessionFromEvent: (EventOption) -> Unit,
 ) {
     // Only when there is a choice. One open training evening is the normal
     // case, and a single chip to pick from is noise.
@@ -368,6 +339,48 @@ private fun LazyListScope.scannerContent(
         }
     }
 
+    // Beneath the camera, never instead of it.
+    //
+    // Everything above used to live inside this branch, so anything wrong with
+    // the session list took the viewfinder with it: no session, no cached list,
+    // a load still in flight — each of them left a scanner screen with no
+    // scanner on it. Worst offline, where the list is loading for as long as a
+    // dead connection takes to answer and the camera was torn down and bound
+    // again on every refresh.
+    when {
+        state.sessionsError != null -> item("error") {
+            Message(
+                title = stringResource(R.string.scanner_sessions_error_title),
+                body = stringResource(R.string.scanner_sessions_error_body),
+                action = stringResource(R.string.attendance_retry) to onRetrySessions,
+            )
+        }
+
+        state.loadingSessions -> Unit
+
+        state.sessions.isEmpty() -> item("empty") {
+            Message(
+                title = stringResource(R.string.scanner_no_sessions_title),
+                // With no session there is nothing to check into, and the
+                // supervisor is standing at the range. Sending them to a
+                // laptop is how an evening goes unrecorded.
+                body = stringResource(R.string.scanner_no_sessions_body),
+                action = stringResource(R.string.scanner_create_session) to onCreateSession,
+            ) {
+                // Today's Termine, so the evening starts under the name it
+                // was announced with — the ad-hoc button above stays for
+                // everything the calendar does not know about.
+                state.todaysEvents.forEach { event ->
+                    OutlinedButton(
+                        onClick = { onCreateSessionFromEvent(event) },
+                        enabled = !state.creatingSession,
+                    ) {
+                        Text(stringResource(R.string.scanner_start_from_event, event.title))
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**

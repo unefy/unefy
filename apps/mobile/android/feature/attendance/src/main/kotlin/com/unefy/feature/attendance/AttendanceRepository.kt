@@ -583,4 +583,7 @@ abstract class AttendanceModule {
 
     @Binds
     abstract fun bindSeedStore(impl: EncryptedSeedStore): SeedStore
+
+    @Binds
+    abstract fun bindDeviceIdentity(impl: DefaultDeviceIdentity): DeviceIdentity
 }

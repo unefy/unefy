@@ -58,6 +58,12 @@ sealed interface MembersUiState {
          * clears itself when the next sync succeeds.
          */
         val staleBecause: ApiError? = null,
+        /**
+         * Members with an edit or a creation still in the queue. Marked in the
+         * list, because somebody who typed a member into a phone with no signal
+         * needs to see that it has not left the phone yet.
+         */
+        val pendingIds: Set<String> = emptySet(),
     ) : MembersUiState
 
     /**
@@ -111,13 +117,15 @@ class MembersViewModel @Inject constructor(
         repository.count(),
         coordinator.status(MemberSyncCollection.COLLECTION),
         refreshing,
-    ) { (searched, members), total, status, isRefreshing ->
+        repository.pendingIds(),
+    ) { (searched, members), total, status, isRefreshing, pendingIds ->
         MembersUiState.Content(
             members = members,
             total = total,
             query = searched,
             isRefreshing = isRefreshing,
             staleBecause = (status as? SyncStatus.Failed)?.error,
+            pendingIds = pendingIds,
         )
     }
 

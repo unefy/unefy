@@ -1,8 +1,10 @@
 package com.unefy.feature.members
 
+import com.unefy.core.database.PendingWrite
 import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncedMember
 import com.unefy.core.database.SyncedMemberDao
+import com.unefy.core.database.foldForSearch
 import com.unefy.core.model.Member
 import com.unefy.core.model.DirectoryEntry
 import com.unefy.core.model.MemberStatus
@@ -10,6 +12,10 @@ import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiEndpoints
 import com.unefy.core.network.ApiResult
 import com.unefy.core.network.map
+import com.unefy.core.sync.WriteQueue
+import java.util.UUID
+import kotlinx.coroutines.flow.combine
+import kotlinx.serialization.json.Json
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -205,6 +211,35 @@ interface MembersRepository {
         perPage: Int = 100,
         search: String? = null,
     ): ApiResult<List<DirectoryEntry>>
+
+    /**
+     * Save a member, into the local queue.
+     *
+     * Returns the record's id — freshly generated for a new member, so the
+     * caller can open the detail screen of somebody the server has never heard
+     * of. [id] null means create.
+     *
+     * Cannot fail and does not touch the network: a clubhouse cellar is where
+     * half of this gets typed. What reaches the server, and when, is the
+     * queue's business.
+     */
+    suspend fun save(id: String?, draft: MemberDraft): String
+
+    /** The ids with an unsent write, so a list can mark them. */
+    fun pendingIds(): Flow<Set<String>>
+
+    /**
+     * The draft to open a form with: the queued version if there is one, the
+     * mirror's otherwise.
+     *
+     * Queued wins on purpose — it is what this person last typed, and showing
+     * them the server's older copy would quietly discard their edit the moment
+     * they saved again.
+     */
+    fun draftFor(id: String): Flow<MemberDraft?>
+
+    /** Throw away an unsent write. */
+    suspend fun discardPending(id: String)
 }
 
 @Singleton
@@ -212,10 +247,40 @@ class DefaultMembersRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val members: SyncedMemberDao,
     private val cursors: SyncCursorDao,
+    private val writes: WriteQueue,
+    private val json: Json,
 ) : MembersRepository {
 
-    override fun stream(query: String): Flow<List<Member>> =
-        members.search(query).map { rows -> rows.map(SyncedMember::toDomain) }
+    /**
+     * The mirror with the unsent writes laid over it.
+     *
+     * Not written into `synced_members` directly, for two reasons that both
+     * end badly: the sweep after a re-bootstrap would delete a creation that
+     * has never been sent, and an edit written into the mirror is
+     * indistinguishable from one the server has confirmed — so a failed send
+     * would leave a lie on the device with nothing left to retry it.
+     */
+    override fun stream(query: String): Flow<List<Member>> = combine(
+        members.search(query),
+        writes.pending(MemberSyncCollection.COLLECTION),
+    ) { rows, pending ->
+        val drafts = pending.mapNotNull { write -> draftOf(write)?.let { write.recordId to it } }
+            .toMap()
+
+        val mirrored = rows.map { row ->
+            drafts[row.id]?.let { row.toDomain().withDraft(it) } ?: row.toDomain()
+        }
+        // A creation the server has never seen has no mirror row to sit on, so
+        // it is built from the draft alone. Filtered here rather than in SQL
+        // because it is not in the table the query runs against.
+        val mirroredIds = rows.mapTo(mutableSetOf()) { it.id }
+        val created = pending
+            .filter { it.op == PendingWrite.OP_CREATE && it.recordId !in mirroredIds }
+            .mapNotNull { write -> drafts[write.recordId]?.asNewMember(write.recordId) }
+            .filter { it.matches(query) }
+
+        (created + mirrored).sortedBy { foldForSearch("${it.lastName} ${it.firstName}") }
+    }
 
     override fun count(): Flow<Int> = members.countStream()
 
@@ -249,7 +314,135 @@ class DefaultMembersRepository @Inject constructor(
         }
         .map { dtos -> dtos.map(DirectoryDto::toDomain) }
 
+    override suspend fun save(id: String?, draft: MemberDraft): String {
+        val recordId = id ?: UUID.randomUUID().toString()
+        val creating = id == null
+        writes.enqueue(
+            entity = MemberSyncCollection.COLLECTION,
+            recordId = recordId,
+            op = if (creating) PendingWrite.OP_CREATE else PendingWrite.OP_UPDATE,
+            payloadJson = if (creating) {
+                json.encodeToString(draft.toCreatePayload(recordId))
+            } else {
+                json.encodeToString(draft.toUpdatePayload())
+            },
+            label = "${draft.firstName} ${draft.lastName}".trim(),
+        )
+        return recordId
+    }
+
+    override fun pendingIds(): Flow<Set<String>> =
+        writes.pending(MemberSyncCollection.COLLECTION)
+            .map { writes -> writes.mapTo(mutableSetOf()) { it.recordId } }
+
+    override fun draftFor(id: String): Flow<MemberDraft?> = combine(
+        members.byIdStream(id),
+        writes.pendingFor(MemberSyncCollection.COLLECTION, id),
+    ) { row, queued ->
+        queued?.let(::draftOf) ?: row?.toDomain()?.toDraft()
+    }
+
+    override suspend fun discardPending(id: String) =
+        writes.discard(MemberSyncCollection.COLLECTION, id)
+
+    /**
+     * The draft inside a queued write.
+     *
+     * Null when the payload will not decode, which can only happen if a build
+     * changed the shape under a row that was already queued. Returning null
+     * leaves the mirror's version showing rather than blanking the member; the
+     * queue drops the row on its own when the server refuses it.
+     */
+    private fun draftOf(write: PendingWrite): MemberDraft? = runCatching {
+        if (write.op == PendingWrite.OP_CREATE) {
+            json.decodeFromString<MemberCreatePayload>(write.payloadJson).toDraft()
+        } else {
+            json.decodeFromString<MemberUpdatePayload>(write.payloadJson).toDraft()
+        }
+    }.getOrNull()
 }
+
+private fun Member.withDraft(draft: MemberDraft) = copy(
+    firstName = draft.firstName,
+    lastName = draft.lastName,
+    email = draft.email,
+    phone = draft.phone,
+    mobile = draft.mobile,
+    birthday = draft.birthday,
+    gender = draft.gender,
+    street = draft.street,
+    zipCode = draft.zipCode,
+    city = draft.city,
+    status = MemberStatus.fromApi(draft.status),
+    category = draft.category,
+    joinedAt = draft.joinedAt ?: joinedAt,
+)
+
+/**
+ * A member that exists only on this device so far.
+ *
+ * The member number is empty because the server allocates it — the list shows
+ * the "not sent" marker in its place, which is truer than inventing one.
+ */
+private fun MemberDraft.asNewMember(id: String) = Member(
+    id = id,
+    memberNumber = "",
+    firstName = firstName,
+    lastName = lastName,
+    email = email,
+    phone = phone,
+    mobile = mobile,
+    birthday = birthday,
+    gender = gender,
+    street = street,
+    zipCode = zipCode,
+    city = city,
+    status = MemberStatus.fromApi(status),
+    category = category,
+    joinedAt = joinedAt.orEmpty(),
+    leftAt = null,
+    iban = null,
+)
+
+/** The same folding the mirror's `searchKey` uses, so both lists filter alike. */
+private fun Member.matches(query: String): Boolean {
+    if (query.isBlank()) return true
+    val needle = foldForSearch(query)
+    return foldForSearch(listOfNotNull(firstName, lastName, email).joinToString(" "))
+        .contains(needle)
+}
+
+internal fun MemberCreatePayload.toDraft() = MemberDraft(
+    firstName = firstName,
+    lastName = lastName,
+    email = email,
+    phone = phone,
+    mobile = mobile,
+    birthday = birthday,
+    gender = gender,
+    street = street,
+    zipCode = zipCode,
+    city = city,
+    status = status,
+    category = category,
+    joinedAt = joinedAt,
+)
+
+internal fun MemberUpdatePayload.toDraft() = MemberDraft(
+    firstName = firstName,
+    lastName = lastName,
+    email = email,
+    phone = phone,
+    mobile = mobile,
+    birthday = birthday,
+    gender = gender,
+    street = street,
+    zipCode = zipCode,
+    city = city,
+    status = status,
+    category = category,
+    joinedAt = joinedAt,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

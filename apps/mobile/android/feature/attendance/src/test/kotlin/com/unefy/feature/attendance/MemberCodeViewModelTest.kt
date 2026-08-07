@@ -11,6 +11,8 @@ import com.unefy.feature.attendance.nfc.NfcCheckInSignals
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -54,11 +56,12 @@ class MemberCodeViewModelTest {
     private inline fun withViewModel(
         repository: FakeAttendanceRepository,
         coordinator: FakeCoordinator = FakeCoordinator(),
+        seedStore: FakeSeedStore = FakeSeedStore(),
         block: (MemberCodeViewModel) -> Unit,
     ) {
         val viewModel = MemberCodeViewModel(
             repository = repository,
-            seedStore = FakeSeedStore(),
+            seedStore = seedStore,
             clock = clock(),
             nfcSignals = signals,
             coordinator = coordinator,
@@ -225,6 +228,65 @@ class MemberCodeViewModelTest {
         }
     }
 
+    /**
+     * Regression, and the reported one: "the app has no QR code offline".
+     *
+     * A seed expires daily, so at a basement range the stored one is usually
+     * out of date — and the screen used to fetch a replacement *before* showing
+     * anything. With no connection that request does not fail, it hangs until
+     * the timeout, and the member holds out a blank screen for ten seconds.
+     * The stale code was there the whole time and verifies for two more periods.
+     */
+    @Test
+    fun `an expired stored seed shows a code without waiting for the network`() =
+        runTest(dispatcher) {
+            val repository = FakeAttendanceRepository(
+                ownCheckIn = ApiResult.Failure(ApiError.Network(IOException("offline"))),
+                seedResult = { awaitCancellation() },
+            )
+            withViewModel(repository, seedStore = FakeSeedStore(expiresAtEpochSeconds = 0)) {
+                runCurrent()
+
+                val state = it.uiState.value
+                assertTrue("still $state", state is MemberCodeUiState.Content)
+                // Said out loud on screen, because it might not verify.
+                assertTrue((state as MemberCodeUiState.Content).seedStale)
+            }
+        }
+
+    /** And once a connection does answer, the loop moves onto the fresh seed. */
+    @Test
+    fun `a seed fetched in the background replaces the stale one`() = runTest(dispatcher) {
+        val fresh = AttendanceSeed(
+            memberRef = "MNOPQRSTUVWX2345",
+            seed = "FRESHSEED12345",
+            tenantId = "tenant-1",
+            expiresAtEpochSeconds = Long.MAX_VALUE,
+        )
+        val store = FakeSeedStore(expiresAtEpochSeconds = 0)
+        // Answers only when the test lets it, so the two moments stay apart:
+        // the stale code is on screen first, the fresh one replaces it after.
+        val answered = CompletableDeferred<ApiResult<AttendanceSeed>>()
+        val repository = FakeAttendanceRepository(
+            ownCheckIn = ApiResult.Success(null),
+            seedResult = { answered.await() },
+        )
+        withViewModel(repository, seedStore = store) {
+            runCurrent()
+            assertTrue((it.uiState.value as MemberCodeUiState.Content).seedStale)
+
+            answered.complete(ApiResult.Success(fresh))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val state = it.uiState.value
+            assertTrue("still $state", state is MemberCodeUiState.Content)
+            assertTrue(!(state as MemberCodeUiState.Content).seedStale)
+            // Kept, or the next cold start would be stale again.
+            assertEquals(fresh, store.written)
+        }
+    }
+
     @Test
     fun `a rejected tap returns the screen to the code`() = runTest(dispatcher) {
         val repository = FakeAttendanceRepository(ownCheckIn = ApiResult.Success(null))
@@ -243,23 +305,35 @@ class MemberCodeViewModelTest {
     }
 }
 
-private class FakeSeedStore : SeedStore {
+class FakeSeedStore(expiresAtEpochSeconds: Long = Long.MAX_VALUE) : SeedStore {
     override val cached: AttendanceSeed? = null
 
-    override suspend fun read() = AttendanceSeed(
+    /** The last seed handed to [write], so a test can see a refresh persisted. */
+    var written: AttendanceSeed? = null
+        private set
+
+    private val stored = AttendanceSeed(
         memberRef = "MNOPQRSTUVWX2345",
         seed = "SEEDVALUE12345",
         tenantId = "tenant-1",
-        expiresAtEpochSeconds = Long.MAX_VALUE,
+        expiresAtEpochSeconds = expiresAtEpochSeconds,
     )
 
-    override suspend fun write(seed: AttendanceSeed) = Unit
+    override suspend fun read() = stored
+
+    override suspend fun write(seed: AttendanceSeed) {
+        written = seed
+    }
 
     override suspend fun clear() = Unit
 }
 
 private class FakeAttendanceRepository(
     var ownCheckIn: ApiResult<OwnCheckIn?>,
+    /** A dead connection is a call that does not answer, not one that returns. */
+    private val seedResult: suspend () -> ApiResult<AttendanceSeed> = {
+        error("the stored seed should have answered")
+    },
 ) : AttendanceRepository {
     /** Counted, so a test can assert that nothing was read at all. */
     var reads = 0
@@ -269,8 +343,7 @@ private class FakeAttendanceRepository(
         return ownCheckIn
     }
 
-    override suspend fun seed(): ApiResult<AttendanceSeed> =
-        error("the stored seed should have answered")
+    override suspend fun seed(): ApiResult<AttendanceSeed> = seedResult()
 
     override suspend fun openSessions() = error("unused")
 

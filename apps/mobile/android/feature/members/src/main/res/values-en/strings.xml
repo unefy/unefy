@@ -51,4 +51,30 @@
     <string name="profile_title">My profile</string>
     <string name="profile_none_title">No member record</string>
     <string name="profile_none_body">Your account is not linked to a member of this club. The board can add the link.</string>
+    <!-- Creating and editing a member. See the German file for why banking
+         fields are absent. -->
+    <string name="member_form_create_title">Add member</string>
+    <string name="member_form_edit_title">Edit member</string>
+    <string name="member_form_section_person">Person</string>
+    <string name="member_form_section_contact">Contact</string>
+    <string name="member_form_section_address">Address</string>
+    <string name="member_form_section_membership">Membership</string>
+    <string name="member_form_first_name">First name</string>
+    <string name="member_form_last_name">Last name</string>
+    <string name="member_form_birthday">Date of birth</string>
+    <string name="member_form_gender">Gender</string>
+    <string name="member_form_email">Email</string>
+    <string name="member_form_phone">Phone</string>
+    <string name="member_form_mobile">Mobile</string>
+    <string name="member_form_street">Street</string>
+    <string name="member_form_zip">Postcode</string>
+    <string name="member_form_city">Town</string>
+    <string name="member_form_status">Status</string>
+    <string name="member_form_category">Category</string>
+    <string name="member_form_joined_at">Joined</string>
+    <string name="member_form_create">Add</string>
+    <string name="member_form_save">Save</string>
+    <string name="member_form_needs_names">A first and last name are needed.</string>
+    <string name="member_form_queue_hint">Saved on this device and sent as soon as there is a connection.</string>
+    <string name="member_pending">Not sent</string>
 </resources>

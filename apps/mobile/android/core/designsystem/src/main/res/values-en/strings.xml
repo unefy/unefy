@@ -5,4 +5,8 @@
     <string name="refresh_failed">Refresh failed</string>
     <string name="stale_offline">No connection — showing the last sync</string>
     <string name="stale_generic">Out of date — sync failed</string>
+    <!-- Form building blocks. See the German file for why dates are picked. -->
+    <string name="form_pick_date">Pick</string>
+    <string name="form_confirm_date">Use</string>
+    <string name="form_cancel">Cancel</string>
 </resources>

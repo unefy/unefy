@@ -27,10 +27,14 @@ private val Context.installDataStore: DataStore<Preferences> by preferencesDataS
  * It is reset by clearing app data, which is fine: the id exists to correlate
  * scans within a short retention window, not to bind anyone permanently.
  */
+fun interface DeviceIdentity {
+    suspend fun installId(): String
+}
+
 @Singleton
-class DeviceIdentity @Inject constructor(
+class DefaultDeviceIdentity @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : DeviceIdentity {
     @Volatile
     private var cached: String? = null
 
@@ -39,7 +43,7 @@ class DeviceIdentity @Inject constructor(
      * runs on the main dispatcher, and DataStore is disk I/O. Cached after the
      * first read so the disk is touched once per process, not once per code.
      */
-    suspend fun installId(): String = cached ?: run {
+    override suspend fun installId(): String = cached ?: run {
         val stored = context.installDataStore.data.first()[KEY]
         val id = stored ?: UUID.randomUUID().toString().also { fresh ->
             context.installDataStore.edit { it[KEY] = fresh }

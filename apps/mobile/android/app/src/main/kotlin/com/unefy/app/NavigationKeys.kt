@@ -21,6 +21,15 @@ data object MembersKey : UnefyNavKey
 @Serializable
 data class MemberDetailKey(val memberId: String) : UnefyNavKey
 
+/**
+ * Creating a member and editing one, which are the same screen.
+ *
+ * A null [memberId] means create. One key rather than two, because the
+ * difference the screen makes of it is a title and a verb.
+ */
+@Serializable
+data class MemberFormKey(val memberId: String? = null) : UnefyNavKey
+
 @Serializable
 data object EventsKey : UnefyNavKey
 

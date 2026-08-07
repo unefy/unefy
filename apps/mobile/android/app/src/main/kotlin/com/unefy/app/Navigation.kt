@@ -86,6 +86,7 @@ import com.unefy.feature.events.EventDetailRoute
 import com.unefy.feature.events.EventsRoute
 import com.unefy.feature.members.DirectoryRoute
 import com.unefy.feature.members.MemberDetailRoute
+import com.unefy.feature.members.MemberFormRoute
 import com.unefy.feature.members.MyProfileRoute
 import com.unefy.feature.members.MembersRoute
 import com.unefy.feature.scoring.RecordShotsRoute
@@ -461,10 +462,35 @@ internal fun unefyEntryProvider(
             clubName = clubName,
             actions = accountActions,
             onMemberClick = { id -> onOpen(MemberDetailKey(id)) },
+            // The server refuses a creation from anyone below board, so the
+            // button is absent rather than present and rejected on tap.
+            onAddMember = if (role.canAdminister) {
+                { onOpen(MemberFormKey()) }
+            } else {
+                null
+            },
         )
     }
     entry<MemberDetailKey> { key ->
-        MemberDetailRoute(memberId = key.memberId, onBack = onBack)
+        MemberDetailRoute(
+            memberId = key.memberId,
+            onBack = onBack,
+            onEdit = if (role.canAdminister) {
+                { onOpen(MemberFormKey(key.memberId)) }
+            } else {
+                null
+            },
+        )
+    }
+    entry<MemberFormKey> { key ->
+        MemberFormRoute(
+            memberId = key.memberId,
+            onBack = onBack,
+            // Straight back to where they came from. Opening the new member's
+            // detail screen instead would push a third screen onto the stack
+            // and leave the form behind the back button.
+            onSaved = { onBack() },
+        )
     }
     entry<EventsKey> {
         EventsRoute(

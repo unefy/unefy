@@ -147,4 +147,14 @@ private class FakeDetailRepository(
         perPage: Int,
         search: String?,
     ): ApiResult<List<DirectoryEntry>> = ApiResult.Success(emptyList())
+
+    override suspend fun save(id: String?, draft: MemberDraft): String = id ?: "new-id"
+
+    override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
+
+    override fun draftFor(id: String): Flow<MemberDraft?> = rows.map { list ->
+        list.firstOrNull { it.id == id }?.toDraft()
+    }
+
+    override suspend fun discardPending(id: String) = Unit
 }

@@ -99,6 +99,14 @@ class MemberCodeViewModel @Inject constructor(
     private var readAtEpochSeconds = 0L
 
     /**
+     * The seed the loop builds codes from.
+     *
+     * A field rather than a local, because a stale one may be replaced while the
+     * loop is already running — see [resolveSeed].
+     */
+    private var seed: AttendanceSeed? = null
+
+    /**
      * Cuts the current tick short, so the loop polls now instead of on schedule.
      *
      * Conflated: it says "there is news", and two of those mean what one means.
@@ -166,9 +174,10 @@ class MemberCodeViewModel @Inject constructor(
         tapConfirmed = false
         seenOnServer = false
         readAtEpochSeconds = 0L
+        seed = null
         _uiState.value = MemberCodeUiState.Loading
         viewModelScope.launch {
-            val seed = obtainSeed() ?: return@launch
+            if (!resolveSeed()) return@launch
             // Anything already recorded before this screen opened is history,
             // not the confirmation of what is about to happen.
             val openedAt = clock.epochSeconds()
@@ -183,6 +192,10 @@ class MemberCodeViewModel @Inject constructor(
             // this loop is the only place the phone would hear about it.
             while (isActive) {
                 val now = clock.epochSeconds()
+                // Read every tick rather than captured once: a stale seed is
+                // shown straight away and replaced under the loop when a fresh
+                // one lands.
+                val current = seed ?: break
 
                 // The fallback under both instant paths, and still the only one
                 // that needs nothing but a request: a tap answers through
@@ -226,13 +239,13 @@ class MemberCodeViewModel @Inject constructor(
                 if (!confirmed && !awaitingTapResult) {
                     _uiState.value = MemberCodeUiState.Content(
                         code = AttendanceCode.build(
-                            seed = seed.seed,
-                            memberRef = seed.memberRef,
-                            tenantId = seed.tenantId,
+                            seed = current.seed,
+                            memberRef = current.memberRef,
+                            tenantId = current.tenantId,
                             counter = AttendanceCode.counterFor(now),
                         ),
                         secondsRemaining = AttendanceCode.secondsUntilNextCode(now),
-                        seedStale = now >= seed.expiresAtEpochSeconds,
+                        seedStale = now >= current.expiresAtEpochSeconds,
                     )
                 }
                 // A tick, unless the doorbell rings first. That is the whole
@@ -243,24 +256,53 @@ class MemberCodeViewModel @Inject constructor(
     }
 
     /**
-     * The stored seed if it is still current, a fresh one otherwise, and the
-     * stored one anyway if the network says no.
+     * Puts a seed into [seed] and says whether the loop may start.
      *
-     * That last fallback is the offline case: an expired seed still verifies
-     * for two more periods on the server, so showing a probably-good code beats
-     * showing an error to someone standing at the door.
+     * A stored seed answers immediately, expired or not — the network is never
+     * waited on when there is anything at all to show. An expired one still
+     * verifies for two more periods on the server, and the alternative is what
+     * this replaces: the screen sat in [MemberCodeUiState.Loading], showing
+     * nothing whatsoever, until the request either answered or timed out. At a
+     * basement range that is up to ten seconds of blank screen every time the
+     * screen is opened, and a seed expires daily — so it was the normal case
+     * there rather than an edge one. From the outside it reads as "the app has
+     * no QR code offline", which is exactly how it was reported.
      */
-    private suspend fun obtainSeed(): AttendanceSeed? {
+    private suspend fun resolveSeed(): Boolean {
         val stored = seedStore.read()
-        if (stored != null && clock.epochSeconds() < stored.expiresAtEpochSeconds) {
-            return stored
+        if (stored != null) {
+            seed = stored
+            if (clock.epochSeconds() >= stored.expiresAtEpochSeconds) refreshSeed()
+            return true
         }
 
+        // Nothing stored: this account has never had a code on this device, so
+        // there is no offline answer and the request has to be waited for.
         return when (val result = repository.seed()) {
-            is ApiResult.Success -> result.data.also { seedStore.write(it) }
-            is ApiResult.Failure -> stored ?: run {
+            is ApiResult.Success -> {
+                seedStore.write(result.data)
+                seed = result.data
+                true
+            }
+
+            is ApiResult.Failure -> {
                 _uiState.value = failureFor(result.error)
-                null
+                false
+            }
+        }
+    }
+
+    /**
+     * Fetches a newer seed beside the running loop, which picks it up on its
+     * next tick. Silent on failure: the stale code is already on screen and
+     * still verifies.
+     */
+    private fun refreshSeed() {
+        viewModelScope.launch {
+            val result = repository.seed()
+            if (result is ApiResult.Success) {
+                seedStore.write(result.data)
+                seed = result.data
             }
         }
     }

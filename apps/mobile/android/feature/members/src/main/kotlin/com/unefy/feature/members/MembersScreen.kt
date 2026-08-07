@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -65,6 +67,8 @@ fun MembersRoute(
     clubName: String?,
     onMemberClick: (String) -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
+    /** Null for roles that may not add members — the button is then absent. */
+    onAddMember: (() -> Unit)? = null,
     viewModel: MembersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -73,6 +77,7 @@ fun MembersRoute(
         clubName = clubName,
         actions = actions,
         onMemberClick = onMemberClick,
+        onAddMember = onAddMember,
         onQueryChange = viewModel::onQueryChange,
         onRetry = viewModel::retry,
         onRefresh = viewModel::refresh,
@@ -84,6 +89,7 @@ fun MembersScreen(
     state: MembersUiState,
     clubName: String? = null,
     onMemberClick: (String) -> Unit = {},
+    onAddMember: (() -> Unit)? = null,
     onQueryChange: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -104,6 +110,16 @@ fun MembersScreen(
             enabled = state !is MembersUiState.Failure,
         ),
         actions = actions,
+        floatingActionButton = {
+            if (onAddMember != null) {
+                FloatingActionButton(onClick = onAddMember) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_add),
+                        contentDescription = stringResource(R.string.members_add),
+                    )
+                }
+            }
+        },
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
         // No onLoadMore. The mirror holds the whole club, so scrolling has nothing
@@ -156,7 +172,11 @@ fun MembersScreen(
                     )
                 }
                 items(state.members, key = { it.id }) { member ->
-                    MemberRow(member, onClick = { onMemberClick(member.id) })
+                    MemberRow(
+                        member = member,
+                        pending = member.id in state.pendingIds,
+                        onClick = { onMemberClick(member.id) },
+                    )
                     UnefyRowDivider()
                 }
             }
@@ -165,7 +185,7 @@ fun MembersScreen(
 }
 
 @Composable
-private fun MemberRow(member: Member, onClick: () -> Unit) {
+private fun MemberRow(member: Member, pending: Boolean, onClick: () -> Unit) {
     Row(
         // The Material state layer, not a scale animation. A list row that
         // shrinks under the finger is a web idiom; Android expresses press with
@@ -202,9 +222,26 @@ private fun MemberRow(member: Member, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = member.memberNumber,
-                style = UnefyNumericTextStyle,
+                // A member the server has never seen has no number yet, and
+                // saying so is better than an empty line where one belongs.
+                text = member.memberNumber.ifBlank { stringResource(R.string.member_pending) },
+                style = if (member.memberNumber.isBlank()) {
+                    MaterialTheme.typography.labelMedium
+                } else {
+                    UnefyNumericTextStyle
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // The queue marker sits where it can be scanned down the column, next
+        // to the status it qualifies: this row is not what the club sees yet.
+        if (pending && member.memberNumber.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.member_pending),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = UnefySpacing.sm),
             )
         }
 
