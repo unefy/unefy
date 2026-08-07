@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -41,15 +42,46 @@ class EventService:
             event.event_type = "competition"
 
     async def create(self, data: EventCreate, created_by: uuid.UUID) -> Event:
+        """Create an event, idempotently when the caller names its id.
+
+        Same contract as `MemberService.create`: repeating a request with the
+        same `id` returns the event from the first one. What a phone with no
+        signal cannot tell is whether its request never arrived or its reply
+        never came back, so it has to be safe to just ask again.
+        """
+        fields = data.model_dump()
+        event_id = fields.pop("id", None)
+
+        if event_id is not None:
+            existing = await self.events.get_by_id(event_id)
+            if existing is not None:
+                return existing
+
         event = Event(
-            **data.model_dump(),
+            **fields,
             tenant_id=self.tenant_id,
             created_by=created_by,
             updated_by=created_by,
         )
+        if event_id is not None:
+            event.id = event_id
         await self._apply_competition_link(event)
-        self.session.add(event)
-        await self.session.flush()
+
+        try:
+            # See `MemberService.create` for why this is a savepoint, and why
+            # the `add` belongs inside it.
+            async with self.session.begin_nested():
+                self.session.add(event)
+                await self.session.flush()
+        except IntegrityError:
+            if event_id is None:
+                raise
+            existing = await self.events.get_by_id(event_id)
+            if existing is None:
+                # Taken by another club's event — see `MemberService.create`.
+                raise ConflictError("Event id already in use", code="ID_IN_USE") from None
+            return existing
+
         await self.session.refresh(event)
         return event
 

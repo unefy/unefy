@@ -14,6 +14,12 @@ class MemberBulkDelete(BaseSchema):
 
 
 class MemberCreate(BaseSchema):
+    #: Optional, client-chosen primary key, for clients that record offline.
+    #: A phone with no signal has to name the member it just created before the
+    #: server has seen it, and it has to be able to retry a request whose reply
+    #: was lost without creating that member twice. Sending the same id again
+    #: returns the row that already exists — see `MemberService.create`.
+    id: uuid.UUID | None = None
     first_name: str = Field(min_length=1, max_length=255)
     last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr | None = None

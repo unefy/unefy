@@ -9,6 +9,10 @@ EVENT_TYPE_PATTERN = "^(training|meeting|celebration|competition|other)$"
 
 
 class EventCreate(BaseSchema):
+    #: Optional, client-chosen primary key. Same reason as `MemberCreate.id`:
+    #: an offline client needs a name for the event before the server has one,
+    #: and a retry after a lost reply must not create a second event.
+    id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
     event_type: str = Field(default="other", pattern=EVENT_TYPE_PATTERN)
