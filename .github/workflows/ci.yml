@@ -116,5 +116,10 @@ jobs:
       # google-services.json is deliberately absent here — the conditional
       # plugin application must keep the build green without it, and CI is
       # exactly the fork-shaped environment that proves it.
+      # `test` as well as `testDebugUnitTest`: core:model is a pure Kotlin
+      # module and has no Android variants, so the variant-specific task does
+      # not exist there. Without it the scoring engine, the hit detector and
+      # the target locator — the parts with real logic in them — were never
+      # run by CI at all.
       - name: Unit tests, lint, build
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew test testDebugUnitTest lintDebug assembleDebug
