@@ -197,7 +197,15 @@ fun UnefyListScaffold(
 
     Scaffold(
         modifier = modifier,
-        floatingActionButton = floatingActionButton,
+        floatingActionButton = {
+            // Lifted clear of the floating navigation bar for the same reason as
+            // the snackbar below: the bar overlays the content and is therefore
+            // absent from the Scaffold's insets, so an unpadded FAB sits behind
+            // it and is partly untappable. It was — on every screen with one.
+            Box(modifier = Modifier.padding(bottom = glassBarClearance)) {
+                floatingActionButton()
+            }
+        },
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = {
             // The floating bar overlays the content, so it is not in the

@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -38,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -124,15 +122,10 @@ fun MembersScreen(
                 ),
             )
         },
-        floatingActionButton = {
-            // The single filled emphasis on this screen.
-            FloatingActionButton(onClick = {}) {
-                Icon(
-                    painter = painterResource(DesignR.drawable.ic_add),
-                    contentDescription = stringResource(R.string.members_add),
-                )
-            }
-        },
+        // No "add member" button yet: it had `onClick = {}` and did nothing.
+        // That went unnoticed only because the floating navigation bar covered
+        // it — until that overlap was fixed and a dead control appeared on the
+        // screen. The string `members_add` is kept for when the form exists.
     ) {
         when (state) {
             MembersUiState.Loading -> membersSkeleton()
