@@ -370,4 +370,10 @@ private class FakeEventsRepository(
 
     override suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>> =
         ApiResult.Success(emptyList())
+    override suspend fun save(id: String?, draft: EventDraft): String = id ?: "new-id"
+
+    override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
+
+    override fun draftFor(id: String): Flow<EventDraft?> = MutableStateFlow(null)
+
 }

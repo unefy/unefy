@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -20,7 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,9 +37,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.unefy.core.designsystem.R
+import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -161,6 +166,120 @@ fun UnefyDateField(
         }
     }
 }
+
+/**
+ * A moment in time: a date and a time of day, picked in that order.
+ *
+ * [value] and [onValueChange] speak ISO-8601 *instants* in UTC
+ * (`2026-09-01T17:00:00Z`), which is what the API stores. The pickers work in
+ * the device's zone, so somebody setting a club evening for 19:00 gets 19:00
+ * local wherever they are — the conversion happens here rather than being
+ * argued about at every call site.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UnefyDateTimeField(
+    label: String,
+    value: String?,
+    onValueChange: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+    required: Boolean = false,
+    error: String? = null,
+) {
+    var pickingDate by remember { mutableStateOf(false) }
+    var pickingTime by remember { mutableStateOf(false) }
+
+    val zoned = remember(value) {
+        value?.let {
+            runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()) }.getOrNull()
+        }
+    }
+    // Carried between the two dialogs: the date is chosen first, and the time
+    // dialog needs it to build the instant.
+    var chosenDate by remember(value) { mutableStateOf(zoned?.toLocalDate()) }
+
+    OutlinedTextField(
+        value = UnefyFormat.dateTime(value),
+        onValueChange = {},
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(if (required) "$label *" else label) },
+        readOnly = true,
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
+        singleLine = true,
+        trailingIcon = {
+            TextButton(onClick = { pickingDate = true }) {
+                Text(stringResource(R.string.form_pick_date))
+            }
+        },
+    )
+
+    if (pickingDate) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = (chosenDate ?: LocalDate.now())
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { pickingDate = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        chosenDate = state.selectedDateMillis?.let {
+                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                        }
+                        pickingDate = false
+                        // Straight on to the time: an event at "some point on
+                        // the 1st" is not a thing anyone means to enter.
+                        if (chosenDate != null) pickingTime = true
+                    },
+                ) { Text(stringResource(R.string.form_confirm_date)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickingDate = false }) {
+                    Text(stringResource(R.string.form_cancel))
+                }
+            },
+        ) {
+            DatePicker(state = state)
+        }
+    }
+
+    if (pickingTime) {
+        val state = rememberTimePickerState(
+            initialHour = zoned?.hour ?: DEFAULT_HOUR,
+            initialMinute = zoned?.minute ?: 0,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { pickingTime = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val date = chosenDate
+                        if (date != null) {
+                            onValueChange(
+                                date.atTime(state.hour, state.minute)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toInstant()
+                                    .toString(),
+                            )
+                        }
+                        pickingTime = false
+                    },
+                ) { Text(stringResource(R.string.form_confirm_date)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickingTime = false }) {
+                    Text(stringResource(R.string.form_cancel))
+                }
+            },
+            text = { TimePicker(state = state) },
+        )
+    }
+}
+
+/** Club evenings start in the evening. Saves two taps in the common case. */
+private const val DEFAULT_HOUR = 19
 
 /** One choice out of a short, fixed list. */
 @OptIn(ExperimentalMaterial3Api::class)

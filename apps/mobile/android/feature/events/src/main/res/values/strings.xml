@@ -52,4 +52,28 @@
     <string name="events_notification_new">Neuer Termin</string>
     <string name="events_notification_new_many">%1$d neue Termine</string>
     <string name="events_notification_new_many_body">In der App ansehen</string>
+    <!-- Termin anlegen und bearbeiten. Der Typ "Wettkampf" fehlt bewusst: solche
+         Termine hängen an einer Wettkampf-Einheit, die dieses Formular nicht erfasst. -->
+    <string name="event_type_other">Sonstiges</string>
+    <string name="event_form_create_title">Termin anlegen</string>
+    <string name="event_form_edit_title">Termin bearbeiten</string>
+    <string name="event_form_section_what">Was</string>
+    <string name="event_form_section_when">Wann</string>
+    <string name="event_form_section_registration">Anmeldung</string>
+    <string name="event_form_title">Titel</string>
+    <string name="event_form_type">Art</string>
+    <string name="event_form_description">Beschreibung</string>
+    <string name="event_form_location">Ort</string>
+    <string name="event_form_starts_at">Beginn</string>
+    <string name="event_form_ends_at">Ende</string>
+    <string name="event_form_all_day">Ganztägig</string>
+    <string name="event_form_registration_required">Anmeldung erforderlich</string>
+    <string name="event_form_max_participants">Höchstzahl Teilnehmer</string>
+    <string name="event_form_create">Anlegen</string>
+    <string name="event_form_save">Speichern</string>
+    <string name="event_form_needs_title_and_start">Titel und Beginn werden gebraucht.</string>
+    <string name="event_form_ends_before_start">Das Ende liegt vor dem Beginn.</string>
+    <string name="event_form_queue_hint">Wird auf dem Gerät gespeichert und übertragen, sobald wieder Verbindung besteht.</string>
+    <string name="events_add">Termin anlegen</string>
+    <string name="event_pending">Nicht übertragen</string>
 </resources>

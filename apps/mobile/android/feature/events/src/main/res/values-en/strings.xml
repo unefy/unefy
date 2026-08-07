@@ -52,4 +52,28 @@
     <string name="events_notification_new">New event</string>
     <string name="events_notification_new_many">%1$d new events</string>
     <string name="events_notification_new_many_body">Open the app to see them</string>
+    <!-- Creating and editing an event. See the German file for why the
+         competition type is absent. -->
+    <string name="event_type_other">Other</string>
+    <string name="event_form_create_title">Add event</string>
+    <string name="event_form_edit_title">Edit event</string>
+    <string name="event_form_section_what">What</string>
+    <string name="event_form_section_when">When</string>
+    <string name="event_form_section_registration">Registration</string>
+    <string name="event_form_title">Title</string>
+    <string name="event_form_type">Type</string>
+    <string name="event_form_description">Description</string>
+    <string name="event_form_location">Location</string>
+    <string name="event_form_starts_at">Starts</string>
+    <string name="event_form_ends_at">Ends</string>
+    <string name="event_form_all_day">All day</string>
+    <string name="event_form_registration_required">Registration required</string>
+    <string name="event_form_max_participants">Maximum participants</string>
+    <string name="event_form_create">Add</string>
+    <string name="event_form_save">Save</string>
+    <string name="event_form_needs_title_and_start">A title and a start are needed.</string>
+    <string name="event_form_ends_before_start">The end is before the start.</string>
+    <string name="event_form_queue_hint">Saved on this device and sent as soon as there is a connection.</string>
+    <string name="events_add">Add event</string>
+    <string name="event_pending">Not sent</string>
 </resources>

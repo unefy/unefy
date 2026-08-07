@@ -83,6 +83,7 @@ import com.unefy.feature.competitions.ScoreboardRoute
 import com.unefy.feature.dues.DuesRoute
 import com.unefy.feature.dues.MyDuesRoute
 import com.unefy.feature.events.EventDetailRoute
+import com.unefy.feature.events.EventFormRoute
 import com.unefy.feature.events.EventsRoute
 import com.unefy.feature.members.DirectoryRoute
 import com.unefy.feature.members.MemberDetailRoute
@@ -496,6 +497,18 @@ internal fun unefyEntryProvider(
         EventsRoute(
             actions = accountActions,
             onEventClick = { id -> onOpen(EventDetailKey(id)) },
+            onAddEvent = if (role.canAdminister) {
+                { onOpen(EventFormKey()) }
+            } else {
+                null
+            },
+        )
+    }
+    entry<EventFormKey> { key ->
+        EventFormRoute(
+            eventId = key.eventId,
+            onBack = onBack,
+            onSaved = { onBack() },
         )
     }
     entry<EventDetailKey> { key ->
@@ -508,6 +521,11 @@ internal fun unefyEntryProvider(
                 onOpen(AttendanceListKey(sessionId, sessionTitle))
             },
             onOpenScanner = { onOpen(ScannerKey) },
+            onEdit = if (role.canAdminister) {
+                { onOpen(EventFormKey(key.eventId)) }
+            } else {
+                null
+            },
         )
     }
     entry<DuesKey> { DuesRoute(actions = accountActions) }

@@ -66,6 +66,8 @@ fun EventDetailRoute(
     onBack: () -> Unit,
     onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
     onOpenScanner: () -> Unit = {},
+    /** Null for roles that may not edit — the action is then absent. */
+    onEdit: (() -> Unit)? = null,
     viewModel: EventDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -87,6 +89,7 @@ fun EventDetailRoute(
         canManage = role.canAdminister,
         picker = picker,
         onBack = onBack,
+        onEdit = onEdit,
         onOpenAttendanceList = onOpenAttendanceList,
         onStartAttendance = viewModel::startAttendance,
         onToggleRegistration = viewModel::toggleRegistration,
@@ -105,6 +108,7 @@ fun EventDetailScreen(
     canManage: Boolean = false,
     picker: MemberPickerState = MemberPickerState(),
     onBack: () -> Unit = {},
+    onEdit: (() -> Unit)? = null,
     onToggleRegistration: () -> Unit = {},
     onOpenPicker: () -> Unit = {},
     onDismissPicker: () -> Unit = {},
@@ -139,6 +143,17 @@ fun EventDetailScreen(
     UnefyDetailScaffold(
         collapsedTitle = content?.event?.title,
         onBack = onBack,
+        actions = {
+            // Only once the event is on screen — see MemberDetailScreen.
+            if (onEdit != null && content != null) {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_edit),
+                        contentDescription = stringResource(R.string.event_form_edit_title),
+                    )
+                }
+            }
+        },
         overlay = {
             SnackbarHost(
                 hostState = snackbarHostState,

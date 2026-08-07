@@ -39,9 +39,9 @@ class ScannerViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel(repository: FakeRepository) = ScannerViewModel(
+    private fun viewModel(repository: ScannerFakeRepository) = ScannerViewModel(
         repository = repository,
-        queue = CheckInQueue(repository, FakeDao(), clock = { NOW }),
+        queue = CheckInQueue(repository, ScannerFakeDao(), clock = { NOW }),
         deviceIdentity = object : DeviceIdentity {
             override suspend fun installId() = "install-1"
         },
@@ -57,7 +57,7 @@ class ScannerViewModelTest {
      */
     @Test
     fun `a refresh does not take the screen back to loading`() = runTest(dispatcher) {
-        val repository = FakeRepository()
+        val repository = ScannerFakeRepository()
         val viewModel = viewModel(repository)
         runCurrent()
         assertFalse(viewModel.uiState.value.loadingSessions)
@@ -76,7 +76,7 @@ class ScannerViewModelTest {
     /** The first load has nothing to keep, so it may still say so. */
     @Test
     fun `the very first load does say it is loading`() = runTest(dispatcher) {
-        val repository = FakeRepository().apply { hold = CompletableDeferred() }
+        val repository = ScannerFakeRepository().apply { hold = CompletableDeferred() }
         val viewModel = viewModel(repository)
         runCurrent()
 
@@ -91,7 +91,7 @@ class ScannerViewModelTest {
     }
 }
 
-private class FakeRepository : AttendanceRepository {
+private class ScannerFakeRepository : AttendanceRepository {
     /** Non-null makes the next load hang, the way a dead connection does. */
     var hold: CompletableDeferred<Unit>? = null
 
@@ -143,7 +143,7 @@ private class FakeRepository : AttendanceRepository {
     override suspend fun openSessionForEvent(eventId: String) = error("not used")
 }
 
-private class FakeDao : PendingCheckInDao {
+private class ScannerFakeDao : PendingCheckInDao {
     private val rows = mutableListOf<PendingCheckIn>()
     private val count = MutableStateFlow(0)
 

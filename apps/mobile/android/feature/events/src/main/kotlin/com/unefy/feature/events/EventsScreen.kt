@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -19,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,6 +45,8 @@ import com.unefy.core.network.ApiError
 fun EventsRoute(
     onEventClick: (String) -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
+    /** Null for roles that may not add events — the button is then absent. */
+    onAddEvent: (() -> Unit)? = null,
     viewModel: EventsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -49,6 +54,7 @@ fun EventsRoute(
         state = state,
         actions = actions,
         onEventClick = onEventClick,
+        onAddEvent = onAddEvent,
         onRetry = viewModel::retry,
         onToggleRegistration = viewModel::toggleRegistration,
         onRefresh = viewModel::refresh,
@@ -63,12 +69,23 @@ fun EventsScreen(
     onRetry: () -> Unit = {},
     onToggleRegistration: (Event) -> Unit = {},
     onRefresh: () -> Unit = {},
+    onAddEvent: (() -> Unit)? = null,
 ) {
     val content = state as? EventsUiState.Content
 
     UnefyListScaffold(
         title = stringResource(R.string.events_title),
         actions = actions,
+        floatingActionButton = {
+            if (onAddEvent != null) {
+                FloatingActionButton(onClick = onAddEvent) {
+                    Icon(
+                        painter = painterResource(DesignR.drawable.ic_add),
+                        contentDescription = stringResource(R.string.events_add),
+                    )
+                }
+            }
+        },
         isRefreshing = content?.isRefreshing == true,
         onRefresh = onRefresh,
         // No onLoadMore. The mirror holds the whole calendar, so scrolling has

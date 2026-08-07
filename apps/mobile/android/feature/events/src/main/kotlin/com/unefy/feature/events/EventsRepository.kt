@@ -1,5 +1,6 @@
 package com.unefy.feature.events
 
+import com.unefy.core.database.PendingWrite
 import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncedEvent
 import com.unefy.core.database.SyncedEventDao
@@ -17,13 +18,17 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.request.parameter
+import com.unefy.core.sync.WriteQueue
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 @Serializable
 internal data class EventDto(
@@ -236,6 +241,18 @@ interface EventsRepository {
      * endpoint fills in, exactly like the attendance pick list.
      */
     suspend fun memberOptions(search: String?): ApiResult<List<MemberOption>>
+
+    /**
+     * Save an event into the local queue. [id] null means create; returns the
+     * record's id. Cannot fail — see `MembersRepository.save`.
+     */
+    suspend fun save(id: String?, draft: EventDraft): String
+
+    /** The ids with an unsent write, so a list can mark them. */
+    fun pendingIds(): Flow<Set<String>>
+
+    /** The draft to open a form with: the queued version, else the mirror's. */
+    fun draftFor(id: String): Flow<EventDraft?>
 }
 
 /** One row of the add sheet — who could be put on the event. */
@@ -251,16 +268,47 @@ class DefaultEventsRepository @Inject constructor(
     private val events: SyncedEventDao,
     private val members: SyncedMemberDao,
     private val cursors: SyncCursorDao,
+    private val writes: WriteQueue,
+    private val json: Json,
 ) : EventsRepository {
 
-    override fun stream(): Flow<List<Event>> =
-        events.all().map { rows -> rows.map(SyncedEvent::toDomain) }
+    /** The mirror with unsent writes laid over it — see `DefaultMembersRepository`. */
+    override fun stream(): Flow<List<Event>> = combine(
+        events.all(),
+        writes.pending(EventSyncCollection.COLLECTION),
+    ) { rows, pending ->
+        val drafts = pending.mapNotNull { write -> draftOf(write)?.let { write.recordId to it } }
+            .toMap()
+        val mirrored = rows.map { row ->
+            drafts[row.id]?.let { row.toDomain().withDraft(it) } ?: row.toDomain()
+        }
+        val mirroredIds = rows.mapTo(mutableSetOf()) { it.id }
+        val created = pending
+            .filter { it.op == PendingWrite.OP_CREATE && it.recordId !in mirroredIds }
+            .mapNotNull { write -> drafts[write.recordId]?.asNewEvent(write.recordId) }
+
+        // Ascending by start, as the DAO returns them — the ViewModel splits
+        // upcoming from past on that order and would mis-split without it.
+        (created + mirrored).sortedWith(compareBy({ it.startsAt }, { it.title }))
+    }
 
     override fun hasSynced(): Flow<Boolean> =
         cursors.bootstrapCompleteStream(EventSyncCollection.COLLECTION)
 
-    override fun byIdStream(id: String): Flow<Event?> =
-        events.byIdStream(id).map { it?.toDomain() }
+    override fun byIdStream(id: String): Flow<Event?> = combine(
+        events.byIdStream(id),
+        writes.pendingFor(EventSyncCollection.COLLECTION, id),
+    ) { row, queued ->
+        val draft = queued?.let(::draftOf)
+        when {
+            row != null && draft != null -> row.toDomain().withDraft(draft)
+            row != null -> row.toDomain()
+            // Created on this device and not sent yet: the detail screen has to
+            // open on it, or tapping the row one has just added does nothing.
+            draft != null -> draft.asNewEvent(id)
+            else -> null
+        }
+    }
 
     override suspend fun detail(id: String): ApiResult<EventDetail> = apiClient
         .get<EventDetailDto>(ApiEndpoints.event(id))
@@ -327,6 +375,49 @@ class DefaultEventsRepository @Inject constructor(
             }
     }
 
+    override suspend fun save(id: String?, draft: EventDraft): String {
+        val recordId = id ?: UUID.randomUUID().toString()
+        val creating = id == null
+        val payload = if (creating) {
+            draft.toCreatePayload(recordId)?.let { json.encodeToString(it) }
+        } else {
+            draft.toUpdatePayload()?.let { json.encodeToString(it) }
+        }
+        // Null only for a draft with no start, which the form's own validation
+        // does not allow through. Returning the id regardless keeps the caller
+        // simple; nothing was queued, so nothing will be sent.
+        if (payload != null) {
+            writes.enqueue(
+                entity = EventSyncCollection.COLLECTION,
+                recordId = recordId,
+                op = if (creating) PendingWrite.OP_CREATE else PendingWrite.OP_UPDATE,
+                payloadJson = payload,
+                label = draft.title.trim(),
+            )
+        }
+        return recordId
+    }
+
+    override fun pendingIds(): Flow<Set<String>> =
+        writes.pending(EventSyncCollection.COLLECTION)
+            .map { queued -> queued.mapTo(mutableSetOf()) { it.recordId } }
+
+    override fun draftFor(id: String): Flow<EventDraft?> = combine(
+        events.byIdStream(id),
+        writes.pendingFor(EventSyncCollection.COLLECTION, id),
+    ) { row, queued ->
+        queued?.let(::draftOf) ?: row?.toDomain()?.toDraft()
+    }
+
+    /** See `DefaultMembersRepository.draftOf` for why this swallows a bad payload. */
+    private fun draftOf(write: PendingWrite): EventDraft? = runCatching {
+        if (write.op == PendingWrite.OP_CREATE) {
+            json.decodeFromString<EventCreatePayload>(write.payloadJson).toDraft()
+        } else {
+            json.decodeFromString<EventUpdatePayload>(write.payloadJson).toDraft()
+        }
+    }.getOrNull()
+
     private suspend fun memberCursorComplete(): Boolean =
         cursors.bootstrapCompleteStream(MEMBERS_COLLECTION).first()
 
@@ -345,6 +436,66 @@ class DefaultEventsRepository @Inject constructor(
         const val MEMBERS_COLLECTION = "members"
     }
 }
+
+private fun Event.withDraft(draft: EventDraft) = copy(
+    title = draft.title,
+    description = draft.description,
+    type = draft.eventType,
+    location = draft.location,
+    startsAt = draft.startsAt ?: startsAt,
+    endsAt = draft.endsAt,
+    allDay = draft.allDay,
+    registrationRequired = draft.registrationRequired,
+    maxParticipants = draft.maxParticipants,
+)
+
+/**
+ * An event that exists only on this device so far.
+ *
+ * `registeredCount` is zero and `isRegistered` false because nobody can have
+ * signed up for something the server has never heard of.
+ */
+private fun EventDraft.asNewEvent(id: String) = Event(
+    id = id,
+    title = title,
+    description = description,
+    type = eventType,
+    location = location,
+    startsAt = startsAt.orEmpty(),
+    endsAt = endsAt,
+    allDay = allDay,
+    registrationRequired = registrationRequired,
+    registrationDeadline = null,
+    registeredCount = 0,
+    maxParticipants = maxParticipants,
+    status = "scheduled",
+    isRegistered = false,
+    competitionName = null,
+)
+
+internal fun EventCreatePayload.toDraft() = EventDraft(
+    title = title,
+    description = description,
+    eventType = eventType,
+    location = location,
+    startsAt = startsAt,
+    endsAt = endsAt,
+    allDay = allDay,
+    registrationRequired = registrationRequired,
+    maxParticipants = maxParticipants,
+)
+
+internal fun EventUpdatePayload.toDraft() = EventDraft(
+    title = title,
+    description = description,
+    eventType = eventType,
+    location = location,
+    startsAt = startsAt,
+    endsAt = endsAt,
+    allDay = allDay,
+    registrationRequired = registrationRequired,
+    maxParticipants = maxParticipants,
+)
 
 @Serializable
 internal data class RegistrationDto(val id: String)

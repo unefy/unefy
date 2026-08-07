@@ -36,6 +36,10 @@ data object EventsKey : UnefyNavKey
 @Serializable
 data class EventDetailKey(val eventId: String) : UnefyNavKey
 
+/** Creating an event and editing one — see [MemberFormKey]. */
+@Serializable
+data class EventFormKey(val eventId: String? = null) : UnefyNavKey
+
 @Serializable
 data object DuesKey : UnefyNavKey
 

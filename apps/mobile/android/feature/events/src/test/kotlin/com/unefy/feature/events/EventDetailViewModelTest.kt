@@ -497,4 +497,10 @@ private class FakeDetailRepository(
             options.filter { search.isNullOrBlank() || it.name.contains(search, true) },
         )
     }
+    override suspend fun save(id: String?, draft: EventDraft): String = id ?: "new-id"
+
+    override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
+
+    override fun draftFor(id: String): Flow<EventDraft?> = MutableStateFlow(null)
+
 }
