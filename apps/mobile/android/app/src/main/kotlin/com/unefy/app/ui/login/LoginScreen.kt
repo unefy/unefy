@@ -250,7 +250,7 @@ private fun LoginPreview() {
         LoginScreen(
             state = LoginUiState(
                 email = "andreas@widmer.im",
-                serverUrl = "https://test.unefy.app",
+                serverUrl = "https://api.unefy.app",
                 googleAvailable = true,
             ),
         )
@@ -266,7 +266,7 @@ private fun LoginCodePreview() {
                 email = "andreas@widmer.im",
                 step = LoginStep.CODE,
                 code = "123",
-                serverUrl = "https://test.unefy.app",
+                serverUrl = "https://api.unefy.app",
             ),
         )
     }

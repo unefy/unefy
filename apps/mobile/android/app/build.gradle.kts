@@ -35,7 +35,10 @@ fun localProperty(name: String): String? = rootProject.file("local.properties")
 fun buildProperty(name: String): String? =
     (providers.gradleProperty(name).orNull ?: localProperty(name))?.trim()?.takeIf { it.isNotBlank() }
 
-val apiBaseUrl: String = buildProperty("unefy.apiBaseUrl") ?: "https://test.unefy.app"
+// The API host, not the web app: this value gets "/api/v1/..." appended, so a
+// frontend hostname here answers every request with HTML and the app cannot
+// even sign in. test.unefy.app stood here and is exactly that mistake.
+val apiBaseUrl: String = buildProperty("unefy.apiBaseUrl") ?: "https://api.unefy.app"
 
 // The Google OAuth *web* client id — Google's `serverClientId`, the one that
 // lands in the ID token's `aud` claim. Empty by default and empty in a fork:
