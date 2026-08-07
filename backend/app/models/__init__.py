@@ -29,6 +29,7 @@ from app.models.shooting import (
     ShootingRecordDetail,
 )
 from app.models.sport import CatalogUnit, Sport
+from app.models.target_type import TargetType
 from app.models.tenant import Tenant
 from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership, User
@@ -68,6 +69,7 @@ __all__ = [
     "ShootingRecordDetail",
     "SoftDeleteMixin",
     "Sport",
+    "TargetType",
     "Tenant",
     "TenantAuditLog",
     "TenantMembership",

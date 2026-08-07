@@ -1,4 +1,17 @@
 {
+  "CaliberResponse": {
+    "fields": {
+      "diameter_mm": {
+        "nullable": false
+      },
+      "key": {
+        "nullable": false
+      },
+      "name": {
+        "nullable": false
+      }
+    }
+  },
   "CompetitionResponse": {
     "fields": {
       "competition_type": {
@@ -97,6 +110,68 @@
         "nullable": false
       },
       "paid_count": {
+        "nullable": false
+      }
+    }
+  },
+  "EntryDetails": {
+    "fields": {
+      "caliber_mm": {
+        "nullable": true
+      },
+      "grouping_mm": {
+        "nullable": true
+      },
+      "inner_tens": {
+        "nullable": true
+      },
+      "shots": {
+        "nullable": false
+      },
+      "target_type": {
+        "nullable": false
+      }
+    }
+  },
+  "EntryResponse": {
+    "fields": {
+      "created_at": {
+        "nullable": false
+      },
+      "details": {
+        "nullable": true
+      },
+      "discipline": {
+        "nullable": true
+      },
+      "id": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "notes": {
+        "nullable": true
+      },
+      "recorded_at": {
+        "nullable": false
+      },
+      "recorded_by": {
+        "nullable": true
+      },
+      "score_unit": {
+        "nullable": false
+      },
+      "score_value": {
+        "nullable": false
+      },
+      "session_id": {
+        "nullable": false
+      },
+      "source": {
+        "nullable": false
+      },
+      "updated_at": {
         "nullable": false
       }
     }
@@ -350,6 +425,59 @@
       }
     }
   },
+  "SessionResponse": {
+    "fields": {
+      "competition_id": {
+        "nullable": false
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "date": {
+        "nullable": false
+      },
+      "discipline": {
+        "nullable": true
+      },
+      "event_id": {
+        "nullable": true
+      },
+      "id": {
+        "nullable": false
+      },
+      "location": {
+        "nullable": true
+      },
+      "name": {
+        "nullable": true
+      },
+      "updated_at": {
+        "nullable": false
+      }
+    }
+  },
+  "ShotDetail": {
+    "fields": {
+      "caliber_mm": {
+        "nullable": true
+      },
+      "inner_ten": {
+        "nullable": true
+      },
+      "ring": {
+        "nullable": false
+      },
+      "source": {
+        "nullable": true
+      },
+      "x": {
+        "nullable": false
+      },
+      "y": {
+        "nullable": false
+      }
+    }
+  },
   "SyncMeta": {
     "fields": {
       "collection": {
@@ -363,6 +491,43 @@
       },
       "server_time": {
         "nullable": false
+      }
+    }
+  },
+  "TargetTypeResponse": {
+    "fields": {
+      "black_diameter_mm": {
+        "nullable": false
+      },
+      "caliber_diameter_mm": {
+        "nullable": false
+      },
+      "caliber_name": {
+        "nullable": true
+      },
+      "distance_m": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "inner_ten_diameter_mm": {
+        "nullable": false
+      },
+      "is_active": {
+        "nullable": false
+      },
+      "name": {
+        "nullable": false
+      },
+      "ring_diameters_mm": {
+        "nullable": false
+      },
+      "slug": {
+        "nullable": false
+      },
+      "source": {
+        "nullable": true
       }
     }
   },

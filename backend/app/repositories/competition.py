@@ -9,6 +9,7 @@ from app.models.competition import Competition, Entry, Session
 from app.models.member import Member
 from app.repositories.base import BaseRepository
 from app.schemas.competition import (
+    FREE_TRAINING_TYPE,
     CompetitionCreate,
     CompetitionUpdate,
     EntryCreate,
@@ -62,15 +63,27 @@ class CompetitionRepository(
         competition_type: str | None = None,
         sort_order: str = "desc",
     ) -> list[Competition]:
-        query = self._base_query()
-        if competition_type:
-            query = query.where(Competition.competition_type == competition_type)
+        query = self._filtered(competition_type)
         order = (
             Competition.start_date.desc() if sort_order == "desc" else Competition.start_date.asc()
         )
         query = query.order_by(order).offset(offset).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    def _filtered(self, competition_type: str | None) -> Any:
+        """Base query plus the type filter, with one built-in exclusion.
+
+        The `free_training` container is machinery, not a competition — it is
+        created automatically the first time somebody records shots without one.
+        Leaving it in the default listing would put a permanent, unremovable row
+        at the top of every club's competition screen. It is still reachable by
+        asking for it explicitly.
+        """
+        query = self._base_query()
+        if competition_type:
+            return query.where(Competition.competition_type == competition_type)
+        return query.where(Competition.competition_type != FREE_TRAINING_TYPE)
 
     async def get_session(self, session_id: uuid.UUID) -> Session | None:
         """Load a session by id, tenant-scoped, across all competitions."""
@@ -92,6 +105,10 @@ class CompetitionRepository(
         )
         if competition_type:
             query = query.where(Competition.competition_type == competition_type)
+        else:
+            # Mirrors `_filtered` — a count that includes the hidden container
+            # would page the list wrong.
+            query = query.where(Competition.competition_type != FREE_TRAINING_TYPE)
         result = await self.session.execute(query)
         return result.scalar_one()
 

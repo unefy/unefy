@@ -23,7 +23,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from app.schemas.competition import CompetitionResponse, ScoreboardRow
+from app.schemas.competition import (
+    CompetitionResponse,
+    EntryDetails,
+    EntryResponse,
+    ScoreboardRow,
+    SessionResponse,
+    ShotDetail,
+)
 from app.schemas.due import DueResponse, DueSummaryResponse
 from app.schemas.event import EventRegistrationResponse, EventResponse
 from app.schemas.member import (
@@ -32,6 +39,7 @@ from app.schemas.member import (
     MemberResponse,
 )
 from app.schemas.sync import SyncMeta, Tombstone
+from app.schemas.target_type import CaliberResponse, TargetTypeResponse
 
 #: What the mobile apps decode. Enrichment fields are the ones the list
 #: endpoints merge in beside the model (they exist in no schema, which is why
@@ -45,6 +53,15 @@ SCHEMAS: dict[str, Any] = {
     "DueResponse": DueResponse,
     "DueSummaryResponse": DueSummaryResponse,
     "CompetitionResponse": CompetitionResponse,
+    "SessionResponse": SessionResponse,
+    "EntryResponse": EntryResponse,
+    # Not a response model of its own — the shape inside `EntryResponse.details`,
+    # which is an untyped JSONB dict on the wire. Exported so the Android DTO for
+    # the shot list is checked like everything else.
+    "EntryDetails": EntryDetails,
+    "ShotDetail": ShotDetail,
+    "TargetTypeResponse": TargetTypeResponse,
+    "CaliberResponse": CaliberResponse,
     "ScoreboardRow": ScoreboardRow,
     "SyncMeta": SyncMeta,
     "Tombstone": Tombstone,

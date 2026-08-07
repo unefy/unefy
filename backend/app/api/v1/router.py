@@ -16,9 +16,11 @@ from app.api.v1.functions import router as functions_router
 from app.api.v1.members import router as members_router
 from app.api.v1.push import router as push_router
 from app.api.v1.shooting import router as shooting_router
+from app.api.v1.shot_entries import router as shot_entries_router
 from app.api.v1.sports import router as sports_router
 from app.api.v1.stream import router as stream_router
 from app.api.v1.sync import router as sync_router
+from app.api.v1.target_types import router as target_types_router
 from app.api.v1.units import router as units_router
 
 router = APIRouter()
@@ -36,6 +38,7 @@ router.include_router(
 router.include_router(competitions_router, prefix="/competitions", tags=["competitions"])
 router.include_router(disciplines_router, prefix="/disciplines", tags=["disciplines"])
 router.include_router(dues_router, prefix="/dues", tags=["dues"])
+router.include_router(shot_entries_router, prefix="/entries", tags=["entries"])
 router.include_router(events_router, prefix="/events", tags=["events"])
 router.include_router(functions_router, prefix="/functions", tags=["functions"])
 router.include_router(members_router, prefix="/members", tags=["members"])
@@ -44,4 +47,5 @@ router.include_router(shooting_router, prefix="/modules/shooting", tags=["shooti
 router.include_router(sports_router, prefix="/sports", tags=["sports"])
 router.include_router(stream_router, prefix="/stream", tags=["stream"])
 router.include_router(sync_router, prefix="/sync", tags=["sync"])
+router.include_router(target_types_router, prefix="/target-types", tags=["target-types"])
 router.include_router(units_router, prefix="/units", tags=["units"])

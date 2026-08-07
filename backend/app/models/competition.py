@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     Uuid,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,6 +33,20 @@ class Competition(TenantModel, AuditMixin, SoftDeleteMixin):
         # See alembic f2b9d84c1a07 and app/repositories/sync.py.
         Index("ix_competitions_sync", "tenant_id", "updated_at", "id"),
         Index("ix_competitions_tenant_type", "tenant_id", "competition_type"),
+        # At most one live "Freies Training" container per club. It is created
+        # on demand by `ShotEntryService`, so two devices recording their first
+        # free series simultaneously would otherwise each make one and split the
+        # club's training history in two.
+        #
+        # Declared here as well as in alembic c4a71e8b5d92 on purpose: the test
+        # suite builds its schema with `create_all`, so an index that lived only
+        # in the migration would leave the race path permanently untested.
+        Index(
+            "ux_competitions_free_training",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("competition_type = 'free_training' AND deleted_at IS NULL"),
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
