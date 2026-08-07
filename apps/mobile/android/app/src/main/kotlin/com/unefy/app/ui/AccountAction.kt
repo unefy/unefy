@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.unefy.app.R
+import com.unefy.app.theme.ThemeMode
 import com.unefy.core.auth.TenantOption
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.designsystem.theme.UnefySpacing
@@ -43,8 +44,10 @@ fun accountActions(
     email: String?,
     displayName: String?,
     tenants: List<TenantOption> = emptyList(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     onOpenMenu: () -> Unit = {},
     onSwitchTenant: (String) -> Unit = {},
+    onSelectTheme: (ThemeMode) -> Unit = {},
     onSignOut: () -> Unit,
 ): @Composable RowScope.() -> Unit = {
     var expanded by remember { mutableStateOf(false) }
@@ -79,15 +82,7 @@ fun accountActions(
             // the email deliberately does not appear here — the avatar's
             // initials already say whose menu this is.
             if (tenants.size > 1) {
-                Text(
-                    text = stringResource(R.string.account_switch_club),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(
-                        horizontal = UnefySpacing.md,
-                        vertical = UnefySpacing.sm,
-                    ),
-                )
+                MenuSectionLabel(stringResource(R.string.account_switch_club))
                 tenants.forEach { tenant ->
                     DropdownMenuItem(
                         text = { Text(tenant.name) },
@@ -108,6 +103,28 @@ fun accountActions(
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
+
+            // Appearance. The menu deliberately stays open on a pick: the whole
+            // shell behind it repaints at once, which is the answer to "what
+            // does dark look like" — closing would force a reopen per attempt.
+            MenuSectionLabel(stringResource(R.string.account_appearance))
+            ThemeMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(mode.labelRes)) },
+                    onClick = { if (mode != themeMode) onSelectTheme(mode) },
+                    trailingIcon = {
+                        if (mode == themeMode) {
+                            Icon(
+                                painter = painterResource(DesignR.drawable.ic_check),
+                                contentDescription =
+                                    stringResource(R.string.account_current_appearance),
+                            )
+                        }
+                    },
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.account_sign_out)) },
                 onClick = {
@@ -124,6 +141,24 @@ fun accountActions(
         }
     }
 }
+
+/** Header above a group of menu items — same weight as Gmail's section labels. */
+@Composable
+private fun MenuSectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = UnefySpacing.md, vertical = UnefySpacing.sm),
+    )
+}
+
+private val ThemeMode.labelRes: Int
+    get() = when (this) {
+        ThemeMode.SYSTEM -> R.string.account_theme_system
+        ThemeMode.LIGHT -> R.string.account_theme_light
+        ThemeMode.DARK -> R.string.account_theme_dark
+    }
 
 /**
  * Initials from the name, falling back to the email so the circle is never blank.

@@ -12,9 +12,9 @@ import androidx.compose.runtime.CompositionLocalProvider
  * only for status. Dynamic Color is deliberately absent too — it would inject
  * the user's wallpaper hue into a design that is hueless on purpose.
  *
- * Light and dark are both first-class. `isSystemInDarkTheme` is the only input;
- * there is no in-app override, so the app follows the system the way Android
- * users expect.
+ * Light and dark are both first-class. The system setting is the default input,
+ * and the caller may override it — the account menu offers system/light/dark, so
+ * this parameter carries whatever was chosen there.
  *
  * `MaterialExpressiveTheme` is not used because it is still `internal` in
  * material3 1.4.0. The expressive character comes from the shape scale, the type

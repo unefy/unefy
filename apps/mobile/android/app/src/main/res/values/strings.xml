@@ -48,6 +48,12 @@
          current club. No email here — the initials carry the identity. -->
     <string name="account_switch_club">Verein wechseln</string>
     <string name="account_current_club">Aktueller Verein</string>
+    <!-- Appearance section of the account menu; the tick marks the active mode. -->
+    <string name="account_appearance">Darstellung</string>
+    <string name="account_current_appearance">Aktuelle Darstellung</string>
+    <string name="account_theme_system">Systemeinstellung</string>
+    <string name="account_theme_light">Hell</string>
+    <string name="account_theme_dark">Dunkel</string>
     <string name="nav_shots">Treffer</string>
     <string name="nav_competitions">Wettkämpfe</string>
     <string name="nav_check_in">Check-in</string>

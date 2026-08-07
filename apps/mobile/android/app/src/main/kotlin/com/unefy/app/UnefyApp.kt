@@ -1,6 +1,13 @@
 package com.unefy.app
 
+import android.graphics.Color
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.LocalActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -10,6 +17,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.key
+import com.unefy.app.theme.ThemeViewModel
 import com.unefy.app.ui.login.LoginRoute
 import com.unefy.core.auth.AuthRepository
 import com.unefy.core.auth.TenantOption
@@ -95,17 +103,48 @@ class SessionViewModel @Inject constructor(
 }
 
 /**
+ * Scrims behind a three-button navigation bar, for the API levels that cannot
+ * draw its icons over arbitrary content. The values are the ones `enableEdgeToEdge`
+ * documents; gesture navigation ignores them and stays fully transparent.
+ */
+private val NAV_LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+private val NAV_DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+
+/**
  * Theme and appearance live above the session switch so a theme change does not
  * unmount the screen underneath it.
  */
 @Composable
-fun UnefyRoot(viewModel: SessionViewModel = hiltViewModel()) {
+fun UnefyRoot(
+    viewModel: SessionViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel(),
+) {
     val signedIn by viewModel.isSignedIn.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
 
     val tenants by viewModel.tenants.collectAsStateWithLifecycle()
+    val themeMode by themeViewModel.mode.collectAsStateWithLifecycle()
+    val darkTheme = themeMode.isDark(isSystemInDarkTheme())
 
-    UnefyTheme {
+    // The status and navigation bars are the system's, not Compose's: the clock,
+    // battery and gesture pill are drawn by the system on top of our content and
+    // it decides light or dark icons from what `enableEdgeToEdge` was last told.
+    // MainActivity says that once, from the *system* setting — so an in-app
+    // override left white icons on a light screen. Re-declaring it here, keyed on
+    // the resolved theme, is what keeps the two in step.
+    val activity = LocalActivity.current as? ComponentActivity
+    DisposableEffect(activity, darkTheme) {
+        activity?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                lightScrim = Color.TRANSPARENT,
+                darkScrim = Color.TRANSPARENT,
+            ) { darkTheme },
+            navigationBarStyle = SystemBarStyle.auto(NAV_LIGHT_SCRIM, NAV_DARK_SCRIM) { darkTheme },
+        )
+        onDispose {}
+    }
+
+    UnefyTheme(darkTheme = darkTheme) {
         when (signedIn) {
             null -> Box(Modifier.fillMaxSize())
             false -> LoginRoute()
@@ -119,8 +158,10 @@ fun UnefyRoot(viewModel: SessionViewModel = hiltViewModel()) {
                     accountName = session?.user?.name,
                     role = ClubRole.fromApi(session?.role),
                     tenants = tenants,
+                    themeMode = themeMode,
                     onOpenAccountMenu = viewModel::loadTenants,
                     onSwitchTenant = viewModel::switchTenant,
+                    onSelectTheme = themeViewModel::setMode,
                     onSignOut = viewModel::signOut,
                 )
             }

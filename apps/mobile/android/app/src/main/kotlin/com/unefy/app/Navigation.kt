@@ -69,6 +69,7 @@ import com.unefy.app.nav.NavDragState
 import com.unefy.app.nav.LocalNavDragState
 import com.unefy.app.nav.NavSettingsViewModel
 import com.unefy.app.nav.TopLevel
+import com.unefy.app.theme.ThemeMode
 import com.unefy.app.ui.accountActions
 import com.unefy.core.auth.TenantOption
 import com.unefy.core.model.ClubRole
@@ -137,16 +138,20 @@ fun MainNavigation(
     accountName: String?,
     role: ClubRole,
     tenants: List<TenantOption> = emptyList(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     onOpenAccountMenu: () -> Unit = {},
     onSwitchTenant: (String) -> Unit = {},
+    onSelectTheme: (ThemeMode) -> Unit = {},
     onSignOut: () -> Unit,
 ) {
     val accountActions = accountActions(
         email = accountEmail,
         displayName = accountName,
         tenants = tenants,
+        themeMode = themeMode,
         onOpenMenu = onOpenAccountMenu,
         onSwitchTenant = onSwitchTenant,
+        onSelectTheme = onSelectTheme,
         onSignOut = onSignOut,
     )
 
