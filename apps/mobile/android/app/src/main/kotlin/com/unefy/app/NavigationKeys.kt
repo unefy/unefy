@@ -70,5 +70,29 @@ data object MyRangeDaysKey : UnefyNavKey
 @Serializable
 data class AttendanceListKey(val sessionId: String, val sessionTitle: String) : UnefyNavKey
 
+/** The member's own recorded shot series. Shooting clubs. */
+@Serializable
+data object ShotHistoryKey : UnefyNavKey
+
+/**
+ * Recording a series on the digital target.
+ *
+ * Every parameter is a String because `EntryProviderCoverageTest` builds each
+ * key reflectively and only knows how to supply strings. `sessionId` empty means
+ * free training — the server creates the container itself.
+ */
+@Serializable
+data class RecordShotsKey(
+    val sessionId: String = "",
+    val discipline: String = "",
+    val memberId: String = "",
+    /** Set to correct a series that is already recorded; empty records a new one. */
+    val seriesId: String = "",
+) : UnefyNavKey
+
+/** One recorded series, full size. */
+@Serializable
+data class SeriesDetailKey(val seriesId: String) : UnefyNavKey
+
 @Serializable
 data object MoreKey : UnefyNavKey

@@ -44,6 +44,7 @@
          current club. No email here — the initials carry the identity. -->
     <string name="account_switch_club">Verein wechseln</string>
     <string name="account_current_club">Aktueller Verein</string>
+    <string name="nav_shots">Treffer</string>
     <string name="nav_competitions">Wettkämpfe</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">Mehr</string>

@@ -87,6 +87,9 @@ import com.unefy.feature.members.DirectoryRoute
 import com.unefy.feature.members.MemberDetailRoute
 import com.unefy.feature.members.MyProfileRoute
 import com.unefy.feature.members.MembersRoute
+import com.unefy.feature.scoring.RecordShotsRoute
+import com.unefy.feature.scoring.SeriesDetailRoute
+import com.unefy.feature.scoring.ShotHistoryRoute
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 
@@ -420,6 +423,33 @@ internal fun unefyEntryProvider(
     onSwitchSection: (NavKey) -> Unit,
     onBack: () -> Unit,
 ): (NavKey) -> NavEntry<NavKey> = entryProvider {
+    entry<ShotHistoryKey> {
+        ShotHistoryRoute(
+            actions = accountActions,
+            onRecord = { onOpen(RecordShotsKey()) },
+            onOpenSeries = { id -> onOpen(SeriesDetailKey(id)) },
+        )
+    }
+    entry<SeriesDetailKey> { key ->
+        SeriesDetailRoute(
+            seriesId = key.seriesId,
+            onBack = onBack,
+            onEdit = { onOpen(RecordShotsKey(seriesId = key.seriesId)) },
+        )
+    }
+    entry<RecordShotsKey> { key ->
+        RecordShotsRoute(
+            sessionId = key.sessionId.ifBlank { null },
+            discipline = key.discipline.ifBlank { null },
+            memberId = key.memberId.ifBlank { null },
+            seriesId = key.seriesId.ifBlank { null },
+            // Board and above record for anyone; a member only for themselves,
+            // which the server enforces regardless of what the app offers.
+            canPickMember = role.canAdminister,
+            onBack = onBack,
+            onSaved = onBack,
+        )
+    }
     entry<MembersKey> {
         MembersRoute(
             clubName = clubName,

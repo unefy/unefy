@@ -79,7 +79,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 9, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -89,18 +89,36 @@ class MigrationTest {
         }
     }
 
+    /** The member's gender column. */
+    @Test
+    fun migrates_from_9_to_10() {
+        helper.createDatabase(DB, 9).close()
+
+        helper.runMigrationsAndValidate(DB, 10, true, *DatabaseModule.ALL_MIGRATIONS).close()
+    }
+
+    /** The shot queue and the member's own history — both additive. */
+    @Test
+    fun migrates_from_10_to_11() {
+        helper.createDatabase(DB, 10).close()
+
+        helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).close()
+    }
+
     /** Every migration creates its new tables, so a fresh sync has somewhere to land. */
     @Test
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 9, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 11, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",
                 "synced_events",
                 "synced_dues",
                 "synced_competitions",
+                "pending_shot_entries",
+                "cached_my_entries",
             )) {
                 db.query("SELECT COUNT(*) FROM $table").use {
                     it.moveToFirst()

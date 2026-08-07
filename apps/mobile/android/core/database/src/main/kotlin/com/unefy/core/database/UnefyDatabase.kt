@@ -36,9 +36,11 @@ import javax.inject.Singleton
         SyncedEvent::class,
         SyncedDue::class,
         SyncedCompetition::class,
+        PendingShotEntry::class,
+        CachedShotEntry::class,
         SyncCursorEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -55,6 +57,10 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun syncedDueDao(): SyncedDueDao
 
     abstract fun syncedCompetitionDao(): SyncedCompetitionDao
+
+    abstract fun pendingShotEntryDao(): PendingShotEntryDao
+
+    abstract fun cachedShotEntryDao(): CachedShotEntryDao
 
     abstract fun syncCursorDao(): SyncCursorDao
 }
@@ -90,6 +96,7 @@ object DatabaseModule {
             MIGRATION_7_8,
             MIGRATION_8_9,
             MIGRATION_9_10,
+            MIGRATION_10_11,
         )
     }
 
@@ -370,6 +377,71 @@ object DatabaseModule {
             connection.execSQL("ALTER TABLE synced_members ADD COLUMN gender TEXT")
         }
     }
+
+    /**
+     * Shot recording: the offline write queue and the member's own history.
+     *
+     * Purely additive. `pending_shot_entries` is a queue, not a cache — until a
+     * series drains, this row is the only copy of it anywhere, which is the
+     * reason this database still refuses a destructive fallback.
+     */
+    private val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_shot_entries (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    memberId TEXT NOT NULL,
+                    memberLabel TEXT,
+                    sessionId TEXT,
+                    occurredOn TEXT,
+                    discipline TEXT,
+                    targetType TEXT NOT NULL,
+                    caliberMm REAL NOT NULL,
+                    shotsJson TEXT NOT NULL,
+                    localTotal INTEGER NOT NULL,
+                    source TEXT NOT NULL,
+                    recordedAt TEXT NOT NULL,
+                    notes TEXT,
+                    attempts INTEGER NOT NULL,
+                    lastError TEXT
+                )
+                """,
+            )
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cached_my_entries (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT NOT NULL,
+                    memberId TEXT NOT NULL,
+                    scoreValue REAL NOT NULL,
+                    scoreUnit TEXT NOT NULL,
+                    discipline TEXT,
+                    targetType TEXT,
+                    caliberMm REAL,
+                    shotsJson TEXT,
+                    innerTens INTEGER,
+                    groupingMm REAL,
+                    source TEXT NOT NULL,
+                    recordedAt TEXT NOT NULL,
+                    notes TEXT
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_cached_my_entries_recordedAt " +
+                    "ON cached_my_entries (recordedAt)",
+            )
+        }
+    }
+
+    @Provides
+    fun providePendingShotEntryDao(database: UnefyDatabase): PendingShotEntryDao =
+        database.pendingShotEntryDao()
+
+    @Provides
+    fun provideCachedShotEntryDao(database: UnefyDatabase): CachedShotEntryDao =
+        database.cachedShotEntryDao()
 
     private const val DATABASE_NAME = "unefy.db"
 }

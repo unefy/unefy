@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German is the default locale: the primary audience is DACH clubs.
+     English lives in values-en/. -->
+<resources>
+    <string name="scan_title">Scheibe fotografieren</string>
+    <string name="scan_hint">Der Rahmen zeigt, was erkannt wird. Wird er grün und das Handy vibriert, kannst du auslösen.</string>
+    <string name="scan_searching">Keine Scheibe im Bild.</string>
+    <string name="scan_closer">Scheibe erkannt — geh näher ran, damit sie das Bild füllt.</string>
+    <string name="scan_holding">Scheibe erkannt — jetzt auslösen.</string>
+    <string name="scan_capture">Foto aufnehmen</string>
+    <string name="scan_capturing">Wird ausgewertet…</string>
+    <string name="scan_not_found">Auf dem Foto war keine Scheibe zu erkennen. Versuch es näher dran oder mit mehr Licht.</string>
+    <string name="scan_oblique">Sehr schräg aufgenommen — die Trefferlagen können ungenau sein. Frontaler fotografieren gibt bessere Werte.</string>
+    <string name="scan_use">Übernehmen</string>
+    <string name="scan_retake">Neu aufnehmen</string>
+    <string name="scan_result_description">Entzerrte Scheibe</string>
+    <string name="scan_hits_none">Keine frischen Treffer erkannt — setz sie nach dem Übernehmen von Hand.</string>
+    <plurals name="scan_hits_found">
+        <item quantity="one">%1$d Treffer erkannt — nach dem Übernehmen kannst du ihn verschieben oder löschen.</item>
+        <item quantity="other">%1$d Treffer erkannt — nach dem Übernehmen kannst du sie verschieben oder löschen.</item>
+    </plurals>
+    <string name="scan_permission_title">Kamerazugriff nötig</string>
+    <string name="scan_permission_body">Zum Fotografieren der Scheibe braucht die App die Kamera. Die Bilder bleiben auf dem Gerät.</string>
+    <string name="scan_permission_grant">Kamera erlauben</string>
+    <string name="record_scan">Scheibe fotografieren</string>
+    <string name="record_discard_photo">Foto entfernen</string>
+    <string name="record_title">Trefferaufnahme</string>
+    <string name="record_loading">Scheibe wird geladen…</string>
+    <string name="record_failed">Trefferaufnahme konnte nicht geöffnet werden</string>
+    <string name="record_shot_number">Schuss %1$d</string>
+    <string name="record_shot_off_sheet">daneben</string>
+    <string name="record_shot_detected">erkannt</string>
+    <string name="record_inner_ten">10*</string>
+    <string name="record_add_miss">Fehlschuss</string>
+    <string name="record_hint">Tippen setzt einen Treffer. Tippen auf einen Treffer wählt ihn aus, Ziehen verschiebt ihn. Zum genauen Setzen mit zwei Fingern zoomen.</string>
+    <string name="record_selected_shot">Schuss %1$d · Ring %2$d ausgewählt</string>
+    <string name="record_delete_shot">Löschen</string>
+    <string name="record_member">Schütze</string>
+    <string name="record_target">Scheibe</string>
+    <string name="record_caliber">Kaliber</string>
+    <string name="record_save">Serie speichern</string>
+    <string name="record_clear">Leeren</string>
+    <string name="record_queued">Gespeichert. Wird übertragen, sobald wieder Netz da ist.</string>
+    <string name="record_next_series">Nächste Serie auf dieser Scheibe</string>
+    <string name="record_inner_tens">%1$d Innenzehner</string>
+    <string name="record_grouping">Streukreis %1$.0f mm</string>
+
+    <plurals name="record_shot_count">
+        <item quantity="one">%1$d Schuss</item>
+        <item quantity="other">%1$d Schuss</item>
+    </plurals>
+
+    <string name="detail_inner_ten_legend">★ Innenzehner — zählt nur beim Stechen, nicht für die Ringzahl</string>
+    <string name="detail_missing">Serie nicht gefunden</string>
+    <string name="detail_caliber">%1$.1f mm</string>
+    <string name="detail_shot_number">Schuss %1$d</string>
+    <string name="history_title">Trefferaufnahme</string>
+    <string name="history_record">Serie aufnehmen</string>
+    <string name="history_empty">Noch keine Serien aufgenommen</string>
+    <string name="history_empty_action">Nimm deine erste Serie auf, indem du die Treffer auf der digitalen Scheibe setzt.</string>
+    <string name="history_pending">Nicht übertragen</string>
+    <string name="history_rings">%1$d Ringe</string>
+    <string name="history_day_today">Heute</string>
+    <string name="history_day_yesterday">Gestern</string>
+    <plurals name="history_pending_count">
+        <item quantity="one">%1$d Serie wartet auf Übertragung</item>
+        <item quantity="other">%1$d Serien warten auf Übertragung</item>
+    </plurals>
+    <string name="detail_photo_description">Foto der Scheibe, wie aufgenommen</string>
+    <string name="detail_page_drawing">Digitale Scheibe</string>
+    <string name="detail_page_marked">Foto mit Treffern — lange drücken blendet sie aus</string>
+    <string name="detail_edit">Treffer korrigieren</string>
+    <string name="detail_delete">Serie löschen</string>
+    <string name="detail_delete_title">Serie löschen?</string>
+    <string name="detail_delete_message">Die Serie wird zurückgezogen und verschwindet aus allen Listen. Rückgängig machen lässt sich das nur im Vorstandsbereich.</string>
+    <string name="detail_delete_confirm">Löschen</string>
+    <string name="detail_delete_cancel">Abbrechen</string>
+    <string name="detail_delete_failed">Löschen fehlgeschlagen — ohne Verbindung nicht möglich.</string>
+</resources>

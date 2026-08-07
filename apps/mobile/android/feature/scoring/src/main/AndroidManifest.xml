@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Photographing the target. Declared by the feature that needs it rather
+         than in the app manifest, so the permission travels with the code that
+         justifies it — the same arrangement as feature:attendance. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
+</manifest>

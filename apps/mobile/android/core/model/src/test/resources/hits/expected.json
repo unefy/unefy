@@ -1,0 +1,141 @@
+{
+ "note": "Written by ml/scripts/export_fixtures.py. The crops are what rectify.py produces from the club photographs in ~/Documents/Scheiben; the hits are what detect_hits.py finds in them. 'checked' is how many holes a human confirmed in that photo (ml/data/hits-truth.json) \u2014 where it differs from the number of hits, the Python side is known to be wrong by that much, and the Kotlin side is only asked to agree with Python.",
+ "crop_size": 1472,
+ "frame_to_scoring": 1.15,
+ "targets": [
+  {
+   "image": "IMG_0684.jpg",
+   "why": "five clean holes in the black, patches around them",
+   "hits": [
+    {
+     "x_mm": -4.3,
+     "y_mm": 9.08,
+     "diameter_mm": 6.87
+    },
+    {
+     "x_mm": 21.6,
+     "y_mm": 50.79,
+     "diameter_mm": 6.55
+    },
+    {
+     "x_mm": 4.11,
+     "y_mm": -56.02,
+     "diameter_mm": 5.9
+    },
+    {
+     "x_mm": -1.28,
+     "y_mm": 59.59,
+     "diameter_mm": 6.46
+    },
+    {
+     "x_mm": 56.6,
+     "y_mm": -35.93,
+     "diameter_mm": 5.76
+    }
+   ],
+   "checked": 5
+  },
+  {
+   "image": "IMG_1500.jpg",
+   "why": "holes in the black plus one patch that must not count",
+   "hits": [
+    {
+     "x_mm": 4.1,
+     "y_mm": -22.07,
+     "diameter_mm": 6.24
+    },
+    {
+     "x_mm": 14.84,
+     "y_mm": -23.24,
+     "diameter_mm": 5.62
+    },
+    {
+     "x_mm": 6.08,
+     "y_mm": -52.33,
+     "diameter_mm": 7.22
+    },
+    {
+     "x_mm": 49.93,
+     "y_mm": 47.19,
+     "diameter_mm": 7.22
+    },
+    {
+     "x_mm": 11.87,
+     "y_mm": -81.89,
+     "diameter_mm": 7.66
+    }
+   ],
+   "checked": 5
+  },
+  {
+   "image": "IMG_1514.jpg",
+   "why": "a hole torn across the edge of a patch, and one full of flaps",
+   "hits": [
+    {
+     "x_mm": 36.93,
+     "y_mm": -11.92,
+     "diameter_mm": 6.94
+    },
+    {
+     "x_mm": 9.12,
+     "y_mm": 41.4,
+     "diameter_mm": 7.66
+    },
+    {
+     "x_mm": -25.84,
+     "y_mm": 56.9,
+     "diameter_mm": 7.34
+    },
+    {
+     "x_mm": 61.73,
+     "y_mm": 56.02,
+     "diameter_mm": 5.88
+    },
+    {
+     "x_mm": 68.75,
+     "y_mm": -54.28,
+     "diameter_mm": 2.45
+    }
+   ],
+   "checked": 5
+  },
+  {
+   "image": "IMG_1528.jpg",
+   "why": "freshly patched, not a single fresh hole \u2014 must report none",
+   "hits": [],
+   "checked": 0
+  },
+  {
+   "image": "IMG_S25_0807.jpg",
+   "why": "bright backstop: holes read 0.36-0.40 of the ink, so this one only scores at all if tone_slack is applied",
+   "hits": [
+    {
+     "x_mm": -8.79,
+     "y_mm": 8.01,
+     "diameter_mm": 5.15
+    },
+    {
+     "x_mm": 11.94,
+     "y_mm": -2.52,
+     "diameter_mm": 5.7
+    },
+    {
+     "x_mm": -0.56,
+     "y_mm": -13.1,
+     "diameter_mm": 5.88
+    },
+    {
+     "x_mm": 14.82,
+     "y_mm": 21.63,
+     "diameter_mm": 6.12
+    },
+    {
+     "x_mm": 3.36,
+     "y_mm": 56.3,
+     "diameter_mm": 6.19
+    }
+   ],
+   "checked": 5
+  }
+ ]
+}

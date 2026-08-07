@@ -89,6 +89,7 @@ dependencies {
     implementation(project(":feature:events"))
     implementation(project(":feature:dues"))
     implementation(project(":feature:competitions"))
+    implementation(project(":feature:scoring"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

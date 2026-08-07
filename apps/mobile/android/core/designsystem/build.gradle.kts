@@ -8,6 +8,11 @@ android {
 }
 
 dependencies {
+    // The scoring engine and target geometry: the canvas draws rings and scores
+    // taps with the same code the rest of the app uses. core:model is pure
+    // Kotlin, so this respects the module rules.
+    api(project(":core:model"))
+
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
 

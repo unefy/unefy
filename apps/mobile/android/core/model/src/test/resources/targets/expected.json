@@ -1,0 +1,90 @@
+[
+  {
+    "image": "IMG_0684.png",
+    "width": 384,
+    "height": 512,
+    "cx": 188.1,
+    "cy": 224.4,
+    "major": 60.5,
+    "minor": 60.1,
+    "angle": 268.7,
+    "circularity": 0.993
+  },
+  {
+    "image": "IMG_1456.png",
+    "width": 384,
+    "height": 512,
+    "cx": 186.3,
+    "cy": 243.1,
+    "major": 56.4,
+    "minor": 55.9,
+    "angle": 92.1,
+    "circularity": 0.99
+  },
+  {
+    "image": "IMG_1473.png",
+    "width": 384,
+    "height": 512,
+    "cx": 197.1,
+    "cy": 219.8,
+    "major": 38.3,
+    "minor": 36.1,
+    "angle": 176.1,
+    "circularity": 0.942
+  },
+  {
+    "image": "IMG_1500.png",
+    "width": 384,
+    "height": 512,
+    "cx": 174.6,
+    "cy": 223.4,
+    "major": 56.5,
+    "minor": 55.8,
+    "angle": 97.1,
+    "circularity": 0.987
+  },
+  {
+    "image": "IMG_1522.png",
+    "width": 384,
+    "height": 512,
+    "cx": 178.9,
+    "cy": 220.3,
+    "major": 58.0,
+    "minor": 57.3,
+    "angle": 101.5,
+    "circularity": 0.988
+  },
+  {
+    "image": "IMG_1560.png",
+    "width": 384,
+    "height": 512,
+    "cx": 181.9,
+    "cy": 225.4,
+    "major": 62.1,
+    "minor": 61.0,
+    "angle": 94.6,
+    "circularity": 0.981
+  },
+  {
+    "image": "IMG_6716.png",
+    "width": 384,
+    "height": 512,
+    "cx": 196.4,
+    "cy": 256.5,
+    "major": 63.4,
+    "minor": 62.9,
+    "angle": 121.4,
+    "circularity": 0.991
+  },
+  {
+    "image": "IMG_8591.png",
+    "width": 384,
+    "height": 512,
+    "cx": 203.8,
+    "cy": 237.1,
+    "major": 64.2,
+    "minor": 63.5,
+    "angle": 93.1,
+    "circularity": 0.989
+  }
+]

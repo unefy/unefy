@@ -40,6 +40,7 @@
          current club. No email here — the initials carry the identity. -->
     <string name="account_switch_club">Switch club</string>
     <string name="account_current_club">Current club</string>
+    <string name="nav_shots">Shots</string>
     <string name="nav_competitions">Competitions</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">More</string>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_title">Photograph target</string>
+    <string name="scan_hint">The outline shows what is being recognised. Once it turns green and the phone buzzes, take the shot.</string>
+    <string name="scan_searching">No target in frame.</string>
+    <string name="scan_closer">Target found — move closer so it fills the frame.</string>
+    <string name="scan_holding">Target locked — take the shot.</string>
+    <string name="scan_capture">Take photo</string>
+    <string name="scan_capturing">Analysing…</string>
+    <string name="scan_not_found">No target could be found in the photo. Try getting closer, or with more light.</string>
+    <string name="scan_oblique">Taken at a steep angle — hit positions may be imprecise. A straighter shot gives better values.</string>
+    <string name="scan_use">Use it</string>
+    <string name="scan_retake">Retake</string>
+    <string name="scan_hits_none">No fresh hits found — place them by hand after using this photo.</string>
+    <plurals name="scan_hits_found">
+        <item quantity="one">%1$d hit found — you can move or delete it after using this photo.</item>
+        <item quantity="other">%1$d hits found — you can move or delete them after using this photo.</item>
+    </plurals>
+    <string name="scan_result_description">Rectified target</string>
+    <string name="scan_permission_title">Camera access needed</string>
+    <string name="scan_permission_body">Photographing the target needs the camera. The images stay on the device.</string>
+    <string name="scan_permission_grant">Allow camera</string>
+    <string name="record_scan">Photograph target</string>
+    <string name="record_discard_photo">Remove photo</string>
+    <string name="record_title">Record shots</string>
+    <string name="record_loading">Loading target…</string>
+    <string name="record_failed">Could not open shot recording</string>
+    <string name="record_shot_number">Shot %1$d</string>
+    <string name="record_shot_off_sheet">off the sheet</string>
+    <string name="record_shot_detected">detected</string>
+    <string name="record_inner_ten">10*</string>
+    <string name="record_add_miss">Miss</string>
+    <string name="record_hint">Tap to place a shot. Tap a shot to select it, drag to move it. Pinch with two fingers to zoom for precise placement.</string>
+    <string name="record_selected_shot">Shot %1$d · ring %2$d selected</string>
+    <string name="record_delete_shot">Delete</string>
+    <string name="record_member">Shooter</string>
+    <string name="record_target">Target</string>
+    <string name="record_caliber">Calibre</string>
+    <string name="record_save">Save series</string>
+    <string name="record_clear">Clear</string>
+    <string name="record_queued">Saved. It will be sent as soon as there is a connection.</string>
+    <string name="record_next_series">Next series on this target</string>
+    <string name="record_inner_tens">%1$d inner tens</string>
+    <string name="record_grouping">Group %1$.0f mm</string>
+
+    <plurals name="record_shot_count">
+        <item quantity="one">%1$d shot</item>
+        <item quantity="other">%1$d shots</item>
+    </plurals>
+
+    <string name="detail_inner_ten_legend">★ Inner ten — counts for tiebreaks only, not towards the score</string>
+    <string name="detail_missing">Series not found</string>
+    <string name="detail_caliber">%1$.1f mm</string>
+    <string name="detail_shot_number">Shot %1$d</string>
+    <string name="history_title">Shot recording</string>
+    <string name="history_record">Record series</string>
+    <string name="history_empty">No series recorded yet</string>
+    <string name="history_empty_action">Record your first series by placing the hits on the digital target.</string>
+    <string name="history_pending">Not sent</string>
+    <string name="history_rings">%1$d rings</string>
+    <string name="history_day_today">Today</string>
+    <string name="history_day_yesterday">Yesterday</string>
+    <plurals name="history_pending_count">
+        <item quantity="one">%1$d series waiting to be sent</item>
+        <item quantity="other">%1$d series waiting to be sent</item>
+    </plurals>
+    <string name="detail_photo_description">The target as photographed</string>
+    <string name="detail_page_drawing">Digital target</string>
+    <string name="detail_page_marked">Photo with shots — hold to hide them</string>
+    <string name="detail_edit">Correct the shots</string>
+    <string name="detail_delete">Delete the series</string>
+    <string name="detail_delete_title">Delete this series?</string>
+    <string name="detail_delete_message">The series is withdrawn and disappears from every list. Undoing that is a board matter.</string>
+    <string name="detail_delete_confirm">Delete</string>
+    <string name="detail_delete_cancel">Cancel</string>
+    <string name="detail_delete_failed">Could not delete — this needs a connection.</string>
+</resources>

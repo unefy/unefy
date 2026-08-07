@@ -11,6 +11,7 @@ import com.unefy.app.EventsKey
 import com.unefy.app.MembersKey
 import com.unefy.app.MyDuesKey
 import com.unefy.app.ProfileKey
+import com.unefy.app.ShotHistoryKey
 import com.unefy.app.R
 import com.unefy.core.designsystem.R as DesignR
 import com.unefy.core.model.ClubRole
@@ -43,6 +44,13 @@ enum class TopLevel(
      * near-identical QR icons were not tellable apart in the shelf.
      */
     CheckIn("check_in", AttendanceCodeKey, R.string.nav_check_in, DesignR.drawable.ic_qr_code),
+
+    /**
+     * Recorded shot series. Lands on the member's own history, from which a new
+     * series is one tap away — the same shape as Check-in, where the thing you
+     * do most often is the screen you arrive on.
+     */
+    Shots("shots", ShotHistoryKey, R.string.nav_shots, DesignR.drawable.ic_target),
 
     // Administrative
     Members("members", MembersKey, R.string.nav_members, DesignR.drawable.ic_group),
@@ -83,6 +91,7 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         // A board member is still a member: they check in like everyone else,
         // and the scanner is the other half of the same evening.
         TopLevel.CheckIn,
+        TopLevel.Shots,
     )
 } else {
     listOf(
@@ -92,5 +101,8 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         TopLevel.MyDues,
         TopLevel.CheckIn,
         TopLevel.Directory,
+        // A member records their own series; the server only lets them file
+        // against themselves, so this is safe to offer to everyone.
+        TopLevel.Shots,
     )
 }
