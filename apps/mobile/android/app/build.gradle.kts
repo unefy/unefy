@@ -47,13 +47,39 @@ fun buildProperty(name: String): String? = (
 // login screen simply has no Google button.
 val googleServerClientId: String = buildProperty("unefy.googleServerClientId").orEmpty()
 
+// Release signing, same shape as the Google client id: from local.properties,
+// absent in a fork. The keystore itself lives outside the repository — a
+// signing key that anyone can pull is not a signing key.
+//
+// Conditional, like the google-services plugin above: without the keystore the
+// release build still assembles, it just comes out unsigned. That keeps
+// `assembleRelease` usable in CI and in a fork, where nobody has this key.
+// An unsigned APK will not install on a device — that is the point, it says
+// "you are not the one who publishes this app" rather than silently shipping
+// something signed with a stand-in key.
+val releaseKeystore = buildProperty("unefy.releaseKeystore")?.let(::file)?.takeIf { it.exists() }
+
 android {
     namespace = "com.unefy.app"
 
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = buildProperty("unefy.releaseKeystorePassword")
+                keyAlias = buildProperty("unefy.releaseKeyAlias")
+                keyPassword = buildProperty("unefy.releaseKeyPassword")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.unefy.app"
-        versionCode = 1
-        versionName = "0.1.0"
+        // Bumped per build handed out: Firebase App Distribution and the
+        // devices both key updates off this, so two builds sharing a code look
+        // like the same build and testers never see the second one.
+        versionCode = 2
+        versionName = "0.1.1"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
 
@@ -68,6 +94,9 @@ android {
 
     buildTypes {
         release {
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
