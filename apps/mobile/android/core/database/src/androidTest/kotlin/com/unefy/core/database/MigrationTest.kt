@@ -79,7 +79,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -116,12 +116,67 @@ class MigrationTest {
         helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).close()
     }
 
+    /**
+     * The offline write queue.
+     *
+     * Migrating with a queued shot entry present, because that is the state a
+     * real device upgrades in — an unsent row is the only copy of itself, and
+     * this migration must not be the thing that loses one.
+     */
+    @Test
+    fun migrates_from_12_to_13_without_touching_queued_work() {
+        helper.createDatabase(DB, 12).use { db ->
+            db.execSQL(
+                "INSERT INTO pending_shot_entries (id, memberId, targetType, caliberMm, " +
+                    "shotsJson, localTotal, source, recordedAt, attempts) VALUES " +
+                    "('e1', 'm1', 'dsb-5', 5.6, '[]', 10, 'manual', '2026-08-08T10:00:00Z', 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+            db.query("SELECT id FROM pending_shot_entries").use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("e1", cursor.getString(0))
+            }
+        }
+    }
+
+    /**
+     * A record can have at most one unsent write — the primary key says so, and
+     * the queue's design leans on it: editing something still queued rewrites
+     * that row rather than stacking a second one behind it.
+     */
+    @Test
+    fun the_write_queue_holds_one_row_per_record() {
+        helper.createDatabase(DB, 12).close()
+
+        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+            val insert = "INSERT OR REPLACE INTO pending_writes (entity, recordId, op, tenantId, " +
+                "payloadJson, label, queuedAt, attempts) VALUES "
+            db.execSQL(insert + "('members', 'r1', 'create', 't1', '{}', 'Erst', '2026-08-08', 0)")
+            db.execSQL(insert + "('members', 'r1', 'create', 't1', '{}', 'Dann', '2026-08-08', 0)")
+            // Same record id, different entity — a different row, not a clash.
+            db.execSQL(insert + "('events', 'r1', 'create', 't1', '{}', 'Termin', '2026-08-08', 0)")
+
+            db.query("SELECT label FROM pending_writes WHERE entity = 'members'").use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("Dann", cursor.getString(0))
+            }
+            db.query("SELECT COUNT(*) FROM pending_writes").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(2, cursor.getInt(0))
+            }
+        }
+    }
+
     /** Every migration creates its new tables, so a fresh sync has somewhere to land. */
     @Test
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 12, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",
@@ -131,6 +186,7 @@ class MigrationTest {
                 "pending_shot_entries",
                 "cached_my_entries",
                 "synced_entries",
+                "pending_writes",
             )) {
                 db.query("SELECT COUNT(*) FROM $table").use {
                     it.moveToFirst()

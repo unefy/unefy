@@ -41,6 +41,9 @@ class SyncCoordinatorTest {
         engine = engine,
         changeStream = ChangeStream { hints },
         connectivity = ConnectivityMonitor { online },
+        // The queue is exercised in WriteQueueTest; here it only has to exist,
+        // because coming online drains it before it reads anything back.
+        writes = NoopWriteQueue(),
     )
 
     /**
@@ -321,6 +324,26 @@ private class FakeEngine : SyncEngine {
         if (block) kotlinx.coroutines.awaitCancellation()
         return outcome
     }
+}
+
+private class NoopWriteQueue : WriteQueue {
+    override suspend fun enqueue(
+        entity: String,
+        recordId: String,
+        op: String,
+        payloadJson: String,
+        label: String,
+    ) = Unit
+
+    override fun pending(entity: String) =
+        kotlinx.coroutines.flow.flowOf(emptyList<com.unefy.core.database.PendingWrite>())
+
+    override fun pendingFor(entity: String, recordId: String) =
+        kotlinx.coroutines.flow.flowOf<com.unefy.core.database.PendingWrite?>(null)
+
+    override fun count() = kotlinx.coroutines.flow.flowOf(0)
+    override suspend fun drain() = 0
+    override suspend fun discard(entity: String, recordId: String) = Unit
 }
 
 private class NoopCollection : SyncCollection {

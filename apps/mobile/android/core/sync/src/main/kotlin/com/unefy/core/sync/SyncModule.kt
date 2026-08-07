@@ -19,6 +19,16 @@ abstract class SyncModule {
     @Multibinds
     abstract fun collections(): Set<SyncCollection>
 
+    /** Same reason as [collections]: an app with no writable feature must build. */
+    @Multibinds
+    abstract fun writeHandlers(): Set<PendingWriteHandler>
+
+    @Binds
+    abstract fun bindWriteQueue(impl: DefaultWriteQueue): WriteQueue
+
+    @Binds
+    abstract fun bindActiveTenant(impl: SessionActiveTenant): ActiveTenant
+
     @Binds
     abstract fun bindSyncCoordinator(impl: DefaultSyncCoordinator): SyncCoordinator
 

@@ -39,9 +39,10 @@ import javax.inject.Singleton
         PendingShotEntry::class,
         CachedShotEntry::class,
         SyncedEntry::class,
+        PendingWrite::class,
         SyncCursorEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -64,6 +65,8 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun cachedShotEntryDao(): CachedShotEntryDao
 
     abstract fun syncedEntryDao(): SyncedEntryDao
+
+    abstract fun pendingWriteDao(): PendingWriteDao
 
     abstract fun syncCursorDao(): SyncCursorDao
 }
@@ -101,6 +104,7 @@ object DatabaseModule {
             MIGRATION_9_10,
             MIGRATION_10_11,
             MIGRATION_11_12,
+            MIGRATION_12_13,
         )
     }
 
@@ -489,6 +493,44 @@ object DatabaseModule {
     @Provides
     fun provideSyncedEntryDao(database: UnefyDatabase): SyncedEntryDao =
         database.syncedEntryDao()
+
+    /**
+     * The queue for creations and edits made without a connection. A new table
+     * only — nothing existing changes shape, because a device mid-upgrade may
+     * be carrying an evening's work in the tables that are already there.
+     */
+    private val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_writes (
+                    entity TEXT NOT NULL,
+                    recordId TEXT NOT NULL,
+                    op TEXT NOT NULL,
+                    tenantId TEXT NOT NULL,
+                    payloadJson TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    queuedAt TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    lastError TEXT,
+                    PRIMARY KEY (entity, recordId)
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_pending_writes_tenantId " +
+                    "ON pending_writes (tenantId)",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_pending_writes_queuedAt " +
+                    "ON pending_writes (queuedAt)",
+            )
+        }
+    }
+
+    @Provides
+    fun providePendingWriteDao(database: UnefyDatabase): PendingWriteDao =
+        database.pendingWriteDao()
 
     private const val DATABASE_NAME = "unefy.db"
 }

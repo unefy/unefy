@@ -129,6 +129,7 @@ class DefaultSyncCoordinator @Inject constructor(
     private val engine: SyncEngine,
     private val changeStream: ChangeStream,
     private val connectivity: ConnectivityMonitor,
+    private val writes: WriteQueue,
 ) : SyncCoordinator {
 
     private val statuses = MutableStateFlow<Map<String, SyncStatus>>(emptyMap())
@@ -197,7 +198,14 @@ class DefaultSyncCoordinator @Inject constructor(
         launch {
             // A drain on every transition to online, including the first — that
             // first one is what fills the mirror on a fresh install.
-            connectivity.isOnline().filter { it }.collect { requestAll() }
+            connectivity.isOnline().filter { it }.collect {
+                // Queued writes go up before the mirrors come down, the same
+                // order the history screen uses: reading first would pull the
+                // server's version of a record this device has already edited
+                // and briefly show the edit as undone.
+                writes.drain()
+                requestAll()
+            }
         }
 
         launch {
