@@ -141,6 +141,32 @@ async def delete_club(
     return {"data": {"message": "Club deleted"}}
 
 
+@router.get("/divisions")
+async def list_divisions(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """The club's divisions (Sparten), primary first.
+
+    Readable by every member — division names are club structure, not
+    sensitive data, and pickers (e.g. assigning a division-level function)
+    need them.
+    """
+    from app.models.division import Division
+
+    result = await session.execute(
+        select(Division)
+        .where(Division.tenant_id == auth.tenant)
+        .order_by(Division.is_primary.desc(), Division.name)
+    )
+    return {
+        "data": [
+            {"id": str(d.id), "name": d.name, "is_primary": d.is_primary}
+            for d in result.scalars().all()
+        ]
+    }
+
+
 @router.put("/sports")
 async def set_club_sports(
     data: ClubSportsUpdate,

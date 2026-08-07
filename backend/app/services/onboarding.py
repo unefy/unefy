@@ -9,6 +9,7 @@ from app.core.seeds import member_statuses_seed
 from app.core.slug import fallback_slug, slugify
 from app.models.catalog import MeasurementUnit
 from app.models.division import Division
+from app.models.function import CatalogFunction, Function
 from app.models.sport import CatalogUnit, Sport
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
@@ -60,6 +61,7 @@ class OnboardingService:
         club_name: str,
         divisions: list[tuple[str, str]],
         has_divisions: bool,
+        function_keys: list[str] | None = None,
     ) -> Tenant:
         """Create the tenant, its divisions, seeded units and the owner link.
 
@@ -108,6 +110,13 @@ class OnboardingService:
             )
 
         await self._seed_units(tenant.id, user_id, [s.id for s in sports.values()])
+        await self._seed_functions(
+            tenant.id,
+            user_id,
+            [s.id for s in sports.values()],
+            has_divisions=has_divisions,
+            function_keys=function_keys,
+        )
 
         self.session.add(TenantMembership(user_id=user_id, tenant_id=tenant.id, role="owner"))
         await self.session.flush()
@@ -147,6 +156,56 @@ class OnboardingService:
                     tenant_id=tenant_id,
                     name=unit.name,
                     symbol=unit.symbol,
+                    is_active=True,
+                    created_by=user_id,
+                    updated_by=user_id,
+                )
+            )
+
+    async def _seed_functions(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        sport_ids: list[uuid.UUID],
+        *,
+        has_divisions: bool,
+        function_keys: list[str] | None = None,
+    ) -> None:
+        """Copy the catalog offices matching the club into its own list.
+
+        Copied, not referenced — same reasoning as `_seed_units`. General
+        offices (no sport) plus those of the chosen sports; `division`-level
+        offices only for clubs that actually have divisions. An explicit
+        `function_keys` subset (onboarding wizard) narrows the copy; unknown
+        keys are ignored rather than rejected, since the catalog can change
+        between rendering the wizard and submitting it.
+        """
+        query = (
+            select(CatalogFunction)
+            .where((CatalogFunction.sport_id.is_(None)) | (CatalogFunction.sport_id.in_(sport_ids)))
+            .where(CatalogFunction.is_active.is_(True))
+            .order_by(CatalogFunction.sort_order, CatalogFunction.name)
+        )
+        result = await self.session.execute(query)
+
+        wanted = set(function_keys) if function_keys is not None else None
+        seen: set[str] = set()
+        for entry in result.scalars().all():
+            if wanted is not None and entry.key not in wanted:
+                continue
+            if entry.level == "division" and not has_divisions:
+                continue
+            name_key = entry.name.casefold()
+            if name_key in seen:
+                continue
+            seen.add(name_key)
+            self.session.add(
+                Function(
+                    tenant_id=tenant_id,
+                    name=entry.name,
+                    level=entry.level,
+                    suggested_role=entry.suggested_role,
+                    sort_order=entry.sort_order,
                     is_active=True,
                     created_by=user_id,
                     updated_by=user_id,

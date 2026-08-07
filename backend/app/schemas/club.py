@@ -66,6 +66,10 @@ class ClubResponse(BaseSchema):
     # IANA name, e.g. "Europe/Berlin". The club's calendar day.
     timezone: str = "Europe/Berlin"
 
+    # Whether the club is organised in divisions (Sparten). Gates every
+    # division picker in the UI.
+    has_divisions: bool = False
+
 
 class ClubUpdate(BaseSchema):
     name: str | None = Field(default=None, min_length=2, max_length=255)

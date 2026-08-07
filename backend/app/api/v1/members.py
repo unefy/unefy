@@ -11,6 +11,7 @@ from app.core.preconditions import require_if_match, set_etag
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
+from app.schemas.function import MemberFunctionCreate, MemberFunctionUpdate
 from app.schemas.member import (
     FederationMembershipResponse,
     MemberBulkDelete,
@@ -263,3 +264,64 @@ async def list_member_attendance(
     if await attendance.members.get_by_id(member_id) is None:
         raise NotFoundError("Member not found")
     return await member_records_payload(attendance, member_id, page, per_page, from_date, to_date)
+
+
+@router.get("/{member_id}/functions")
+async def list_member_functions(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """A member's terms of office, newest first, history included."""
+    from app.services.function import FunctionService
+
+    service = FunctionService(session, auth.tenant)
+    assignments = await service.list_member_functions(member_id)
+    return {"data": [a.model_dump(mode="json") for a in assignments]}
+
+
+@router.post("/{member_id}/functions", status_code=201)
+async def assign_member_function(
+    member_id: uuid.UUID,
+    data: MemberFunctionCreate,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Start a term of office for a member."""
+    from app.services.function import FunctionService
+
+    service = FunctionService(session, auth.tenant)
+    assignment = await service.assign(member_id, data, created_by=auth.user_id)
+    return {"data": assignment.model_dump(mode="json")}
+
+
+@router.patch("/{member_id}/functions/{assignment_id}")
+async def update_member_function(
+    member_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    data: MemberFunctionUpdate,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Adjust a term — typically setting `valid_to` to end it."""
+    from app.services.function import FunctionService
+
+    service = FunctionService(session, auth.tenant)
+    assignment = await service.update_assignment(
+        member_id, assignment_id, data, updated_by=auth.user_id
+    )
+    return {"data": assignment.model_dump(mode="json")}
+
+
+@router.delete("/{member_id}/functions/{assignment_id}", status_code=204)
+async def delete_member_function(
+    member_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> None:
+    """Remove a term entirely — for typos only; ending a term sets `valid_to`."""
+    from app.services.function import FunctionService
+
+    service = FunctionService(session, auth.tenant)
+    await service.delete_assignment(member_id, assignment_id)

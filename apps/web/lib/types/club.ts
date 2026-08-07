@@ -31,6 +31,10 @@ export type Club = {
   /** IANA name, e.g. "Europe/Berlin". The club's calendar day. */
   timezone: string
 
+  /** Whether the club is organised in divisions (Sparten). Gates every
+   * division picker in the UI. */
+  has_divisions: boolean
+
   /**
    * Modules activated by the club's sports (union over `sports.modules`),
    * e.g. `["shooting"]`. Gates module sections in nav and pages — the backend

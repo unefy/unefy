@@ -27,7 +27,9 @@
     "shootingProof": "Nachweis",
     "shootingRules": "Regeln",
     "myArea": "Mein Bereich",
-    "settingsSports": "Sportarten"
+    "settingsSports": "Sportarten",
+    "settingsFunctions": "Funktionen",
+    "functionHolders": "Funktionsträger"
   },
   "auth": {
     "signIn": "Anmelden",
@@ -420,7 +422,8 @@
         "overview": "Übersicht",
         "dues": "Beiträge",
         "attendance": "Anwesenheit",
-        "shooting": "Schießbuch"
+        "shooting": "Schießbuch",
+        "functions": "Funktionen"
       },
       "duesTab": {
         "assignments": "Beitragszuordnung",
@@ -549,6 +552,49 @@
         "notFound": "Das Mitglied wurde nicht gefunden.",
         "unreachable": "Der Server ist nicht erreichbar.",
         "unknown": "Es ist ein Fehler aufgetreten."
+      }
+    },
+    "functionsTab": {
+      "current": "Aktuelle Ämter",
+      "history": "Historie",
+      "noCurrent": "Derzeit kein Amt.",
+      "noHistory": "Keine früheren Amtszeiten.",
+      "ongoing": "laufend",
+      "columns": {
+        "function": "Funktion",
+        "division": "Sparte",
+        "from": "Von",
+        "to": "Bis",
+        "note": "Notiz"
+      },
+      "deleteTitle": "Amtszeit „{name}“ entfernen?",
+      "deleteDescription": "Nur für Fehleingaben gedacht — eine beendete Amtszeit gehört in die Historie und wird über „Amtszeit beenden“ abgeschlossen.",
+      "assign": {
+        "open": "Amt zuweisen",
+        "title": "Amt zuweisen",
+        "function": "Funktion",
+        "division": "Sparte",
+        "from": "Von",
+        "to": "Bis (optional)",
+        "note": "Notiz",
+        "notePlaceholder": "z. B. kommissarisch",
+        "roleHint": "Für dieses Amt wird die Rolle „{role}“ empfohlen — der Zugang dieses Mitglieds hat aktuell „{current}“. Die Rolle lässt sich unter Einstellungen → Zugänge ändern.",
+        "created": "Amt zugewiesen.",
+        "overlap": "Dieses Mitglied hat die Funktion im gewählten Zeitraum bereits inne.",
+        "failed": "Es ist ein Fehler aufgetreten.",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Wird gespeichert …"
+      },
+      "end": {
+        "open": "Amtszeit beenden",
+        "title": "„{name}“ beenden",
+        "date": "Letzter Tag im Amt",
+        "ended": "Amtszeit beendet.",
+        "failed": "Es ist ein Fehler aufgetreten.",
+        "cancel": "Abbrechen",
+        "save": "Beenden",
+        "saving": "Wird gespeichert …"
       }
     }
   },
@@ -824,6 +870,46 @@
         "unknown": "Es ist ein Fehler aufgetreten.",
         "unreachable": "Der Server ist nicht erreichbar."
       }
+    },
+    "functions": {
+      "title": "Funktionen & Ämter",
+      "description": "Die Ämter des Vereins — vom Katalog vorgeschlagen, danach gehört die Liste dem Verein: umbenennen, ergänzen, deaktivieren.",
+      "empty": "Noch keine Funktionen angelegt.",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "levels": {
+        "club": "Verein",
+        "division": "Sparte"
+      },
+      "columns": {
+        "name": "Name",
+        "level": "Ebene",
+        "suggestedRole": "Empfohlene Rolle",
+        "active": "Status",
+        "sortOrder": "Reihenfolge"
+      },
+      "deleteTitle": "{name} löschen?",
+      "deleteDescription": "Nur möglich, solange die Funktion nie vergeben wurde. Mit Historie lässt sie sich stattdessen deaktivieren.",
+      "deleteConflict": "Diese Funktion hat (auch historische) Amtszeiten. Bitte deaktivieren statt löschen.",
+      "dialog": {
+        "create": "Funktion",
+        "createTitle": "Funktion anlegen",
+        "editTitle": "Funktion bearbeiten",
+        "edit": "Bearbeiten",
+        "name": "Name",
+        "namePlaceholder": "z. B. Jugendleiter:in",
+        "level": "Ebene",
+        "levelHint": "Sparten-Funktionen werden je Sparte besetzt und beim Zuweisen einer Sparte zugeordnet.",
+        "suggestedRole": "Empfohlene Rolle",
+        "noRole": "Keine",
+        "sortOrder": "Reihenfolge",
+        "active": "Aktiv",
+        "activeHint": "Inaktive Funktionen können nicht neu vergeben werden; die Historie bleibt erhalten.",
+        "nameTaken": "Eine Funktion mit diesem Namen existiert bereits.",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Wird gespeichert …"
+      }
     }
   },
   "shooting": {
@@ -1001,6 +1087,21 @@
       "open": "Offen",
       "paid": "Bezahlt",
       "cancelled": "Storniert"
+    }
+  },
+  "functionHolders": {
+    "title": "Funktionsträger",
+    "description": "Wer welches Amt innehat — heute oder zu einem Stichtag in der Vergangenheit.",
+    "date": "Stichtag",
+    "empty": "Zum gewählten Stichtag ist kein Amt besetzt.",
+    "ongoing": "laufend",
+    "columns": {
+      "function": "Funktion",
+      "division": "Sparte",
+      "member": "Mitglied",
+      "since": "Seit",
+      "until": "Bis",
+      "note": "Notiz"
     }
   }
 }

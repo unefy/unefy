@@ -1,4 +1,5 @@
 import {
+  AwardIcon,
   CalendarIcon,
   CircleUserIcon,
   ClipboardCheckIcon,
@@ -62,6 +63,11 @@ export const sidebarData: SidebarData = {
           url: "/members",
           icon: UsersIcon,
         },
+        {
+          titleKey: "functionHolders",
+          url: "/functions",
+          icon: AwardIcon,
+        },
       ],
     },
     {
@@ -119,6 +125,7 @@ export const sidebarData: SidebarData = {
           items: [
             { titleKey: "settingsGeneral", url: "/settings" },
             { titleKey: "settingsSports", url: "/settings/sports" },
+            { titleKey: "settingsFunctions", url: "/settings/functions" },
             { titleKey: "settingsAccess", url: "/settings/access" },
           ],
         },

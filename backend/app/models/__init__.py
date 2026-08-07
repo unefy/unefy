@@ -18,6 +18,7 @@ from app.models.discipline import Discipline
 from app.models.division import Division
 from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
+from app.models.function import CatalogFunction, Function, MemberFunction
 from app.models.invitation import Invitation
 from app.models.member import Member, MemberFederationMembership
 from app.models.proof_chain import ProofChainAnchor, ProofChainEntry
@@ -40,6 +41,7 @@ __all__ = [
     "AuditMixin",
     "Base",
     "BaseModel",
+    "CatalogFunction",
     "CatalogUnit",
     "ClubDiscipline",
     "Competition",
@@ -50,11 +52,13 @@ __all__ = [
     "Event",
     "EventRegistration",
     "FeeType",
+    "Function",
     "Invitation",
     "MeasurementUnit",
     "Member",
     "MemberFederationMembership",
     "MemberFee",
+    "MemberFunction",
     "ProofChainAnchor",
     "ProofChainEntry",
     "PushDevice",

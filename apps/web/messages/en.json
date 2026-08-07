@@ -27,7 +27,9 @@
     "shootingProof": "Proof",
     "shootingRules": "Rules",
     "myArea": "My area",
-    "settingsSports": "Sports"
+    "settingsSports": "Sports",
+    "settingsFunctions": "Functions",
+    "functionHolders": "Office holders"
   },
   "auth": {
     "signIn": "Sign in",
@@ -420,7 +422,8 @@
         "overview": "Overview",
         "dues": "Dues",
         "attendance": "Attendance",
-        "shooting": "Range book"
+        "shooting": "Range book",
+        "functions": "Functions"
       },
       "duesTab": {
         "assignments": "Fee assignment",
@@ -549,6 +552,49 @@
         "notFound": "The member was not found.",
         "unreachable": "The server is unreachable.",
         "unknown": "Something went wrong."
+      }
+    },
+    "functionsTab": {
+      "current": "Current offices",
+      "history": "History",
+      "noCurrent": "No current office.",
+      "noHistory": "No previous terms.",
+      "ongoing": "ongoing",
+      "columns": {
+        "function": "Function",
+        "division": "Division",
+        "from": "From",
+        "to": "To",
+        "note": "Note"
+      },
+      "deleteTitle": "Remove term “{name}”?",
+      "deleteDescription": "Meant for typos only — a finished term belongs in the history and is closed via “End term”.",
+      "assign": {
+        "open": "Assign office",
+        "title": "Assign office",
+        "function": "Function",
+        "division": "Division",
+        "from": "From",
+        "to": "To (optional)",
+        "note": "Note",
+        "notePlaceholder": "e.g. acting",
+        "roleHint": "The role “{role}” is suggested for this office — this member's account currently has “{current}”. Change it under Settings → Access.",
+        "created": "Office assigned.",
+        "overlap": "This member already holds this function in the chosen period.",
+        "failed": "Something went wrong.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving …"
+      },
+      "end": {
+        "open": "End term",
+        "title": "End “{name}”",
+        "date": "Last day in office",
+        "ended": "Term ended.",
+        "failed": "Something went wrong.",
+        "cancel": "Cancel",
+        "save": "End term",
+        "saving": "Saving …"
       }
     }
   },
@@ -824,6 +870,46 @@
         "unknown": "Something went wrong.",
         "unreachable": "The server is unreachable."
       }
+    },
+    "functions": {
+      "title": "Functions & offices",
+      "description": "The club's offices — suggested by the catalog, then fully owned by the club: rename, extend, deactivate.",
+      "empty": "No functions yet.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "levels": {
+        "club": "Club",
+        "division": "Division"
+      },
+      "columns": {
+        "name": "Name",
+        "level": "Level",
+        "suggestedRole": "Suggested role",
+        "active": "Status",
+        "sortOrder": "Order"
+      },
+      "deleteTitle": "Delete {name}?",
+      "deleteDescription": "Only possible while the function was never assigned. With history, deactivate it instead.",
+      "deleteConflict": "This function has terms of office (including historic ones). Deactivate it instead of deleting.",
+      "dialog": {
+        "create": "Function",
+        "createTitle": "Create function",
+        "editTitle": "Edit function",
+        "edit": "Edit",
+        "name": "Name",
+        "namePlaceholder": "e.g. Youth leader",
+        "level": "Level",
+        "levelHint": "Division functions are held per division and get a division assigned when given to a member.",
+        "suggestedRole": "Suggested role",
+        "noRole": "None",
+        "sortOrder": "Order",
+        "active": "Active",
+        "activeHint": "Inactive functions cannot be newly assigned; history is kept.",
+        "nameTaken": "A function with this name already exists.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving …"
+      }
     }
   },
   "shooting": {
@@ -1001,6 +1087,21 @@
       "open": "Open",
       "paid": "Paid",
       "cancelled": "Cancelled"
+    }
+  },
+  "functionHolders": {
+    "title": "Office holders",
+    "description": "Who holds which office — today or at a date in the past.",
+    "date": "Reference date",
+    "empty": "No office is held at the chosen date.",
+    "ongoing": "ongoing",
+    "columns": {
+      "function": "Function",
+      "division": "Division",
+      "member": "Member",
+      "since": "Since",
+      "until": "To",
+      "note": "Note"
     }
   }
 }

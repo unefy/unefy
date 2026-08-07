@@ -47,6 +47,7 @@ export default async function MemberDetailLayout({
 
   const tabs: MemberTab[] = [
     { segment: "", label: t("detail.tabs.overview") },
+    { segment: "functions", label: t("detail.tabs.functions") },
     { segment: "dues", label: t("detail.tabs.dues") },
     { segment: "attendance", label: t("detail.tabs.attendance") },
     ...(club?.modules.includes("shooting")
