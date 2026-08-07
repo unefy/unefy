@@ -118,7 +118,8 @@ The backend owns all auth logic. For web clients:
 ```
 POST /api/v1/auth/mobile/magic-link/request   # Send magic link / OTP
 POST /api/v1/auth/mobile/magic-link/verify     # Verify → return JWT pair
-POST /api/v1/auth/mobile/oauth/google          # Google OAuth → return JWT pair
+POST /api/v1/auth/mobile/oauth/google/nonce    # Single-use nonce for the ID token
+POST /api/v1/auth/mobile/oauth/google          # Google ID token → return JWT pair
 POST /api/v1/auth/mobile/passkey/register      # Register passkey
 POST /api/v1/auth/mobile/passkey/authenticate  # Authenticate → return JWT pair
 POST /api/v1/auth/mobile/refresh               # Refresh access token

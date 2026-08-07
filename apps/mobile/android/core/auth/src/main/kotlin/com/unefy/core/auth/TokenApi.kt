@@ -111,6 +111,42 @@ class TokenApi @Inject constructor(
             ApiResult.Failure(ApiError.Unknown(e))
         }
 
+    /** Fetches the single-use nonce the Google ID token must carry. */
+    suspend fun googleNonce(): ApiResult<String> = try {
+        val response = client.post(ApiEndpoints.AUTH_GOOGLE_NONCE)
+        val envelope: ApiEnvelope<GoogleNonceDto> = response.body()
+        val payload = envelope.data
+        when {
+            response.status.isSuccess() && payload != null -> ApiResult.Success(payload.nonce)
+            else -> ApiResult.Failure(
+                ApiError.Http(response.status.value, envelope.error?.code, envelope.error?.message),
+            )
+        }
+    } catch (e: IOException) {
+        ApiResult.Failure(ApiError.Network(e))
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
+        ApiResult.Failure(ApiError.Unknown(e))
+    }
+
+    /** Trades a Google ID token for a token pair. */
+    suspend fun googleSignIn(
+        idToken: String,
+        nonce: String,
+    ): ApiResult<Pair<AuthTokens, Session>> = try {
+        val response = client.post(ApiEndpoints.AUTH_GOOGLE_SIGN_IN) {
+            setBody(GoogleSignInBody(idToken, nonce))
+        }
+        response.toSessionResult()
+    } catch (e: IOException) {
+        ApiResult.Failure(ApiError.Network(e))
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
+        ApiResult.Failure(ApiError.Unknown(e))
+    }
+
     private suspend fun HttpResponse.toSessionResult(): ApiResult<Pair<AuthTokens, Session>> {
         val envelope: ApiEnvelope<TokenPairDto> = body()
         val payload = envelope.data
@@ -149,6 +185,15 @@ private data class MagicRequestBody(val email: String)
 
 @Serializable
 private data class MagicVerifyBody(val email: String, val code: String)
+
+@Serializable
+private data class GoogleSignInBody(
+    @SerialName("id_token") val idToken: String,
+    val nonce: String,
+)
+
+@Serializable
+internal data class GoogleNonceDto(val nonce: String)
 
 @Serializable
 internal data class TokenPairDto(

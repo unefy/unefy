@@ -178,8 +178,10 @@ Regeln.
   Vorstand. Achtung Vokabular: der Registrierungsstatus heißt serverseitig
   `waitlist`, nicht `waitlisted`. Weiterhin kein Anlegen/Bearbeiten von
   Mitgliedern, Terminen oder Wettkämpfen.
-- **Auth.** Nur der Dev-Weg. Google OAuth (Custom Tabs), Passkeys (Credential
-  Manager) und biometrisches Entsperren fehlen.
+- **Auth.** E-Mail-Code und „Mit Google anmelden“ (Credential Manager, greift
+  auf die Konten des Geräts zu) stehen. Passkeys und biometrisches Entsperren
+  fehlen. Der Google-Knopf erscheint nur, wenn der Build eine Client-ID
+  mitbringt — siehe `unefy.googleServerClientId` in `app/build.gradle.kts`.
 - **Anwesenheit.** Das Backend hat Sessions und Check-in (Commit `8897d40`), die
   App nichts davon. Naheliegendster nächster Feature-Block, weil das Backend
   fertig ist.

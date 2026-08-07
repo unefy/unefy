@@ -23,19 +23,26 @@ if (file("google-services.json").exists()) {
 // override used to sit in the tracked gradle.properties, where one developer's
 // LAN address silently pinned every build in the repository — including one
 // meant for a phone that has never seen that network.
-//
-// `takeIf` and not `getOrElse`: an empty property is present, so `getOrElse`
-// hands back "" and the app ships with no address at all.
-val localApiBaseUrl: String? = rootProject.file("local.properties")
+fun localProperty(name: String): String? = rootProject.file("local.properties")
     .takeIf { it.exists() }
     ?.readLines()
-    ?.firstOrNull { it.trimStart().startsWith("unefy.apiBaseUrl=") }
+    ?.firstOrNull { it.trimStart().startsWith("$name=") }
     ?.substringAfter('=')
     ?.trim()
 
-val apiBaseUrl: String = (providers.gradleProperty("unefy.apiBaseUrl").orNull ?: localApiBaseUrl)
-    ?.takeIf { it.isNotBlank() }
-    ?: "https://test.unefy.app"
+// `takeIf` and not `getOrElse`: an empty property is present, so `getOrElse`
+// hands back "" and the app ships with no address at all.
+fun buildProperty(name: String): String? =
+    (providers.gradleProperty(name).orNull ?: localProperty(name))?.trim()?.takeIf { it.isNotBlank() }
+
+val apiBaseUrl: String = buildProperty("unefy.apiBaseUrl") ?: "https://test.unefy.app"
+
+// The Google OAuth *web* client id — Google's `serverClientId`, the one that
+// lands in the ID token's `aud` claim. Empty by default and empty in a fork:
+// a client id is bound to a package name and signing certificate in somebody's
+// Google Cloud project, so it cannot be checked in usefully. Without it the
+// login screen simply has no Google button.
+val googleServerClientId: String = buildProperty("unefy.googleServerClientId").orEmpty()
 
 android {
     namespace = "com.unefy.app"
@@ -45,6 +52,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
 
         // Hilt's runner swaps in HiltTestApplication, so instrumented tests can
         // replace modules with @TestInstallIn.

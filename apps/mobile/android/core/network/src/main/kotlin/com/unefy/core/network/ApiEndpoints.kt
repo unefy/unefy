@@ -10,6 +10,8 @@ object ApiEndpoints {
     const val AUTH_DEV_LOGIN = "$AUTH_PREFIX/mobile/dev/login"
     const val AUTH_MAGIC_REQUEST = "$AUTH_PREFIX/mobile/magic-link/request"
     const val AUTH_MAGIC_VERIFY = "$AUTH_PREFIX/mobile/magic-link/verify"
+    const val AUTH_GOOGLE_NONCE = "$AUTH_PREFIX/mobile/oauth/google/nonce"
+    const val AUTH_GOOGLE_SIGN_IN = "$AUTH_PREFIX/mobile/oauth/google"
     const val AUTH_REFRESH = "$AUTH_PREFIX/mobile/refresh"
     const val AUTH_LOGOUT = "$AUTH_PREFIX/mobile/logout"
     const val AUTH_ME = "$AUTH_PREFIX/me"
@@ -33,6 +35,19 @@ object ApiEndpoints {
     const val EVENTS = "/api/v1/events"
 
     const val COMPETITIONS = "/api/v1/competitions"
+
+    /**
+     * Recording shots. Separate from the competition entry routes: this one
+     * resolves its own context (a member on the range has no session to file
+     * under) and lets a member record for themselves.
+     */
+    const val ENTRIES = "/api/v1/entries"
+
+    /** The caller's own results. Self-scoped: no member id in the path. */
+    const val MY_ENTRIES = "$ENTRIES/me"
+
+    /** Ring geometry of the standard targets. Reference data, cached locally. */
+    const val TARGET_TYPES = "/api/v1/target-types"
 
     const val CLUB = "/api/v1/club"
 

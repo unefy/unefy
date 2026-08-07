@@ -1,5 +1,6 @@
 package com.unefy.app.ui.login
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,6 +8,8 @@ import com.unefy.app.BuildConfig
 import com.unefy.app.R
 import com.unefy.app.di.ServerUrlStore
 import com.unefy.core.auth.AuthRepository
+import com.unefy.core.auth.GoogleAuthConfig
+import com.unefy.core.auth.GoogleSignInOutcome
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +37,11 @@ data class LoginUiState(
     val debugDetail: String? = null,
     /** Which backend the next request goes to. Shown at the foot of the screen. */
     val serverUrl: String = "",
+    /**
+     * Whether this build carries a Google client id. False hides the button
+     * outright — a button that can only ever fail is worse than none.
+     */
+    val googleAvailable: Boolean = false,
 )
 
 private const val CODE_LENGTH = 6
@@ -42,9 +50,12 @@ private const val CODE_LENGTH = 6
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val servers: ServerUrlStore,
+    googleConfig: GoogleAuthConfig,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LoginUiState(serverUrl = servers.current()))
+    private val _uiState = MutableStateFlow(
+        LoginUiState(serverUrl = servers.current(), googleAvailable = googleConfig.isConfigured),
+    )
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     /**
@@ -153,6 +164,68 @@ class LoginViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Sign in with a Google account already on the phone.
+     *
+     * Needs the Activity, not the application context: Credential Manager
+     * shows the account sheet itself. That is the one place this app hands a
+     * UI object to a ViewModel, and the alternative — an activity-result
+     * dance routed back through the screen — buys nothing.
+     */
+    fun signInWithGoogle(activityContext: Context) {
+        if (_uiState.value.isSubmitting) return
+        _uiState.update { it.copy(isSubmitting = true, errorMessage = null, debugDetail = null) }
+        viewModelScope.launch {
+            when (val outcome = authRepository.signInWithGoogle(activityContext)) {
+                // Nothing to do — the session flow flips and UnefyApp swaps
+                // the screen, exactly as after a verified code.
+                is GoogleSignInOutcome.Success -> Unit
+
+                // Dismissing the sheet is a decision, not a failure.
+                GoogleSignInOutcome.Cancelled -> _uiState.update { it.copy(isSubmitting = false) }
+
+                GoogleSignInOutcome.NoAccount -> _uiState.update {
+                    it.copy(isSubmitting = false, errorMessage = R.string.login_google_no_account)
+                }
+
+                GoogleSignInOutcome.NotConfigured -> _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        errorMessage = R.string.login_google_unavailable,
+                    )
+                }
+
+                is GoogleSignInOutcome.Unavailable -> _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        errorMessage = R.string.login_google_unavailable,
+                        debugDetail = if (BuildConfig.DEBUG) {
+                            "${outcome.cause::class.simpleName}: ${outcome.cause.message}"
+                        } else {
+                            null
+                        },
+                    )
+                }
+
+                is GoogleSignInOutcome.Failure -> _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        errorMessage = outcome.error.toGoogleMessage(),
+                        debugDetail = outcome.error.debugDetail(),
+                    )
+                }
+            }
+        }
+    }
+
+    @StringRes
+    private fun ApiError.toGoogleMessage(): Int = when {
+        this is ApiError.Network -> R.string.login_offline
+        // 412: Google vouched for the person, but the account has no club.
+        this is ApiError.Http && status == NO_CLUB_STATUS -> R.string.login_no_club
+        else -> R.string.login_google_failed
     }
 
     @StringRes

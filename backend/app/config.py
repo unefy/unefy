@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+    # Extra client ids whose ID tokens the mobile endpoint accepts, on top of
+    # GOOGLE_CLIENT_ID. A self-hoster running the *published* app against their
+    # own backend needs this: the app asks Credential Manager for a token for
+    # the app's own server client id, which is not the operator's.
+    GOOGLE_MOBILE_CLIENT_IDS: list[str] = []
 
     # URLs
     BACKEND_URL: str = "http://localhost:8008"  # Public URL of the backend (for OAuth redirects)

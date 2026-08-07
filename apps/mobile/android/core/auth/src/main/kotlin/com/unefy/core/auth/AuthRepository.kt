@@ -1,5 +1,6 @@
 package com.unefy.core.auth
 
+import android.content.Context
 import com.unefy.core.model.Session
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiEndpoints
@@ -19,9 +20,10 @@ import kotlinx.serialization.Serializable
  * The app's entry point to authentication state.
  *
  * Production sign-in is the mailed one-time code ([requestLoginCode] /
- * [verifyLoginCode]); [devLogin] stays as the DEBUG shortcut. Google OAuth and
- * passkeys via Credential Manager are the remaining MVP methods per
- * apps/mobile/CLAUDE.md and slot in here — the token handling does not change.
+ * [verifyLoginCode]) or a Google account already on the device
+ * ([signInWithGoogle]); [devLogin] stays as the DEBUG shortcut. Passkeys via
+ * Credential Manager are the remaining MVP method per apps/mobile/CLAUDE.md
+ * and slot in here — the token handling does not change either way.
  */
 @Singleton
 class AuthRepository @Inject constructor(
@@ -31,6 +33,8 @@ class AuthRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val clock: Clock,
     private val signOutTasks: Set<@JvmSuppressWildcards SignOutTask>,
+    private val googleCredentials: GoogleCredentialClient,
+    private val googleConfig: GoogleAuthConfig,
 ) {
     val session: Flow<Session?> = tokenManager.session
     val isSignedIn: Flow<Boolean> = tokenManager.isSignedIn
@@ -51,6 +55,59 @@ class AuthRepository @Inject constructor(
         }
         return result.map { (_, session) -> session }
     }
+
+    /**
+     * Signs in with a Google account already on this device.
+     *
+     * Order matters and is not negotiable: the nonce is fetched from the
+     * backend *before* the sheet opens, because a token minted without one is
+     * a bearer assertion anybody who intercepts it can replay. The sheet is
+     * only worth opening once we have a nonce to bind the token to.
+     *
+     * @param activityContext an Activity — Credential Manager shows UI.
+     */
+    suspend fun signInWithGoogle(activityContext: Context): GoogleSignInOutcome {
+        if (!googleConfig.isConfigured) return GoogleSignInOutcome.NotConfigured
+
+        val nonce = when (val result = tokenApi.googleNonce()) {
+            is ApiResult.Success -> result.data
+            is ApiResult.Failure -> {
+                // Local val: `error` comes from another module, so it cannot
+                // smart-cast.
+                val error = result.error
+                return when {
+                    // The server is reachable but has no Google credentials.
+                    // Not a failure of this phone, and worth saying so plainly.
+                    error is ApiError.Http && error.status == NOT_CONFIGURED_STATUS ->
+                        GoogleSignInOutcome.NotConfigured
+
+                    else -> GoogleSignInOutcome.Failure(error)
+                }
+            }
+        }
+
+        return when (val credential = googleCredentials.idToken(activityContext, nonce)) {
+            is GoogleCredentialResult.Cancelled -> GoogleSignInOutcome.Cancelled
+            is GoogleCredentialResult.NoAccount -> GoogleSignInOutcome.NoAccount
+            is GoogleCredentialResult.Unavailable ->
+                GoogleSignInOutcome.Unavailable(credential.cause)
+
+            is GoogleCredentialResult.Success -> exchange(credential.idToken, nonce)
+        }
+    }
+
+    private suspend fun exchange(idToken: String, nonce: String): GoogleSignInOutcome =
+        when (val result = tokenApi.googleSignIn(idToken, nonce)) {
+            is ApiResult.Failure -> GoogleSignInOutcome.Failure(result.error)
+            is ApiResult.Success -> {
+                val (tokens, session) = result.data
+                // Same order as every other sign-in: the previous account's
+                // leftovers go first, while its tokens are still valid.
+                forgetPreviousAccount()
+                tokenManager.persist(tokens, session)
+                GoogleSignInOutcome.Success(session)
+            }
+        }
 
     suspend fun devLogin(email: String): ApiResult<Session> {
         val result = tokenApi.devLogin(email.trim())
@@ -129,6 +186,11 @@ class AuthRepository @Inject constructor(
     private suspend fun forgetPreviousAccount() {
         httpClient.authProvider<BearerAuthProvider>()?.clearToken()
         signOutTasks.forEach { it.onSignOut() }
+    }
+
+    private companion object {
+        /** 503 GOOGLE_NOT_CONFIGURED — the server has no Google credentials. */
+        const val NOT_CONFIGURED_STATUS = 503
     }
 }
 

@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,12 +38,16 @@ private const val CODE_LENGTH = 6
 @Composable
 fun LoginRoute(viewModel: LoginViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Credential Manager needs the Activity to show its account sheet; the
+    // application context would throw.
+    val activity = LocalActivity.current
     LoginScreen(
         state = state,
         onEmailChange = viewModel::onEmailChange,
         onCodeChange = viewModel::onCodeChange,
         onEditEmail = viewModel::editEmail,
         onSubmit = viewModel::submit,
+        onGoogleSignIn = { activity?.let(viewModel::signInWithGoogle) },
         onServerChange = viewModel::useServer,
         onServerReset = viewModel::useDefaultServer,
     )
@@ -54,6 +60,7 @@ fun LoginScreen(
     onCodeChange: (String) -> Unit = {},
     onEditEmail: () -> Unit = {},
     onSubmit: () -> Unit = {},
+    onGoogleSignIn: () -> Unit = {},
     onServerChange: (String) -> Unit = {},
     onServerReset: () -> Unit = {},
 ) {
@@ -159,6 +166,18 @@ fun LoginScreen(
             }
         }
 
+        // Outlined, not filled: the screen already has its one filled action.
+        // Only on the address step — mid-code a second way in is just noise.
+        if (state.googleAvailable && state.step == LoginStep.EMAIL) {
+            OutlinedButton(
+                onClick = onGoogleSignIn,
+                enabled = !state.isSubmitting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.login_google))
+            }
+        }
+
         // Quiet, and at the foot of the screen on purpose. Almost nobody needs
         // it — but a self-hosted club cannot reach their own server without it,
         // and telling them to build their own APK to change a hostname is not an
@@ -232,6 +251,7 @@ private fun LoginPreview() {
             state = LoginUiState(
                 email = "andreas@widmer.im",
                 serverUrl = "https://test.unefy.app",
+                googleAvailable = true,
             ),
         )
     }

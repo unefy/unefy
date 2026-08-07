@@ -20,6 +20,11 @@ from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 from app.redis import get_redis
 from app.services.club_access import ClubAccessService
+from app.services.google_identity import (
+    GoogleIdentity,
+    GoogleIdentityError,
+    resolve_google_account,
+)
 from app.services.magic_link import (
     consume_token,
     issue_token,
@@ -407,55 +412,20 @@ async def google_callback(
     if not userinfo or not userinfo.get("email"):
         return RedirectResponse(url=f"{settings.WEB_APP_URL}/login?error=oauth_failed")
 
-    google_id = userinfo["sub"]
-    email = userinfo["email"]
-    name = userinfo.get("name", email.split("@")[0])
-    image = userinfo.get("picture")
-
-    # Find or create user
-    stmt = select(User).where(User.google_id == google_id)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    is_new_user = False
-
-    if user is None:
-        # Linking a Google identity to an existing account by email is only
-        # safe when Google attests the email is verified — otherwise an
-        # attacker with an unverified Google alias could take over the
-        # account with that email.
-        if userinfo.get("email_verified") is not True:
-            logger.warning("oauth_unverified_email", google_sub=google_id)
-            return RedirectResponse(url=f"{settings.WEB_APP_URL}/login?error=oauth_failed")
-
-        stmt = select(User).where(User.email == email)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-
-        if user is None:
-            user = User(
-                email=email,
-                name=name,
-                image=image,
-                email_verified=True,
-                google_id=google_id,
-            )
-            session.add(user)
-            await session.flush()
-            is_new_user = True
-            logger.info("user_created", user_id=str(user.id))
-        else:
-            user.google_id = google_id
-            if image and not user.image:
-                user.image = image
-            await session.flush()
-            logger.info("account_linked", user_id=str(user.id), method="google")
-    else:
-        if name and user.name != name:
-            user.name = name
-        if image:
-            user.image = image
-        await session.flush()
+    # Same resolution the mobile endpoint uses — including the rule that an
+    # existing account is only linked when Google attests the address.
+    identity = GoogleIdentity(
+        subject=userinfo["sub"],
+        email=userinfo["email"],
+        email_verified=userinfo.get("email_verified") is True,
+        name=userinfo.get("name"),
+        picture=userinfo.get("picture"),
+    )
+    try:
+        user, is_new_user = await resolve_google_account(session, identity)
+    except GoogleIdentityError as exc:
+        logger.warning("oauth_rejected", reason=str(exc))
+        return RedirectResponse(url=f"{settings.WEB_APP_URL}/login?error=oauth_failed")
 
     # Check for existing tenant membership
     membership_stmt = (
@@ -624,6 +594,11 @@ class CreateClubRequest(BaseModel):
 
     divisions: list[ClubDivisionInput] = Field(min_length=1, max_length=20)
 
+    # Optional subset of catalog function keys to seed (onboarding wizard).
+    # None = copy the full matching set, so the endpoint stays usable without
+    # the wizard (mobile, API).
+    function_keys: list[str] | None = Field(default=None, max_length=100)
+
 
 @router.post(
     "/onboarding/create-club",
@@ -656,6 +631,7 @@ async def create_club(
         club_name=data.club_name,
         divisions=[(d.name, d.sport_key) for d in data.divisions],
         has_divisions=data.has_divisions,
+        function_keys=data.function_keys,
     )
 
     # Rotate the session token on this privilege upgrade (user is now an

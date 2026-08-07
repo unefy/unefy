@@ -32,6 +32,10 @@
     <string name="login_server_cancel">Abbrechen</string>
     <string name="login_code_rejected">Der Code ist ungültig oder abgelaufen.</string>
     <string name="login_no_club">Dein Konto gehört noch keinem Verein an. Bitte lass dich von deinem Verein einladen.</string>
+    <string name="login_google">Mit Google anmelden</string>
+    <string name="login_google_failed">Anmeldung mit Google fehlgeschlagen.</string>
+    <string name="login_google_no_account">Auf diesem Gerät ist kein Google-Konto eingerichtet.</string>
+    <string name="login_google_unavailable">Google-Anmeldung ist auf diesem Gerät nicht verfügbar.</string>
     <string name="sign_out">Abmelden</string>
     <string name="nav_members">Mitglieder</string>
     <string name="nav_events">Termine</string>

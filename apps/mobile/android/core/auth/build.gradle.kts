@@ -23,9 +23,19 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
+    // Google sign-in reads the accounts already on the device through
+    // Credential Manager — no browser, no redirect, no Custom Tab.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // The Google calls are tested against a stubbed engine, so the DTOs are
+    // really decoded rather than mocked away.
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(kotlin("test"))
 }

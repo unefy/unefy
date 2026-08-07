@@ -1,16 +1,19 @@
 """Mobile auth endpoints — JWT access + refresh tokens.
 
 Scope:
-- POST /magic-link/request  (mails a one-time login code)
-- POST /magic-link/verify   (code → JWT pair; creates the user on first login)
-- POST /dev/login           (DEBUG only, for local development)
-- POST /refresh             (rotates refresh token)
-- POST /switch-tenant       (re-issues the pair for another club)
-- POST /logout              (revokes refresh token)
+- POST /magic-link/request     (mails a one-time login code)
+- POST /magic-link/verify      (code → JWT pair; creates the user on first login)
+- POST /oauth/google/nonce     (single-use nonce for the Google ID token)
+- POST /oauth/google           (Google ID token → JWT pair)
+- POST /dev/login              (DEBUG only, for local development)
+- POST /refresh                (rotates refresh token)
+- POST /switch-tenant          (re-issues the pair for another club)
+- POST /logout                 (revokes refresh token)
 
-Google OAuth and passkey flows are added in later phases.
+The passkey flow is added in a later phase.
 """
 
+import secrets
 import uuid
 from typing import Any
 
@@ -34,6 +37,12 @@ from app.dependencies import AuthContext, get_current_user
 from app.models.tenant import Tenant
 from app.models.user import TenantMembership, User
 from app.redis import get_redis
+from app.services.google_identity import (
+    GoogleIdentityError,
+    accepted_audiences,
+    resolve_google_account,
+    verify_id_token,
+)
 from app.services.magic_link import consume_otp, issue_otp, resolve_user, send_login_code
 
 logger = structlog.get_logger()
@@ -210,6 +219,102 @@ async def magic_link_verify(
     payload = await _issue_token_pair(user, tenant, membership)
 
     logger.info("mobile_magic_login", user_id=str(user.id), tenant_id=str(tenant.id))
+    return {"data": payload}
+
+
+# --- Google (Credential Manager / Sign in with Google) ------------------------
+
+_NONCE_KEY_PREFIX = "google_nonce:"
+
+# Long enough that the sheet can sit open while the user picks an account,
+# short enough that a nonce lifted off the wire is worthless by the time it is
+# replayed.
+_NONCE_TTL_SECONDS = 600
+
+
+class _GoogleNotConfiguredError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=503,
+            code="GOOGLE_NOT_CONFIGURED",
+            message="Google sign-in is not configured on this server",
+        )
+
+
+@router.post(
+    "/oauth/google/nonce",
+    dependencies=[Depends(RateLimit(limit=20, window=60, scope="mobile-google-nonce"))],
+)
+async def google_nonce(settings: Settings = Depends(get_settings)) -> dict[str, Any]:  # noqa: B008
+    """Hand out a single-use nonce for the next Google sign-in.
+
+    The app passes it to Credential Manager, Google copies it into the ID
+    token, and /oauth/google only accepts a token whose nonce we issued and
+    have not seen before. Without it an ID token captured anywhere — another
+    app on the same phone, a proxy — could be replayed against this backend.
+    """
+    if not accepted_audiences(settings):
+        raise _GoogleNotConfiguredError()
+
+    nonce = secrets.token_urlsafe(32)
+    redis = get_redis()
+    await redis.set(f"{_NONCE_KEY_PREFIX}{nonce}", "1", ex=_NONCE_TTL_SECONDS)
+    return {"data": {"nonce": nonce, "expires_in": _NONCE_TTL_SECONDS}}
+
+
+class GoogleSignInBody(BaseModel):
+    id_token: str = Field(min_length=1, max_length=8192)
+    nonce: str = Field(min_length=1, max_length=128)
+
+
+@router.post(
+    "/oauth/google",
+    dependencies=[Depends(RateLimit(limit=15, window=300, scope="mobile-google-signin"))],
+)
+async def google_sign_in(
+    data: GoogleSignInBody,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> dict[str, Any]:
+    """Exchange a Google ID token for a JWT pair.
+
+    The token comes from Android's Credential Manager, which reads the
+    accounts already signed in on the device — no browser, no redirect. What
+    arrives here is a bearer assertion from Google and is treated as one: the
+    signature, issuer, audience, expiry and our own nonce are all checked
+    before an account is touched.
+
+    412 when the account belongs to no club yet, same as the code flow.
+    """
+    if not accepted_audiences(settings):
+        raise _GoogleNotConfiguredError()
+
+    # Consume first: a delete that removes nothing means the nonce is unknown,
+    # expired, or already spent, and all three are the same answer. Doing it
+    # before verification also stops a replay from being retried cheaply.
+    redis = get_redis()
+    if not await redis.delete(f"{_NONCE_KEY_PREFIX}{data.nonce}"):
+        logger.warning("google_nonce_rejected")
+        raise ForbiddenError("Google sign-in could not be verified")
+
+    try:
+        identity = await verify_id_token(data.id_token, settings, expected_nonce=data.nonce)
+        user, is_new_user = await resolve_google_account(session, identity)
+    except GoogleIdentityError as exc:
+        # The reason stays in the log. Telling a caller *why* a token was
+        # rejected is an oracle for forging a better one.
+        logger.warning("google_signin_rejected", reason=str(exc))
+        raise ForbiddenError("Google sign-in could not be verified") from exc
+
+    tenant, membership = await _load_first_active_tenant(session, user.id)
+    payload = await _issue_token_pair(user, tenant, membership)
+
+    logger.info(
+        "mobile_google_login",
+        user_id=str(user.id),
+        tenant_id=str(tenant.id),
+        new=is_new_user,
+    )
     return {"data": payload}
 
 

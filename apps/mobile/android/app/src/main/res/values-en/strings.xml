@@ -28,6 +28,10 @@
     <string name="login_server_cancel">Cancel</string>
     <string name="login_code_rejected">The code is invalid or has expired.</string>
     <string name="login_no_club">Your account does not belong to a club yet. Ask your club for an invitation.</string>
+    <string name="login_google">Sign in with Google</string>
+    <string name="login_google_failed">Google sign-in failed.</string>
+    <string name="login_google_no_account">There is no Google account on this device.</string>
+    <string name="login_google_unavailable">Google sign-in is not available on this device.</string>
     <string name="sign_out">Sign out</string>
     <string name="nav_members">Members</string>
     <string name="nav_events">Events</string>

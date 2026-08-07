@@ -51,7 +51,7 @@ Native mobile apps for unefy club management. Two separate codebases — Swift/S
 | Camera | CameraX Compose-native (`CameraXViewfinder` composable, stable) |
 | ML (custom models) | MediaPipe + LiteRT (formerly TFLite) + ML Kit |
 | ML (on-device LLM) | Gemini Nano via AICore (flagships) OR MediaPipe LLM Inference + Gemma 2B (broader) |
-| Auth | Credential Manager (passkeys), Custom Tabs (OAuth) |
+| Auth | Credential Manager (Sign in with Google, passkeys) |
 | Push | Firebase Cloud Messaging (FCM) |
 | Biometrics | BiometricPrompt |
 | Testing | JUnit 5 + Compose Testing + Espresso |
@@ -274,6 +274,7 @@ Login (Magic Link / Google / Passkey)
 ```
 POST /api/v1/auth/mobile/magic-link/request
 POST /api/v1/auth/mobile/magic-link/verify
+POST /api/v1/auth/mobile/oauth/google/nonce
 POST /api/v1/auth/mobile/oauth/google
 POST /api/v1/auth/mobile/passkey/register
 POST /api/v1/auth/mobile/passkey/authenticate
@@ -284,7 +285,10 @@ GET  /api/v1/auth/me
 
 ### MVP Auth Methods
 1. **Magic Link / Email OTP** — deep link back into the app
-2. **Google OAuth** — ASWebAuthenticationSession (iOS) / Custom Tabs (Android)
+2. **Google** — Credential Manager (Android): reads the accounts already
+   signed in on the device, no browser. The backend is handed the resulting ID
+   token and checks signature, audience and a nonce it issued itself. iOS still
+   to do — ASWebAuthenticationSession or the Google Sign-In SDK, same endpoint.
 3. **Passkeys** — AuthenticationServices (iOS) / Credential Manager (Android)
 
 ### Roadmap
