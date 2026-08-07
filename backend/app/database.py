@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import get_settings
+from app.core.exceptions import AppError
 from app.events.outbox import publish, register_change_listener, take_pending
 from app.redis import get_redis
 
@@ -48,6 +49,15 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
         try:
             yield session
             await session.commit()
+        except AppError:
+            # Expected outcomes with a defined HTTP status — a 403 for a request
+            # that arrives without a session, a 404 for an id that is gone. The
+            # handlers in main.py turn them into responses. Logging them here as
+            # `database_session_error`, with a traceback and at ERROR, buried the
+            # real database failures this line is named after: every app start
+            # before sign-in produced one.
+            await session.rollback()
+            raise
         except Exception:
             logger.exception("database_session_error")
             await session.rollback()
