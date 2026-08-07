@@ -40,6 +40,8 @@ FIXTURES = {
     "IMG_1500": "holes in the black plus one patch that must not count",
     "IMG_1514": "a hole torn across the edge of a patch, and one full of flaps",
     "IMG_1528": "freshly patched, not a single fresh hole — must report none",
+    "IMG_S25_0807": "bright backstop: holes read 0.36-0.40 of the ink, so this "
+                    "one only scores at all if tone_slack is applied",
 }
 
 #: Quality the fixture crops are written at. High enough that the detector

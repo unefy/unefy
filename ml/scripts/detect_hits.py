@@ -100,6 +100,40 @@ MASK_TONE = 0.55
 MAX_HOLE_TONE = 0.35
 MAX_HOLE_TONE_ON_PAPER = 0.60
 
+#: Ink over paper on a photo the two limits above were tuned on — the median of
+#: all 142 crops in the corpus.
+#:
+#: Both limits are loosened in proportion when a photo reads flatter than this
+#: (`tone_slack`). What that buys, and what it is worth, in full:
+#:
+#: On a sheet hung in front of a BRIGHT, well-lit backstop, a hole is no longer
+#: a shadow — daylight comes through it — and its core lands at 0.36 to 0.40 of
+#: the ink rather than the usual 0.1. Measured on a Samsung S25 photograph from
+#: 2026-08-07: five holes found as candidates, correctly separated from every
+#: patch on the sheet, and then all five dropped by the 0.35 cut. The detector
+#: reported nothing at all on a target with five clean hits.
+#:
+#: Be clear about what this rule is and is not. It is NOT derived: the
+#: brightness of the backstop is a property of the range, and nothing readable
+#: off the sheet predicts it — that photograph sits at the 75th percentile of
+#: ink/paper, squarely inside the ordinary spread. The correlation is
+#: circumstantial and one photograph wide.
+#:
+#: What makes it safe to ship anyway is the clamp. The factor may only ever
+#: LOOSEN, so no hole that is found today can be lost, and on the twelve
+#: labelled photos the score is unchanged to the last decimal — 97.5 %
+#: precision, 92.8 % recall, image for image the same counts. The upper bound
+#: keeps a pathological photo from opening the gate: applied to every photo, a
+#: limit past 0.45 collapses precision to 87.5 % and 0.50 to 68.1 %.
+#:
+#: Two measured alternatives that are NOT this, so nobody tries them again:
+#: raising the limit for everyone costs precision outright (0.40 → 96.2 %,
+#: 0.42 → 95.1 %), and normalising the core against the ink-to-paper SPAN
+#: instead — the physically tidier form — is far worse at every threshold
+#: (1.24 → 73.3 %, 1.32 → 94.7 % at 85.5 % recall).
+TONE_REFERENCE = 0.346
+MAX_TONE_SLACK = 1.5
+
 #: How much darker than its surroundings a candidate has to be, as a fraction of
 #: the distance from ink to paper. Only there to keep sensor noise and paper
 #: texture out — the real work is done by the tone test above. A fraction and
@@ -224,6 +258,16 @@ def tone_anchors(
     )
 
 
+def tone_slack(ink: float, paper: float) -> float:
+    """How far to loosen the tone limits on a flat photo. Never below 1.0.
+
+    See TONE_REFERENCE for the evidence and for what this rule does not claim.
+    """
+    if paper <= 0:
+        return 1.0
+    return min(max((ink / paper) / TONE_REFERENCE, 1.0), MAX_TONE_SLACK)
+
+
 def local_contrast(crop: np.ndarray) -> np.ndarray:
     """How much darker each pixel is than its own surroundings.
 
@@ -333,8 +377,11 @@ def find_hits(
     centre = (crop.shape[0] - 1) / 2.0
     if ink is None or paper is None:
         ink, paper = tone_anchors(crop)
-    on_mark_limit = max_tone if max_tone is not None else MAX_HOLE_TONE
-    on_paper_limit = max_tone if max_tone is not None else MAX_HOLE_TONE_ON_PAPER
+    slack = tone_slack(ink, paper)
+    on_mark_limit = max_tone if max_tone is not None else MAX_HOLE_TONE * slack
+    on_paper_limit = (
+        max_tone if max_tone is not None else MAX_HOLE_TONE_ON_PAPER * slack
+    )
     #: Above this the blob sits on paper rather than on the black.
     paper_side = (ink + paper) / 2
 
@@ -458,7 +505,9 @@ def process(
     overlay_dir: Path | None,
     already_rectified: bool,
     size: int,
-    max_tone: float = MAX_HOLE_TONE,
+    # None, not MAX_HOLE_TONE: passing the constant would pin the limit and
+    # silently defeat `tone_slack`, which only applies when nothing overrides it.
+    max_tone: float | None = None,
 ) -> Detection:
     try:
         crop = crop_for(path, already_rectified, size)
@@ -506,7 +555,7 @@ def main() -> None:
         print(f"No images under {args.input}")
         return
 
-    max_tone = MASK_TONE if args.tones else MAX_HOLE_TONE
+    max_tone = MASK_TONE if args.tones else None
     results = [
         process(path, args.overlay, args.rectified, args.crop_size, max_tone)
         for path in images

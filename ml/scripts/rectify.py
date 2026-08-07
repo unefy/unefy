@@ -59,22 +59,29 @@ WORK_SIZE = 1024
 #: photo, not from the downscaled working copy, so those pixels carry real
 #: detail instead of interpolation.
 #:
-#: 1600 over a 1.25 frame is 2.56 pixels per millimetre, and that number is what
-#: actually matters — it was picked by scoring the hit detector at each size
+#: 1472 over a 1.15 frame is 2.56 pixels per millimetre, and that RESOLUTION is
+#: what actually matters — it was picked by scoring the hit detector at each size
 #: against hits-truth.json. Coarser loses holes; FINER loses precision, because
 #: paper grain and JPEG noise start resolving into blobs the size of a small
-#: hole. Both directions were measured (score_hits.py).
-CROP_SIZE = 1600
+#: hole. Both directions were measured (score_hits.py). So when the frame below
+#: changed from 1.25 to 1.15 this had to follow it, or the crop would silently
+#: have become finer at 2.78.
+CROP_SIZE = 1472
 
-#: How much of the scoring radius the crop covers. Over 1.0 so that ring 1, the
-#: paper around it and a shot that missed the scoring area entirely all stay
-#: inside the frame.
+#: How much of the scoring radius the crop covers. Over 1.0 so that ring 1 and
+#: the paper around it stay inside the frame.
+#:
+#: 1.15 puts the frame at 575 mm across, which sits ENTIRELY within a 600 mm
+#: sheet: no backstop in the crop, whatever is behind the target. At 1.25 the
+#: frame was 625 mm and a strip of whatever the sheet hangs on was in every
+#: picture — 12 mm a side by construction, and more once the sheet is tilted.
+#: Ring 1 ends at 500 mm, so nothing scoreable is lost.
 #:
 #: Must equal `TargetGeometry.FRAME_TO_SCORING` in the Android app, which draws
 #: its rings in the same frame and lays this crop underneath them. They were
-#: 1.15 here and 1.25 there, which quietly meant the reference implementation
-#: and the app were measuring different pictures.
-CROP_MARGIN = 1.25
+#: 1.15 here and 1.25 there once already, which quietly meant the reference
+#: implementation and the app were measuring different pictures.
+CROP_MARGIN = 1.15
 
 #: Diameter of the scoring area — ring 1 — of the target being scanned. The
 #: crop is scaled so this fits it, which is what makes a crop pixel a known
