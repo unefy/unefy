@@ -14,31 +14,31 @@ if (file("google-services.json").exists()) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
 }
 
-// No hardcoded URLs (apps/mobile/CLAUDE.md). This is the address a build ships
-// with, not the only one it can reach: the login screen can point the app at
-// another server, which is what a self-hosted club needs. Override in
-// gradle.properties with the emulator alias (10.0.2.2) or the machine's LAN
-// address while developing.
-// Read from local.properties too, and that file is gitignored on purpose. The
-// override used to sit in the tracked gradle.properties, where one developer's
-// LAN address silently pinned every build in the repository — including one
-// meant for a phone that has never seen that network.
-fun localProperty(name: String): String? = rootProject.file("local.properties")
-    .takeIf { it.exists() }
-    ?.readLines()
-    ?.firstOrNull { it.trimStart().startsWith("$name=") }
-    ?.substringAfter('=')
-    ?.trim()
+// The one address every build ships with. Not overridable from the build on
+// purpose: an override in local.properties is invisible in the APK, and a
+// developer machine's LAN address ended up in builds meant for phones that
+// had never seen that network — including the ones handed to other people.
+//
+// A different server — a local backend, a club's own instance — is chosen in
+// the app itself, at the foot of the login screen. That path is the one real
+// users have, so it is the one that gets tested.
+//
+// The API host, not the web app: "/api/v1/..." is appended to this, so a
+// frontend hostname answers every request with HTML and nobody can sign in.
+val apiBaseUrl = "https://api.unefy.app"
 
-// `takeIf` and not `getOrElse`: an empty property is present, so `getOrElse`
-// hands back "" and the app ships with no address at all.
-fun buildProperty(name: String): String? =
-    (providers.gradleProperty(name).orNull ?: localProperty(name))?.trim()?.takeIf { it.isNotBlank() }
-
-// The API host, not the web app: this value gets "/api/v1/..." appended, so a
-// frontend hostname here answers every request with HTML and the app cannot
-// even sign in. test.unefy.app stood here and is exactly that mistake.
-val apiBaseUrl: String = buildProperty("unefy.apiBaseUrl") ?: "https://api.unefy.app"
+// Still read from local.properties, but only for the Google client id below:
+// that one is per-project rather than per-build, must not be checked in, and
+// has no in-app equivalent. `takeIf` and not `getOrElse`, because an empty
+// property is present and would hand back "" instead of falling through.
+fun buildProperty(name: String): String? = (
+    providers.gradleProperty(name).orNull
+        ?: rootProject.file("local.properties")
+            .takeIf { it.exists() }
+            ?.readLines()
+            ?.firstOrNull { it.trimStart().startsWith("$name=") }
+            ?.substringAfter('=')
+    )?.trim()?.takeIf { it.isNotBlank() }
 
 // The Google OAuth *web* client id — Google's `serverClientId`, the one that
 // lands in the ID token's `aud` claim. Empty by default and empty in a fork:
