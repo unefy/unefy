@@ -181,14 +181,14 @@ fun LoginScreen(
         // Quiet, and at the foot of the screen on purpose. Almost nobody needs
         // it — but a self-hosted club cannot reach their own server without it,
         // and telling them to build their own APK to change a hostname is not an
-        // answer. The address itself is shown so it is obvious which server a
-        // failed sign-in was talking to.
+        // answer. The current address is not spelled out here; it is the first
+        // thing the dialog shows, which is where somebody checking it looks.
         TextButton(
             onClick = { choosingServer = true },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = "${stringResource(R.string.login_server_change)} · ${state.serverUrl}",
+                text = stringResource(R.string.login_server_change),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
