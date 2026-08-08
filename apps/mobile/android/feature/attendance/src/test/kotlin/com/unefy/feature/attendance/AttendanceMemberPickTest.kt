@@ -57,6 +57,7 @@ class AttendanceMemberPickTest {
             syncCursors = cursors,
             sessionCache = FakeCachedSessionDao(),
             recordCache = FakeCachedSessionRecordDao(),
+            clock = { 1_785_171_600L },
         )
     }
 

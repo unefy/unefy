@@ -18,6 +18,7 @@ import dagger.hilt.components.SingletonComponent
 import io.ktor.client.request.parameter
 import io.ktor.http.encodeURLParameter
 import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import javax.inject.Singleton
@@ -182,7 +183,33 @@ data class AttendanceSessionSummary(
     val recordCount: Int,
     /** The linked Termin's title, when there is one and we are online. */
     val eventTitle: String? = null,
-)
+    /** The session's own window. Zero means a cached row that predates it. */
+    val opensAtEpochSeconds: Long = 0,
+    val closesAtEpochSeconds: Long = 0,
+) {
+    /**
+     * Whether this session can still take a check-in right now.
+     *
+     * Mirrors `_require_within_session` in backend/app/services/attendance.py:
+     * inside the window, or on the same day as it opened — an evening that
+     * runs past its planned end still belongs to that evening. The server has
+     * the last word; this only keeps the scanner from offering a chip that
+     * would be refused, which is how people ended up filed onto the wrong day.
+     *
+     * The device's own zone stands in for the club's, which the app does not
+     * know. Whoever holds the scanner is standing in the club.
+     */
+    fun isOnTonight(nowEpochSeconds: Long, zone: ZoneId): Boolean {
+        // A row cached before the window was stored. Offering it beats an empty
+        // scanner; the server still refuses what does not belong.
+        if (opensAtEpochSeconds == 0L && closesAtEpochSeconds == 0L) return true
+
+        if (nowEpochSeconds in opensAtEpochSeconds until closesAtEpochSeconds) return true
+
+        fun dayOf(seconds: Long) = Instant.ofEpochSecond(seconds).atZone(zone).toLocalDate()
+        return dayOf(nowEpochSeconds) == dayOf(opensAtEpochSeconds)
+    }
+}
 
 /** A Termin of today, offered when the scanner has nothing to check into. */
 data class EventOption(val id: String, val title: String)
@@ -314,6 +341,8 @@ class DefaultAttendanceRepository @Inject constructor(
     private val syncCursors: SyncCursorDao,
     private val sessionCache: CachedSessionDao,
     private val recordCache: CachedSessionRecordDao,
+    /** For the "is this session on tonight" filter — the same clock the queue stamps with. */
+    private val clock: AttendanceClock,
 ) : AttendanceRepository {
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = apiClient
@@ -342,24 +371,54 @@ class DefaultAttendanceRepository @Inject constructor(
 
         return when {
             result is ApiResult.Success -> {
+                // Cached whole, filtered on the way out: a session that opens
+                // tomorrow is worth keeping for tomorrow, and the cache is the
+                // only copy an offline scanner will ever see.
                 sessionCache.upsert(
-                    result.data.map { CachedSession(it.id, it.title, it.location, it.recordCount) },
+                    result.data.map {
+                        CachedSession(
+                            id = it.id,
+                            title = it.title,
+                            location = it.location,
+                            recordCount = it.recordCount,
+                            opensAtEpochSeconds = it.opensAtEpochSeconds,
+                            closesAtEpochSeconds = it.closesAtEpochSeconds,
+                        )
+                    },
                 )
                 // Prunes what closed upstream — an offline scan into a closed
                 // session is only refused later.
                 sessionCache.retainOnly(result.data.map(AttendanceSessionSummary::id))
-                result
+                ApiResult.Success(result.data.filter(::isOnTonight))
             }
 
             result is ApiResult.Failure && result.error is ApiError.Network ->
                 ApiResult.Success(
                     sessionCache.all()
-                        .map { AttendanceSessionSummary(it.id, it.title, it.location, it.recordCount) },
+                        .map {
+                            AttendanceSessionSummary(
+                                id = it.id,
+                                title = it.title,
+                                location = it.location,
+                                recordCount = it.recordCount,
+                                opensAtEpochSeconds = it.opensAtEpochSeconds,
+                                closesAtEpochSeconds = it.closesAtEpochSeconds,
+                            )
+                        }
+                        .filter(::isOnTonight),
                 )
 
             else -> result
         }
     }
+
+    /**
+     * Kept out of the list building so both paths — fresh and cached — are
+     * filtered by the same rule. An unfiltered cache was how a chip from last
+     * month survived a month of evenings.
+     */
+    private fun isOnTonight(session: AttendanceSessionSummary): Boolean =
+        session.isOnTonight(clock.epochSeconds(), ZoneId.systemDefault())
 
     override suspend fun scan(
         sessionId: String,
@@ -532,6 +591,8 @@ class DefaultAttendanceRepository @Inject constructor(
         location = location,
         recordCount = recordCount,
         eventTitle = eventTitle,
+        opensAtEpochSeconds = parseInstant(opensAt),
+        closesAtEpochSeconds = parseInstant(closesAt),
     )
 
     private fun MyRecordDto.toRangeDay() = OwnRangeDay(

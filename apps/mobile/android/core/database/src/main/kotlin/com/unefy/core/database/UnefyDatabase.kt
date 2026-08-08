@@ -42,7 +42,7 @@ import javax.inject.Singleton
         PendingWrite::class,
         SyncCursorEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -105,6 +105,7 @@ object DatabaseModule {
             MIGRATION_10_11,
             MIGRATION_11_12,
             MIGRATION_12_13,
+            MIGRATION_13_14,
         )
     }
 
@@ -499,6 +500,25 @@ object DatabaseModule {
      * only — nothing existing changes shape, because a device mid-upgrade may
      * be carrying an evening's work in the tables that are already there.
      */
+    /**
+     * The cached sessions learn their own window.
+     *
+     * Added rather than rebuilt, and defaulted to 0: a device upgrading
+     * mid-evening may be carrying check-ins buffered against these rows, and
+     * zero reads as "window unknown", which the scanner offers rather than
+     * hides. The next successful load fills them in.
+     */
+    private val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE cached_sessions ADD COLUMN opensAtEpochSeconds INTEGER NOT NULL DEFAULT 0",
+            )
+            connection.execSQL(
+                "ALTER TABLE cached_sessions ADD COLUMN closesAtEpochSeconds INTEGER NOT NULL DEFAULT 0",
+            )
+        }
+    }
+
     private val MIGRATION_12_13 = object : Migration(12, 13) {
         override fun migrate(connection: SQLiteConnection) {
             connection.execSQL(

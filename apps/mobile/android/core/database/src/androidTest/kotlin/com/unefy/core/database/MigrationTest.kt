@@ -79,7 +79,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -117,6 +117,44 @@ class MigrationTest {
     }
 
     /**
+     * The cached sessions learn their own window.
+     *
+     * Migrated with a buffered check-in present, because that is the state a
+     * real device upgrades in — a supervisor mid-evening is carrying rows that
+     * exist nowhere else, and they hang off the session this table describes.
+     */
+    @Test
+    fun migrates_from_13_to_14_keeping_cached_sessions_and_queued_check_ins() {
+        helper.createDatabase(DB, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO cached_sessions (id, title, location, recordCount) VALUES " +
+                    "('s1', 'Übungsabend', 'Stand 1', 4)",
+            )
+            db.execSQL(
+                "INSERT INTO pending_check_ins (sessionId, code, checkedInAtEpochSeconds, " +
+                    "attempts) VALUES ('s1', 'uf1.AAA.1.BBB', 1783447200, 0)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+            db.query(
+                "SELECT title, opensAtEpochSeconds, closesAtEpochSeconds FROM cached_sessions",
+            ).use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("Übungsabend", cursor.getString(0))
+                // Unknown rather than wrong: the scanner offers a window-less
+                // row instead of hiding it, and the next load fills it in.
+                assertEquals(0L, cursor.getLong(1))
+                assertEquals(0L, cursor.getLong(2))
+            }
+            db.query("SELECT sessionId FROM pending_check_ins").use { cursor ->
+                assertEquals(1, cursor.count)
+            }
+        }
+    }
+
+    /**
      * The offline write queue.
      *
      * Migrating with a queued shot entry present, because that is the state a
@@ -133,7 +171,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT id FROM pending_shot_entries").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -151,7 +189,7 @@ class MigrationTest {
     fun the_write_queue_holds_one_row_per_record() {
         helper.createDatabase(DB, 12).close()
 
-        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             val insert = "INSERT OR REPLACE INTO pending_writes (entity, recordId, op, tenantId, " +
                 "payloadJson, label, queuedAt, attempts) VALUES "
             db.execSQL(insert + "('members', 'r1', 'create', 't1', '{}', 'Erst', '2026-08-08', 0)")
@@ -176,7 +214,7 @@ class MigrationTest {
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 13, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",

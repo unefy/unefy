@@ -24,6 +24,18 @@ data class CachedSession(
     val title: String,
     val location: String?,
     val recordCount: Int,
+    /**
+     * The session's own window, so an offline scanner can tell a session that
+     * is on tonight from one that has been sitting in this cache since last
+     * month. Without them the cache could only ever offer everything it had,
+     * and the stale chip is exactly what the server now refuses.
+     *
+     * Zero for rows written before this column existed — a session with no
+     * known window is offered rather than hidden, because the alternative is
+     * an empty scanner for someone standing at the range.
+     */
+    val opensAtEpochSeconds: Long = 0,
+    val closesAtEpochSeconds: Long = 0,
 )
 
 @Dao
