@@ -48,6 +48,14 @@ sealed interface EventDetailUiState {
         val attendanceSessions: List<EventAttendanceSession> = emptyList(),
         /** True while the "start attendance" call is in flight. */
         val startingAttendance: Boolean = false,
+        /**
+         * What the fields currently show — the event with anything typed on
+         * top. See `MemberDetailUiState.Content`.
+         */
+        val draft: EventDraft = event.toDraft(),
+        /** Something typed differs from the record. Shows the save bar. */
+        val dirty: Boolean = false,
+        val saving: Boolean = false,
         /** A board action failed; shown once as a snackbar, then handed back. */
         val actionFailed: Boolean = false,
     ) : EventDetailUiState
@@ -97,6 +105,11 @@ class EventDetailViewModel @Inject constructor(
 
     private val busy = MutableStateFlow(false)
 
+    /** What has been typed, or null while the screen shows the record untouched. */
+    private val draft = MutableStateFlow<EventDraft?>(null)
+
+    private val saving = MutableStateFlow(false)
+
     private val removing = MutableStateFlow<Set<String>>(emptySet())
     private val actionFailed = MutableStateFlow(false)
     private val startingAttendance = MutableStateFlow(false)
@@ -117,8 +130,10 @@ class EventDetailViewModel @Inject constructor(
         remote,
         busy,
         connectivity.isOnline(),
-        combine(removing, actionFailed, startingAttendance) { r, f, st -> Triple(r, f, st) },
-    ) { mirrored, result, isBusy, online, (removingIds, failed, starting) ->
+        combine(removing, actionFailed, startingAttendance, draft, saving) { r, f, st, d, sv ->
+            Extras(r, f, st, d, sv)
+        },
+    ) { mirrored, result, isBusy, online, extras ->
         val fetched = (result as? ApiResult.Success)?.data
         val event = mirrored?.let { base ->
             fetched?.event?.let { enriched ->
@@ -138,10 +153,13 @@ class EventDetailViewModel @Inject constructor(
                 online = online,
                 busy = isBusy,
                 now = clock.nowIso(),
-                removing = removingIds,
-                actionFailed = failed,
+                removing = extras.removing,
+                actionFailed = extras.actionFailed,
                 attendanceSessions = fetched?.attendanceSessions.orEmpty(),
-                startingAttendance = starting,
+                startingAttendance = extras.startingAttendance,
+                draft = extras.draft ?: event.toDraft(),
+                dirty = extras.draft != null && extras.draft != event.toDraft(),
+                saving = extras.saving,
             )
             // Only a failure when there is nothing at all to show — replacing a
             // mirrored event with an error screen because the connection dropped
@@ -357,7 +375,46 @@ class EventDetailViewModel @Inject constructor(
         actionFailed.value = false
     }
 
+    /** Type into a field. The first change lifts the draft off the record. */
+    fun edit(current: EventDraft, change: (EventDraft) -> EventDraft) {
+        draft.value = change(draft.value ?: current)
+    }
+
+    /** Back to the record as it stands. */
+    fun discardEdits() {
+        draft.value = null
+    }
+
+    /** Into the queue, then back to showing the record — see MemberDetailViewModel. */
+    fun saveEdits() {
+        val id = eventId.value ?: return
+        val typed = draft.value ?: return
+        if (!typed.isComplete || saving.value) return
+
+        saving.value = true
+        viewModelScope.launch {
+            repository.save(id, typed)
+            draft.value = null
+            saving.value = false
+        }
+    }
+
     private companion object {
         const val SUBSCRIPTION_GRACE_MS = 5_000L
     }
 }
+
+/**
+ * The odds and ends the detail state needs beyond the event itself.
+ *
+ * A holder rather than a `Triple` or nested pairs: `combine` takes at most five
+ * typed flows, this screen has more than five things to watch, and destructuring
+ * a five-deep tuple at the call site is where the wrong field gets read.
+ */
+private data class Extras(
+    val removing: Set<String>,
+    val actionFailed: Boolean,
+    val startingAttendance: Boolean,
+    val draft: EventDraft?,
+    val saving: Boolean,
+)

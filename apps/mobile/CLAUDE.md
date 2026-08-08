@@ -510,7 +510,8 @@ GlassEffectContainer {
 - **Top-level navigation**: `NavigationSuiteScaffold` — adapts between bottom bar, rail and drawer by window size class (required, see Build Requirements)
 - **Adaptive detail views**: `ListDetailPaneScaffold` for members/events on tablets and foldables
 - **Lists**: `LazyColumn` with swipe-to-dismiss, pull-to-refresh
-- **Forms**: `OutlinedTextField` with Material 3 theming
+- **Forms**: editable rows from `core:designsystem/component/Form.kt` — label above value on a hairline, the same geometry `UnefyDetailSection` renders read-only. **Not** `OutlinedTextField`: a screen of outlined boxes with floating labels is the default Material look that docs/design-system-android.md rules out, and it made viewing and editing the same record look like two different apps
+- **Editing**: in place on the detail screen, with `UnefySaveBar` appearing once something differs from the record. No edit mode, no pencil icon. Saving per keystroke is deliberately not done — these are a club's records
 - **Modals**: `ModalBottomSheet` for forms, full-screen for scanner
 - **Search**: `SearchBar` (Material 3)
 - **Haptics**: `HapticFeedbackType` via `LocalHapticFeedback`

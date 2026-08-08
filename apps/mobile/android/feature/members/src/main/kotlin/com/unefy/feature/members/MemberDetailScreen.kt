@@ -5,10 +5,13 @@ import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +40,7 @@ import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
 import com.unefy.core.designsystem.component.UnefyPill
+import com.unefy.core.designsystem.component.UnefySaveBar
 import com.unefy.core.designsystem.theme.LocalUnefyColors
 import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefyNumericTextStyle
@@ -63,6 +67,15 @@ sealed interface MemberDetailUiState {
     data class Content(
         val member: Member,
         val federations: List<FederationMembership> = emptyList(),
+        /**
+         * What the fields currently show — the record, with anything typed on
+         * top. There is no "edit mode": the screen is always the record, and
+         * this is the record as it would be if saved.
+         */
+        val draft: MemberDraft = member.toDraft(),
+        /** Something has been typed that is not the record. Shows the save bar. */
+        val dirty: Boolean = false,
+        val saving: Boolean = false,
     ) : MemberDetailUiState
 
     data class Failure(val error: ApiError) : MemberDetailUiState
@@ -101,15 +114,38 @@ class MemberDetailViewModel @Inject constructor(
      */
     private val federations = MutableStateFlow<List<FederationMembership>>(emptyList())
 
+    /**
+     * What has been typed, or null while the screen still shows the record
+     * untouched.
+     *
+     * Null rather than "a draft equal to the record" so that a sync arriving
+     * while somebody reads the screen updates the fields, and one arriving
+     * while somebody *types* does not yank the text out from under them.
+     */
+    private val draft = MutableStateFlow<MemberDraft?>(null)
+
+    private val saving = MutableStateFlow(false)
+
     val uiState: StateFlow<MemberDetailUiState> = combine(
         memberId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
         remote,
         federations,
-    ) { mirrored, result, federationList ->
+        draft,
+        saving,
+    ) { mirrored, result, federationList, typed, isSaving ->
         val fetched = (result as? ApiResult.Success)?.data
         val member = mirrored?.copy(iban = fetched?.iban) ?: fetched
         when {
-            member != null -> MemberDetailUiState.Content(member, federationList)
+            member != null -> MemberDetailUiState.Content(
+                member = member,
+                federations = federationList,
+                draft = typed ?: member.toDraft(),
+                // Compared against the record rather than merely "has been
+                // touched": typing a letter and deleting it again should put
+                // the bar away, not leave it offering to save nothing.
+                dirty = typed != null && typed != member.toDraft(),
+                saving = isSaving,
+            )
             // Only a failure when there is nothing to show. Replacing a mirrored
             // member with an error because the connection dropped for a second
             // would be a worse screen than one with an empty IBAN line.
@@ -122,11 +158,44 @@ class MemberDetailViewModel @Inject constructor(
         initialValue = MemberDetailUiState.Loading,
     )
 
+    /** Type into a field. The first change lifts the draft off the record. */
+    fun edit(current: MemberDraft, change: (MemberDraft) -> MemberDraft) {
+        draft.value = change(draft.value ?: current)
+    }
+
+    /** Back to the record as it stands. */
+    fun discard() {
+        draft.value = null
+    }
+
+    /**
+     * Into the queue, then back to showing the record.
+     *
+     * Clearing the draft afterwards is what makes the mirror take over again —
+     * and the mirror already carries the change, because the repository lays
+     * unsent writes over it. So the fields do not flicker back to the old
+     * values on the way.
+     */
+    fun save() {
+        val id = memberId.value ?: return
+        val typed = draft.value ?: return
+        if (!typed.isComplete || saving.value) return
+
+        saving.value = true
+        viewModelScope.launch {
+            repository.save(id, typed)
+            draft.value = null
+            saving.value = false
+        }
+    }
+
     fun load(id: String) {
         if (memberId.value == id) return
         memberId.value = id
         remote.value = null
         federations.value = emptyList()
+        // A different member: whatever was typed belonged to the previous one.
+        draft.value = null
 
         viewModelScope.launch {
             remote.value = repository.byId(id)
@@ -146,37 +215,64 @@ class MemberDetailViewModel @Inject constructor(
 fun MemberDetailRoute(
     memberId: String,
     onBack: () -> Unit,
-    /** Null for roles that may not edit — the action is then absent. */
-    onEdit: (() -> Unit)? = null,
+    /** Whether this role may change the record. Read-only rows otherwise. */
+    canEdit: Boolean = false,
     viewModel: MemberDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(memberId) { viewModel.load(memberId) }
-    MemberDetailScreen(state = state, onBack = onBack, onEdit = onEdit)
+    MemberDetailScreen(
+        state = state,
+        onBack = onBack,
+        canEdit = canEdit,
+        onChange = { change ->
+            (state as? MemberDetailUiState.Content)?.let { viewModel.edit(it.draft, change) }
+        },
+        onSave = viewModel::save,
+        onDiscard = viewModel::discard,
+    )
 }
 
+/**
+ * A member, and the same screen for changing one.
+ *
+ * There is no edit mode and no pencil. For a role that may edit, the fields are
+ * simply editable where they stand; a save bar appears at the foot as soon as
+ * something differs from the record. That is the pattern Linear and the Vercel
+ * dashboards use, and it is the one the design system asks for — the read-only
+ * rows and the editable ones share their geometry exactly, so the record does
+ * not change shape when somebody touches it.
+ *
+ * Saving per keystroke, the Notion reading of the same idea, is deliberately
+ * not what happens: these are a club's records, and a mistyped surname would be
+ * in the sync queue before the finger left the key.
+ */
 @Composable
 fun MemberDetailScreen(
     state: MemberDetailUiState,
     onBack: () -> Unit = {},
-    onEdit: (() -> Unit)? = null,
+    canEdit: Boolean = false,
+    onChange: ((MemberDraft) -> MemberDraft) -> Unit = {},
+    onSave: () -> Unit = {},
+    onDiscard: () -> Unit = {},
 ) {
+    val content = state as? MemberDetailUiState.Content
+
     UnefyDetailScaffold(
         // The name lives in the header below and slides up beside the arrow
         // once it scrolls out — never the same word twice on one screen.
-        collapsedTitle = (state as? MemberDetailUiState.Content)?.member?.displayName,
+        collapsedTitle = content?.member?.displayName,
         onBack = onBack,
-        actions = {
-            // Only once there is something to edit: offering it over a spinner
-            // opens a form that would fill itself in a moment later.
-            if (onEdit != null && state is MemberDetailUiState.Content) {
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        painter = painterResource(DesignR.drawable.ic_edit),
-                        contentDescription = stringResource(R.string.member_form_edit_title),
-                    )
-                }
-            }
+        overlay = {
+            UnefySaveBar(
+                visible = canEdit && content?.dirty == true,
+                onSave = onSave,
+                onDiscard = onDiscard,
+                saving = content?.saving == true,
+                blockedReason = stringResource(R.string.member_form_needs_names)
+                    .takeIf { content?.draft?.isComplete == false },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         },
     ) {
         when (state) {
@@ -187,21 +283,45 @@ fun MemberDetailScreen(
                 modifier = Modifier.padding(UnefySpacing.screen),
             )
 
-            is MemberDetailUiState.Content ->
+            is MemberDetailUiState.Content -> if (canEdit) {
+                MemberEditableContent(state, onChange)
+            } else {
                 MemberDetailContent(state.member, state.federations)
+            }
         }
     }
 }
 
+/**
+ * The record with its fields live.
+ *
+ * The header and the call/write buttons stay as they are — they are about the
+ * member, not about the form — and everything below them becomes the shared
+ * field list. Federations are shown read-only underneath: they are not mirrored
+ * and nothing on mobile edits them.
+ */
 @Composable
-internal fun MemberDetailContent(
-    member: Member,
-    federations: List<FederationMembership> = emptyList(),
+private fun ColumnScope.MemberEditableContent(
+    state: MemberDetailUiState.Content,
+    onChange: ((MemberDraft) -> MemberDraft) -> Unit,
 ) {
+    // The header follows what is being typed: renaming somebody and watching
+    // the title stay on the old name reads as an edit that did not take.
+    Header(state.member, displayName = state.draft.displayName)
+    ContactActions(state.member)
+
+    MemberFormFields(draft = state.draft, onChange = onChange)
+
+    ReadOnlyTail(state.member, state.federations)
+
+    // Clears the save bar, which floats over the foot of the content.
+    Spacer(modifier = Modifier.height(SAVE_BAR_CLEARANCE))
+}
+
+/** Dial and write, which are about the member rather than about the form. */
+@Composable
+private fun ContactActions(member: Member) {
     val context = LocalContext.current
-
-    Header(member)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,6 +343,51 @@ internal fun MemberDetailContent(
             ) { Text(stringResource(R.string.detail_write)) }
         }
     }
+}
+
+/**
+ * Federations and banking, which stay read-only even while editing.
+ *
+ * Neither is mirrored and neither is editable on mobile — federations have
+ * their own screens on the web, and bank details are never written to this
+ * device at all.
+ */
+@Composable
+private fun ReadOnlyTail(member: Member, federations: List<FederationMembership>) {
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_federations),
+        fields = federations.map { federation ->
+            Field(
+                label = federation.federation,
+                value = listOfNotNull(
+                    federation.federationNumber,
+                    federation.joinedAt?.let {
+                        stringResource(R.string.federation_since, UnefyFormat.date(it))
+                    },
+                ).joinToString(" · ").ifBlank { null },
+                mono = true,
+            )
+        },
+    )
+
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_banking),
+        fields = listOf(
+            Field(stringResource(R.string.detail_iban), member.maskedIban, mono = true),
+        ),
+    )
+}
+
+/** Roughly the save bar's height — content must be scrollable past it. */
+private val SAVE_BAR_CLEARANCE = 96.dp
+
+@Composable
+internal fun MemberDetailContent(
+    member: Member,
+    federations: List<FederationMembership> = emptyList(),
+) {
+    Header(member)
+    ContactActions(member)
 
     UnefyDetailSection(
         title = stringResource(R.string.detail_section_contact),
@@ -264,28 +429,7 @@ internal fun MemberDetailContent(
         ),
     )
 
-    UnefyDetailSection(
-        title = stringResource(R.string.detail_section_federations),
-        fields = federations.map { federation ->
-            Field(
-                label = federation.federation,
-                value = listOfNotNull(
-                    federation.federationNumber,
-                    federation.joinedAt?.let {
-                        stringResource(R.string.federation_since, UnefyFormat.date(it))
-                    },
-                ).joinToString(" · ").ifBlank { null },
-                mono = true,
-            )
-        },
-    )
-
-    UnefyDetailSection(
-        title = stringResource(R.string.detail_section_banking),
-        fields = listOf(
-            Field(stringResource(R.string.detail_iban), member.maskedIban, mono = true),
-        ),
-    )
+    ReadOnlyTail(member, federations)
 }
 
 /**
@@ -296,7 +440,7 @@ internal fun MemberDetailContent(
  * vertical space, which the fields get back.
  */
 @Composable
-private fun Header(member: Member) {
+private fun Header(member: Member, displayName: String = member.displayName) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -324,7 +468,7 @@ private fun Header(member: Member) {
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs)) {
-            Text(text = member.displayName, style = MaterialTheme.typography.headlineSmall)
+            Text(text = displayName, style = MaterialTheme.typography.headlineSmall)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(UnefySpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,

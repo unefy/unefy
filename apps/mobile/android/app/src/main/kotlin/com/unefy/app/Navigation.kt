@@ -466,26 +466,23 @@ internal fun unefyEntryProvider(
             // The server refuses a creation from anyone below board, so the
             // button is absent rather than present and rejected on tap.
             onAddMember = if (role.canAdminister) {
-                { onOpen(MemberFormKey()) }
+                { onOpen(MemberFormKey) }
             } else {
                 null
             },
         )
     }
     entry<MemberDetailKey> { key ->
+        // No edit route and no pencil: the detail screen *is* the form for a
+        // role that may change the record.
         MemberDetailRoute(
             memberId = key.memberId,
             onBack = onBack,
-            onEdit = if (role.canAdminister) {
-                { onOpen(MemberFormKey(key.memberId)) }
-            } else {
-                null
-            },
+            canEdit = role.canAdminister,
         )
     }
-    entry<MemberFormKey> { key ->
+    entry<MemberFormKey> {
         MemberFormRoute(
-            memberId = key.memberId,
             onBack = onBack,
             // Straight back to where they came from. Opening the new member's
             // detail screen instead would push a third screen onto the stack
@@ -498,15 +495,14 @@ internal fun unefyEntryProvider(
             actions = accountActions,
             onEventClick = { id -> onOpen(EventDetailKey(id)) },
             onAddEvent = if (role.canAdminister) {
-                { onOpen(EventFormKey()) }
+                { onOpen(EventFormKey) }
             } else {
                 null
             },
         )
     }
-    entry<EventFormKey> { key ->
+    entry<EventFormKey> {
         EventFormRoute(
-            eventId = key.eventId,
             onBack = onBack,
             onSaved = { onBack() },
         )
@@ -521,11 +517,6 @@ internal fun unefyEntryProvider(
                 onOpen(AttendanceListKey(sessionId, sessionTitle))
             },
             onOpenScanner = { onOpen(ScannerKey) },
-            onEdit = if (role.canAdminister) {
-                { onOpen(EventFormKey(key.eventId)) }
-            } else {
-                null
-            },
         )
     }
     entry<DuesKey> { DuesRoute(actions = accountActions) }

@@ -7,7 +7,9 @@
     <string name="stale_generic">Nicht aktuell — Abgleich fehlgeschlagen</string>
     <!-- Formularbausteine. Der Datumswähler öffnet sich über den Knopf im Feld;
          getippt wird ein Datum bewusst nicht. -->
-    <string name="form_pick_date">Wählen</string>
     <string name="form_confirm_date">Übernehmen</string>
     <string name="form_cancel">Abbrechen</string>
+    <string name="form_empty">Nicht angegeben</string>
+    <string name="form_save">Speichern</string>
+    <string name="form_discard">Verwerfen</string>
 </resources>

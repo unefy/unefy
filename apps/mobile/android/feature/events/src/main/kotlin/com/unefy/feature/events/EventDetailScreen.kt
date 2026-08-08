@@ -3,6 +3,7 @@ package com.unefy.feature.events
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -47,6 +48,7 @@ import com.unefy.core.designsystem.component.Field
 import com.unefy.core.designsystem.component.LocalGlassBarHeight
 import com.unefy.core.designsystem.component.UnefyDetailScaffold
 import com.unefy.core.designsystem.component.UnefyDetailSection
+import com.unefy.core.designsystem.component.UnefySaveBar
 import com.unefy.core.designsystem.component.UnefyPill
 import com.unefy.core.designsystem.component.UnefyRowDivider
 import com.unefy.core.designsystem.component.UnefySearchField
@@ -66,8 +68,6 @@ fun EventDetailRoute(
     onBack: () -> Unit,
     onOpenAttendanceList: (sessionId: String, sessionTitle: String) -> Unit = { _, _ -> },
     onOpenScanner: () -> Unit = {},
-    /** Null for roles that may not edit — the action is then absent. */
-    onEdit: (() -> Unit)? = null,
     viewModel: EventDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -89,7 +89,11 @@ fun EventDetailRoute(
         canManage = role.canAdminister,
         picker = picker,
         onBack = onBack,
-        onEdit = onEdit,
+        onChange = { change ->
+            (state as? EventDetailUiState.Content)?.let { viewModel.edit(it.draft, change) }
+        },
+        onSaveEdits = viewModel::saveEdits,
+        onDiscardEdits = viewModel::discardEdits,
         onOpenAttendanceList = onOpenAttendanceList,
         onStartAttendance = viewModel::startAttendance,
         onToggleRegistration = viewModel::toggleRegistration,
@@ -108,7 +112,9 @@ fun EventDetailScreen(
     canManage: Boolean = false,
     picker: MemberPickerState = MemberPickerState(),
     onBack: () -> Unit = {},
-    onEdit: (() -> Unit)? = null,
+    onChange: ((EventDraft) -> EventDraft) -> Unit = {},
+    onSaveEdits: () -> Unit = {},
+    onDiscardEdits: () -> Unit = {},
     onToggleRegistration: () -> Unit = {},
     onOpenPicker: () -> Unit = {},
     onDismissPicker: () -> Unit = {},
@@ -143,18 +149,23 @@ fun EventDetailScreen(
     UnefyDetailScaffold(
         collapsedTitle = content?.event?.title,
         onBack = onBack,
-        actions = {
-            // Only once the event is on screen — see MemberDetailScreen.
-            if (onEdit != null && content != null) {
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        painter = painterResource(DesignR.drawable.ic_edit),
-                        contentDescription = stringResource(R.string.event_form_edit_title),
-                    )
-                }
-            }
-        },
         overlay = {
+            // Both live at the foot of the screen; the save bar is the lower
+            // of the two, and the snackbar rides above it when both are up.
+            UnefySaveBar(
+                visible = canManage && content?.dirty == true,
+                onSave = onSaveEdits,
+                onDiscard = onDiscardEdits,
+                saving = content?.saving == true,
+                blockedReason = when {
+                    content?.draft?.endsBeforeItStarts == true ->
+                        stringResource(R.string.event_form_ends_before_start)
+                    content?.draft?.isComplete == false ->
+                        stringResource(R.string.event_form_needs_title_and_start)
+                    else -> null
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
             SnackbarHost(
                 hostState = snackbarHostState,
                 // Above the floating glass bar, not behind it.
@@ -175,6 +186,7 @@ fun EventDetailScreen(
             is EventDetailUiState.Content -> EventDetailContent(
                 state = state,
                 canManage = canManage,
+                onChange = onChange,
                 onToggleRegistration = onToggleRegistration,
                 onOpenPicker = onOpenPicker,
                 onRemoveRegistration = onRemoveRegistration,
@@ -186,9 +198,10 @@ fun EventDetailScreen(
 }
 
 @Composable
-private fun EventDetailContent(
+private fun ColumnScope.EventDetailContent(
     state: EventDetailUiState.Content,
     canManage: Boolean,
+    onChange: ((EventDraft) -> EventDraft) -> Unit = {},
     onToggleRegistration: () -> Unit,
     onOpenPicker: () -> Unit,
     onRemoveRegistration: (String) -> Unit,
@@ -203,48 +216,54 @@ private fun EventDetailContent(
         RegistrationBlock(state, onToggleRegistration)
     }
 
-    // Body text, not a label/value field: a description is prose, and prose
-    // squeezed into the field pattern reads like a form.
-    event.description?.takeIf { it.isNotBlank() }?.let { description ->
-        SectionTitle(stringResource(R.string.event_detail_section_description))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(
-                horizontal = UnefySpacing.screen,
-                vertical = UnefySpacing.sm,
+    if (canManage) {
+        // The board edits the event where it stands — no form screen, no
+        // pencil. The read-only rendering below is what everyone else sees.
+        EventFormFields(draft = state.draft, onChange = onChange)
+    } else {
+        // Body text, not a label/value field: a description is prose, and prose
+        // squeezed into the field pattern reads like a form.
+        event.description?.takeIf { it.isNotBlank() }?.let { description ->
+            SectionTitle(stringResource(R.string.event_detail_section_description))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(
+                    horizontal = UnefySpacing.screen,
+                    vertical = UnefySpacing.sm,
+                ),
+            )
+        }
+
+        UnefyDetailSection(
+            title = stringResource(R.string.event_detail_section_details),
+            fields = listOf(
+                Field(stringResource(R.string.event_detail_location), event.location),
+                Field(
+                    label = stringResource(R.string.event_detail_starts),
+                    value = if (event.allDay) {
+                        UnefyFormat.date(event.startsAt)
+                    } else {
+                        UnefyFormat.dateTime(event.startsAt)
+                    },
+                    mono = true,
+                ),
+                Field(
+                    label = stringResource(R.string.event_detail_ends),
+                    value = event.endsAt?.let {
+                        if (event.allDay) UnefyFormat.date(it) else UnefyFormat.dateTime(it)
+                    },
+                    mono = true,
+                ),
+                Field(
+                    label = stringResource(R.string.event_detail_deadline),
+                    value = event.registrationDeadline?.let(UnefyFormat::dateTime),
+                    mono = true,
+                ),
+                Field(stringResource(R.string.event_detail_competition), event.competitionName),
             ),
         )
     }
-
-    UnefyDetailSection(
-        title = stringResource(R.string.event_detail_section_details),
-        fields = listOf(
-            Field(stringResource(R.string.event_detail_location), event.location),
-            Field(
-                label = stringResource(R.string.event_detail_starts),
-                value = if (event.allDay) {
-                    UnefyFormat.date(event.startsAt)
-                } else {
-                    UnefyFormat.dateTime(event.startsAt)
-                },
-                mono = true,
-            ),
-            Field(
-                label = stringResource(R.string.event_detail_ends),
-                value = event.endsAt?.let {
-                    if (event.allDay) UnefyFormat.date(it) else UnefyFormat.dateTime(it)
-                },
-                mono = true,
-            ),
-            Field(
-                label = stringResource(R.string.event_detail_deadline),
-                value = event.registrationDeadline?.let(UnefyFormat::dateTime),
-                mono = true,
-            ),
-            Field(stringResource(R.string.event_detail_competition), event.competitionName),
-        ),
-    )
 
     // Attendance lives here too, but only for the board: the calendar is the
     // place people look for the evening, and the evening's list should be one

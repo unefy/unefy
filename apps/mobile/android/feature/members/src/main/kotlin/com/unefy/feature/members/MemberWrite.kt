@@ -49,6 +49,10 @@ data class MemberDraft(
     /** Both names present. The server enforces it too; this keeps the form honest. */
     val isComplete: Boolean
         get() = firstName.isNotBlank() && lastName.isNotBlank()
+
+    /** What the header shows while the name is being changed. */
+    val displayName: String
+        get() = "$firstName $lastName".trim()
 }
 
 internal fun Member.toDraft() = MemberDraft(
