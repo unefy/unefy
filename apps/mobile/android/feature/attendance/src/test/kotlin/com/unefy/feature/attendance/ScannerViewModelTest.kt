@@ -41,7 +41,7 @@ class ScannerViewModelTest {
 
     private fun viewModel(repository: ScannerFakeRepository) = ScannerViewModel(
         repository = repository,
-        queue = CheckInQueue(repository, ScannerFakeDao(), clock = { NOW }),
+        queue = CheckInQueue(repository, ScannerFakeDao(), clock = { NOW }, writes = FakeWriteQueue()),
         deviceIdentity = object : DeviceIdentity {
             override suspend fun installId() = "install-1"
         },

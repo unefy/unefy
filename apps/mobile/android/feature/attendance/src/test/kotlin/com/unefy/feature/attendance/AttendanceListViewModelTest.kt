@@ -54,7 +54,7 @@ class AttendanceListViewModelTest {
 
     private fun viewModel(modules: List<String> = emptyList()) = AttendanceListViewModel(
         repository = repository,
-        queue = CheckInQueue(repository, dao, clock = AttendanceClock { 0 }),
+        queue = CheckInQueue(repository, dao, clock = AttendanceClock { 0 }, writes = FakeWriteQueue()),
         clubRepository = clubRepository(modules),
         shootingDetails = shootingDetails,
     )

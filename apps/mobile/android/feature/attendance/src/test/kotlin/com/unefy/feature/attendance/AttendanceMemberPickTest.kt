@@ -58,6 +58,8 @@ class AttendanceMemberPickTest {
             sessionCache = FakeCachedSessionDao(),
             recordCache = FakeCachedSessionRecordDao(),
             clock = { 1_785_171_600L },
+            writes = FakeWriteQueue(),
+            json = Json,
         )
     }
 
@@ -120,62 +122,3 @@ private fun row(id: String, number: String, first: String, last: String) = Synce
     leftAt = null,
     generation = 1,
 )
-
-private class FakeSyncedMemberDao : SyncedMemberDao {
-    var rows: List<SyncedMember> = emptyList()
-    var lastQuery: String? = null
-
-    override fun search(query: String): Flow<List<SyncedMember>> {
-        lastQuery = query
-        return flowOf(rows)
-    }
-
-    override fun searchFolded(query: String): Flow<List<SyncedMember>> = flowOf(rows)
-
-    override fun countStream(): Flow<Int> = flowOf(rows.size)
-
-    override fun byIdStream(id: String): Flow<SyncedMember?> = flowOf(rows.find { it.id == id })
-
-    override suspend fun upsert(members: List<SyncedMember>) = Unit
-
-    override suspend fun deleteByIdsOf(ids: List<String>) = Unit
-
-    override suspend fun sweep(generation: Long) = Unit
-
-    override suspend fun deleteAll() = Unit
-}
-
-private class FakeSyncCursorDao : SyncCursorDao {
-    var bootstrapComplete = false
-
-    override suspend fun get(collection: String): SyncCursorEntity? = null
-
-    override fun bootstrapCompleteStream(collection: String): Flow<Boolean> =
-        flowOf(bootstrapComplete)
-
-    override suspend fun upsert(cursor: SyncCursorEntity) = Unit
-
-    override suspend fun deleteAll() = Unit
-}
-
-private class FakeCachedSessionDao : CachedSessionDao {
-    override suspend fun upsert(sessions: List<CachedSession>) = Unit
-
-    override suspend fun all(): List<CachedSession> = emptyList()
-
-    override suspend fun retainOnlyOf(keep: List<String>) = Unit
-
-    override suspend fun deleteAll() = Unit
-}
-
-private class FakeCachedSessionRecordDao : CachedSessionRecordDao {
-    override suspend fun upsert(records: List<CachedSessionRecord>) = Unit
-
-    override suspend fun forSession(sessionId: String): List<CachedSessionRecord> = emptyList()
-
-    override suspend fun retainOnlyOf(sessionId: String, keep: List<String>) = Unit
-
-    override suspend fun deleteForSession(sessionId: String) = Unit
-
-    override suspend fun deleteAll() = Unit
-}

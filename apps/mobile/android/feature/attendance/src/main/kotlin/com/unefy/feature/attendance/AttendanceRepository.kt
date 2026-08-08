@@ -6,6 +6,8 @@ import com.unefy.core.database.CachedSession
 import com.unefy.core.database.CachedSessionDao
 import com.unefy.core.database.CachedSessionRecord
 import com.unefy.core.database.CachedSessionRecordDao
+import com.unefy.core.database.PendingWrite
+import com.unefy.core.sync.WriteQueue
 import com.unefy.core.network.ApiClient
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiEndpoints
@@ -19,11 +21,13 @@ import io.ktor.client.request.parameter
 import io.ktor.http.encodeURLParameter
 import java.time.Instant
 import java.time.ZoneId
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import javax.inject.Singleton
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /**
  * Everything the app needs to build its own check-in codes. Mirrors the
@@ -100,6 +104,11 @@ internal data class ManualCheckInRequest(
 
 @Serializable
 internal data class CreateSessionRequest(
+    /**
+     * Chosen here, not by the server. It is what the buffered check-ins of an
+     * evening point at, and they are taken long before the session can be sent.
+     */
+    val id: String,
     val title: String,
     @SerialName("opens_at") val opensAt: String,
     @SerialName("closes_at") val closesAt: String,
@@ -343,6 +352,9 @@ class DefaultAttendanceRepository @Inject constructor(
     private val recordCache: CachedSessionRecordDao,
     /** For the "is this session on tonight" filter — the same clock the queue stamps with. */
     private val clock: AttendanceClock,
+    /** For an evening opened where there is no signal — see [createSession]. */
+    private val writes: WriteQueue,
+    private val json: Json,
 ) : AttendanceRepository {
 
     override suspend fun seed(): ApiResult<AttendanceSeed> = apiClient
@@ -456,16 +468,71 @@ class DefaultAttendanceRepository @Inject constructor(
         )
         .map { ScanOutcome(it.memberName, it.memberNumber, it.assurance) }
 
+    /**
+     * Opens an evening, with or without a connection.
+     *
+     * The id is chosen here, so the session exists for this device the moment
+     * it is asked for. That is the whole point: a supervisor standing at a
+     * range with no signal could previously do nothing at all — no session
+     * meant nothing to check into, and with nothing to check into the check-in
+     * queue never got the chance to buffer anything either. The evening went
+     * unrecorded unless somebody found a laptop.
+     *
+     * Live first rather than always queued, unlike the member and event forms.
+     * Those have nothing waiting on them; this one does — the check-ins taken
+     * seconds later cannot be sent until the server knows the session, so the
+     * common case of "opening the evening while there is still signal" should
+     * not be deferred behind a drain.
+     */
     override suspend fun createSession(
         title: String,
         opensAt: String,
         closesAt: String,
-    ): ApiResult<AttendanceSessionSummary> = apiClient
-        .post<AttendanceSessionDto>(
-            ApiEndpoints.ATTENDANCE_SESSIONS,
-            body = CreateSessionRequest(title, opensAt, closesAt),
+    ): ApiResult<AttendanceSessionSummary> {
+        val request = CreateSessionRequest(
+            id = UUID.randomUUID().toString(),
+            title = title,
+            opensAt = opensAt,
+            closesAt = closesAt,
         )
-        .map { it.toSummary() }
+
+        val result = apiClient
+            .post<AttendanceSessionDto>(ApiEndpoints.ATTENDANCE_SESSIONS, body = request)
+            .map { it.toSummary() }
+
+        return when {
+            result is ApiResult.Success -> {
+                sessionCache.upsert(listOf(result.data.toCached()))
+                result
+            }
+
+            result is ApiResult.Failure && result.error is ApiError.Network -> {
+                // Cached and queued, in that order: the cache is what the
+                // scanner reads back a moment later, and the queue is what
+                // eventually tells the server. The same id in both, so the
+                // check-ins buffered against it need no rewriting when it goes.
+                val local = AttendanceSessionSummary(
+                    id = request.id,
+                    title = title,
+                    location = null,
+                    recordCount = 0,
+                    opensAtEpochSeconds = parseInstant(opensAt),
+                    closesAtEpochSeconds = parseInstant(closesAt),
+                )
+                sessionCache.upsert(listOf(local.toCached()))
+                writes.enqueue(
+                    entity = SESSION_WRITE_ENTITY,
+                    recordId = request.id,
+                    op = PendingWrite.OP_CREATE,
+                    payloadJson = json.encodeToString(request),
+                    label = title,
+                )
+                ApiResult.Success(local)
+            }
+
+            else -> result
+        }
+    }
 
     override suspend fun todaysEvents(
         startIso: String,
@@ -604,6 +671,15 @@ class DefaultAttendanceRepository @Inject constructor(
         method = method,
     )
 
+    private fun AttendanceSessionSummary.toCached() = CachedSession(
+        id = id,
+        title = title,
+        location = location,
+        recordCount = recordCount,
+        opensAtEpochSeconds = opensAtEpochSeconds,
+        closesAtEpochSeconds = closesAtEpochSeconds,
+    )
+
     private fun toEntry(row: CachedSessionRecord) = CheckedInEntry(
         key = row.id,
         memberId = row.memberId,
@@ -613,8 +689,7 @@ class DefaultAttendanceRepository @Inject constructor(
     )
 
     /** A time the server sent. Unparseable means 0 — sorts last, never crashes. */
-    private fun parseInstant(value: String): Long =
-        runCatching { Instant.parse(value).epochSecond }.getOrDefault(0L)
+    private fun parseInstant(value: String): Long = parseIsoSeconds(value)
 
     private companion object {
         const val SESSION_PAGE_SIZE = 50

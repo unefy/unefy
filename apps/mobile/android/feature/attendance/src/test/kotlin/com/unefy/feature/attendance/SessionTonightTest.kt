@@ -1,6 +1,16 @@
 package com.unefy.feature.attendance
 
+import com.unefy.core.network.ApiClient
+import com.unefy.core.network.ApiResult
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
+import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -79,5 +89,56 @@ class SessionTonightTest {
     @Test
     fun `a cached row with no known window is offered`() {
         assertTrue(session(0, 0).isOnTonight(now, zone))
+    }
+}
+
+/**
+ * Opening an evening where there is no signal.
+ *
+ * The gap this closes was total: no session meant nothing to check into, and
+ * with nothing to check into the check-in queue never got the chance to buffer
+ * anything either. The evening went unrecorded unless somebody found a laptop.
+ */
+class OfflineSessionCreationTest {
+
+    /** 2026-08-08, 19:00 Berlin — the same instant SessionTonightTest uses. */
+    private val NOW = 1_785_171_600L
+
+    private val cache = FakeCachedSessionDao()
+    private val writes = FakeWriteQueue()
+
+    private fun repository(engine: MockEngine) = DefaultAttendanceRepository(
+        apiClient = ApiClient(HttpClient(engine) { install(ContentNegotiation) { json(Json) } }),
+        syncedMembers = FakeSyncedMemberDao(),
+        syncCursors = FakeSyncCursorDao(),
+        sessionCache = cache,
+        recordCache = FakeCachedSessionRecordDao(),
+        clock = { NOW },
+        writes = writes,
+        json = Json,
+    )
+
+    @Test
+    fun `an evening opened without a connection is cached and queued`() = runTest {
+        val offline = MockEngine { throw java.io.IOException("no route to host") }
+
+        val result = repository(offline).createSession(
+            title = "Übungsabend",
+            opensAt = Instant.ofEpochSecond(NOW).toString(),
+            closesAt = Instant.ofEpochSecond(NOW + 8 * 3_600).toString(),
+        )
+
+        // Success, not a failure: from where the supervisor stands the evening
+        // is open, and the queue is the app's problem rather than theirs.
+        assertTrue(result is ApiResult.Success)
+        val session = (result as ApiResult.Success).data
+
+        // Cached, so the scanner reads it back a moment later…
+        assertEquals(listOf(session.id), cache.rows.map { it.id })
+        // …and queued under the same id, so the check-ins buffered against it
+        // need no rewriting when it finally goes.
+        assertEquals(listOf(session.id), writes.queued.map { it.recordId })
+        assertEquals(SESSION_WRITE_ENTITY, writes.queued.single().entity)
+        assertTrue(session.isOnTonight(NOW, ZoneId.of("Europe/Berlin")))
     }
 }

@@ -4,6 +4,7 @@ import com.unefy.core.database.PendingCheckIn
 import com.unefy.core.database.PendingCheckInDao
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
+import com.unefy.core.sync.WriteQueue
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -43,6 +44,8 @@ class CheckInQueue @Inject constructor(
     private val repository: AttendanceRepository,
     private val dao: PendingCheckInDao,
     private val clock: AttendanceClock,
+    /** Drained first, so an evening exists before its check-ins — see [sync]. */
+    private val writes: WriteQueue,
     /**
      * Null in unit tests. Scheduling is a side effect on the platform, and the
      * queue's rules are worth testing without one.
@@ -158,6 +161,14 @@ class CheckInQueue @Inject constructor(
      * hammering a dead connection only delays the screen.
      */
     suspend fun sync(): Int {
+        // The evening before the people in it. An evening opened at the range
+        // is itself a queued write, and a check-in whose session the server has
+        // never heard of comes back a 404 — which this queue keeps and marks
+        // rather than drops, so it would heal on the next drain, but only after
+        // an error nobody could explain. Sending them in order avoids the
+        // question. Failures here are the write queue's business, not ours.
+        writes.drain()
+
         var sent = 0
         for (entry in dao.all()) {
             val result = send(entry)

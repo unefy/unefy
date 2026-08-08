@@ -2,6 +2,7 @@ package com.unefy.feature.attendance
 
 import com.unefy.core.database.PendingCheckIn
 import com.unefy.core.database.PendingCheckInDao
+import com.unefy.core.database.PendingWrite
 import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import java.io.IOException
@@ -24,7 +25,9 @@ class CheckInQueueTest {
     private val dao = FakeDao()
     private val repository = FakeRepository()
     private val scheduler = RecordingScheduler()
-    private val queue = CheckInQueue(repository, dao, clock = { NOW }, scheduler = scheduler)
+    private val writes = FakeWriteQueue()
+    private val queue =
+        CheckInQueue(repository, dao, clock = { NOW }, writes = writes, scheduler = scheduler)
 
     @Test
     fun `a scan that cannot reach the server is held`() = runTest {
@@ -342,6 +345,109 @@ private class FakeRepository : AttendanceRepository {
 
     override suspend fun deleteRecord(recordId: String, reason: String?): ApiResult<Unit> =
         error("not used")
+
+    override suspend fun myRangeDays() = error("not used")
+
+    override suspend fun createSelfEntry(occurredOn: String, location: String) = error("not used")
+
+    override suspend fun deleteSelfEntry(recordId: String) = error("not used")
+
+    override suspend fun todaysEvents(startIso: String, endIso: String) = error("not used")
+
+    override suspend fun openSessionForEvent(eventId: String) = error("not used")
+}
+
+/**
+ * The evening has to reach the server before the people in it.
+ *
+ * An evening opened at the range is itself a queued write. A check-in whose
+ * session the server has never heard of comes back a 404, which this queue
+ * keeps and marks rather than drops — so it heals on the next drain, but only
+ * after an error nobody at the range could explain.
+ */
+class CheckInQueueOrderingTest {
+
+    @Test
+    fun `queued sessions are sent before the check-ins that point at them`() = runTest {
+        val writes = FakeWriteQueue()
+        val repository = OrderingRepository(writes)
+        val dao = OrderingDao()
+        val queue = CheckInQueue(repository, dao, clock = { 0 }, writes = writes)
+
+        dao.insert(
+            PendingCheckIn(sessionId = "s1", code = "uf1.x", checkedInAtEpochSeconds = 0),
+        )
+        writes.enqueue(
+            entity = SESSION_WRITE_ENTITY,
+            recordId = "s1",
+            op = PendingWrite.OP_CREATE,
+            payloadJson = "{}",
+            label = "Übungsabend",
+        )
+
+        queue.sync()
+
+        assertEquals(listOf("drain-writes", "check-in"), writes.calls)
+    }
+}
+
+private class OrderingDao : PendingCheckInDao {
+    private val rows = mutableListOf<PendingCheckIn>()
+    private val count = MutableStateFlow(0)
+
+    override suspend fun insert(entry: PendingCheckIn): Long {
+        rows += entry.copy(id = 1)
+        return 1
+    }
+
+    override suspend fun all(): List<PendingCheckIn> = rows.toList()
+
+    override fun countStream(): Flow<Int> = count
+
+    override suspend fun forSession(sessionId: String): List<PendingCheckIn> = rows
+
+    override suspend fun delete(id: Long) {
+        rows.removeAll { it.id == id }
+    }
+
+    override suspend fun recordFailure(id: Long, error: String?) = Unit
+}
+
+private class OrderingRepository(private val writes: FakeWriteQueue) : AttendanceRepository {
+
+    override suspend fun scan(
+        sessionId: String,
+        code: String,
+        installId: String?,
+        staffDeviceId: String?,
+        checkedInAt: String?,
+    ): ApiResult<ScanOutcome> {
+        writes.calls += "check-in"
+        return ApiResult.Success(ScanOutcome("Alice Example", "TV-001", "high"))
+    }
+
+    override suspend fun checkInManually(
+        sessionId: String,
+        memberId: String?,
+        guestName: String?,
+        checkedInAt: String?,
+        clientId: String?,
+    ) = error("not used")
+
+    override suspend fun createSession(title: String, opensAt: String, closesAt: String) =
+        error("not used")
+
+    override suspend fun seed() = error("not used")
+
+    override suspend fun openSessions() = error("not used")
+
+    override suspend fun members(search: String?) = error("not used")
+
+    override suspend fun sessionRecords(sessionId: String) = error("not used")
+
+    override suspend fun latestOwnCheckIn() = error("not used")
+
+    override suspend fun deleteRecord(recordId: String, reason: String?) = error("not used")
 
     override suspend fun myRangeDays() = error("not used")
 
