@@ -14,13 +14,14 @@ the app can now create.
 import json
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db_session
+from app.models.attendance import AttendanceSession
 from app.models.event import Event
 from app.models.member import Member
 from app.models.tenant import Tenant
@@ -218,3 +219,102 @@ async def test_an_event_id_belonging_to_another_club_is_refused(
     assert resp.status_code == 409, resp.text
     assert resp.json()["error"]["code"] == "ID_IN_USE"
     assert "Fremder Termin" not in resp.text
+
+
+# --- Attendance sessions ---
+
+
+def _session_payload(session_id: uuid.UUID) -> dict:
+    now = datetime.now(UTC)
+    return {
+        "id": str(session_id),
+        "title": "Übungsabend",
+        "opens_at": (now - timedelta(minutes=1)).isoformat(),
+        "closes_at": (now + timedelta(hours=8)).isoformat(),
+    }
+
+
+async def test_replaying_a_session_creation_does_not_open_a_second_evening(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """The case this exists for: the range with no signal.
+
+    The phone names the evening, buffers check-ins against that id and sends
+    the lot when it gets a connection. A retry after a lost reply must return
+    the first session — a second one beside an evening's records would split
+    the attendance in two.
+    """
+    session_id = uuid.uuid4()
+
+    client = await _client_for(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        first = await ac.post("/api/v1/attendance/sessions", json=_session_payload(session_id))
+        second = await ac.post("/api/v1/attendance/sessions", json=_session_payload(session_id))
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert first.json()["data"]["id"] == str(session_id)
+    assert second.json()["data"]["id"] == str(session_id)
+
+    count = await db_session.scalar(
+        select(func.count())
+        .select_from(AttendanceSession)
+        .where(AttendanceSession.tenant_id == test_tenant.id)
+    )
+    assert count == 1
+
+
+async def test_a_session_created_without_an_id_still_works(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """The web app names nothing and must not have to."""
+    payload = _session_payload(uuid.uuid4())
+    del payload["id"]
+
+    client = await _client_for(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        resp = await ac.post("/api/v1/attendance/sessions", json=payload)
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["id"]
+
+
+async def test_a_session_id_belonging_to_another_club_is_refused(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """A 409 rather than a 500: the replay lookup is tenant-scoped, the
+    primary key is not, so the collision has to be named rather than crash."""
+    foreign_tenant = Tenant(id=uuid.uuid4(), name="Other", slug="other-club-sessions")
+    db_session.add(foreign_tenant)
+    await db_session.flush()
+    taken = uuid.uuid4()
+    db_session.add(
+        AttendanceSession(
+            id=taken,
+            tenant_id=foreign_tenant.id,
+            title="Fremder Abend",
+            opens_at=datetime.now(UTC) - timedelta(minutes=1),
+            closes_at=datetime.now(UTC) + timedelta(hours=8),
+            status="open",
+        )
+    )
+    await db_session.flush()
+
+    client = await _client_for(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        resp = await ac.post("/api/v1/attendance/sessions", json=_session_payload(taken))
+
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["error"]["code"] == "ID_IN_USE"

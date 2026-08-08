@@ -220,17 +220,54 @@ class AttendanceService:
             raise NotFoundError("Event not found")
 
     async def create_session(self, data: AttendanceSessionCreate) -> AttendanceSession:
+        """Open a session, idempotently when the caller names its id.
+
+        Same contract as `MemberService.create` and `EventService.create`, and
+        needed here for a sharper reason than either: the phone that opens an
+        evening at the range is usually the phone with no signal. It names the
+        session, buffers check-ins against that id, and sends the lot when it
+        gets a connection — so repeating the creation must return the first
+        session rather than open a second one beside an evening's records.
+        """
         await self._validate_supervisor(data.supervisor_member_id)
         await self._validate_event(data.event_id)
+
+        fields = data.model_dump()
+        session_id = fields.pop("id", None)
+
+        if session_id is not None:
+            existing = await self.sessions.get_by_id(session_id)
+            if existing is not None:
+                return existing
+
         row = AttendanceSession(
-            **data.model_dump(),
+            **fields,
             tenant_id=self.tenant_id,
             status="open",
             created_by=self.auth.user_id,
             updated_by=self.auth.user_id,
         )
-        self.session.add(row)
-        await self.session.flush()
+        if session_id is not None:
+            row.id = session_id
+
+        try:
+            # See `MemberService.create` for why this is a savepoint, and why
+            # the `add` belongs inside it.
+            async with self.session.begin_nested():
+                self.session.add(row)
+                await self.session.flush()
+        except IntegrityError:
+            if session_id is None:
+                raise
+            existing = await self.sessions.get_by_id(session_id)
+            if existing is None:
+                # Taken by another club's session — the replay lookup above is
+                # tenant-scoped, the primary key is not.
+                raise ConflictError(
+                    "Attendance session id already in use", code="ID_IN_USE"
+                ) from None
+            return existing
+
         await self.session.refresh(row)
         return row
 

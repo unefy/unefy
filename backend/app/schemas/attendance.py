@@ -18,6 +18,12 @@ REASON_MIN_LENGTH = 3
 
 
 class AttendanceSessionCreate(BaseSchema):
+    #: Optional, client-chosen primary key. Same reason as `MemberCreate.id`,
+    #: and the one that matters most here: a supervisor standing at a range
+    #: with no signal has to be able to open the evening anyway, and every
+    #: check-in they then take needs a session to belong to before the server
+    #: has ever seen one.
+    id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     division_id: uuid.UUID | None = None
     event_id: uuid.UUID | None = None
