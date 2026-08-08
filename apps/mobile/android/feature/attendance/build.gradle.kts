@@ -23,6 +23,9 @@ dependencies {
     // the change stream the coordinator already holds open, so the member's phone
     // hears about a check-in made on somebody else's device.
     implementation(project(":core:sync"))
+    // For BackgroundSyncObserver: a push wake-up is a connection this device
+    // already has, and topping the seed up on it costs nothing extra.
+    implementation(project(":core:push"))
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

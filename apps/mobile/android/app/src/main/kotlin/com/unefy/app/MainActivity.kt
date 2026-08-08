@@ -15,6 +15,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.unefy.core.auth.AuthRepository
 import com.unefy.core.push.PushRegistrar
 import com.unefy.core.sync.SyncCoordinator
+import com.unefy.feature.attendance.SeedKeeper
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -38,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var authRepository: AuthRepository
+
+    @Inject
+    lateinit var seedKeeper: SeedKeeper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +74,15 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 pushRegistrar.run()
+            }
+        }
+
+        // Fetches the check-in seed while there is a connection to fetch it
+        // with, rather than when the check-in screen is opened — which is
+        // typically at the range, where there is none. See SeedKeeper.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                seedKeeper.run()
             }
         }
 
