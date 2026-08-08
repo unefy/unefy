@@ -1,7 +1,8 @@
 """Tests for attendance: sessions, manual check-in, freezing, audit trail, tenant scope."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -12,8 +13,11 @@ from app.models.audit import TenantAuditLog
 from app.models.member import Member
 from app.models.tenant import Tenant
 
-OPENS_AT = "2026-07-07T17:00:00+00:00"
-CLOSES_AT = "2026-07-07T21:00:00+00:00"
+# A live evening, not a fixed date: a check-in has to fall on the session's own
+# day, so a window pinned to some date in the past would make every test here
+# fail the moment that day passed.
+OPENS_AT = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+CLOSES_AT = (datetime.now(UTC) + timedelta(hours=3)).isoformat()
 
 
 async def _add_member(
@@ -51,13 +55,30 @@ async def _create_session(client: AsyncClient, **overrides: object) -> dict:
     return resp.json()["data"]
 
 
-async def _check_in(client: AsyncClient, session_id: str, member_id: uuid.UUID) -> dict:
+async def _check_in(
+    client: AsyncClient,
+    session_id: str,
+    member_id: uuid.UUID,
+    *,
+    checked_in_at: str | None = None,
+) -> dict:
+    """Ticks a member off. [checked_in_at] for the tests that need the check-in
+    to land inside a session whose window is deliberately not now."""
+    payload: dict = {"member_id": str(member_id)}
+    if checked_in_at is not None:
+        payload["checked_in_at"] = checked_in_at
     resp = await client.post(
         f"/api/v1/attendance/sessions/{session_id}/check-in",
-        json={"member_id": str(member_id)},
+        json=payload,
     )
     assert resp.status_code == 201, resp.text
     return resp.json()["data"]
+
+
+def _session_day(opens_at: str, timezone: str | None) -> str:
+    """The day a session files its records under — the server's own rule."""
+    zone = ZoneInfo(timezone) if timezone else ZoneInfo("UTC")
+    return datetime.fromisoformat(opens_at).astimezone(zone).date().isoformat()
 
 
 # --- Sessions ---
@@ -133,7 +154,7 @@ async def test_manual_check_in(
     assert record["assurance"] == "low"
     assert record["verified_by_user_id"] is not None
     # The calendar day comes from the session, not from the moment of the tick.
-    assert record["occurred_on"] == "2026-07-07"
+    assert record["occurred_on"] == _session_day(OPENS_AT, test_tenant.timezone)
 
 
 async def test_occurred_on_uses_the_club_timezone(
@@ -154,7 +175,11 @@ async def test_occurred_on_uses_the_club_timezone(
         opens_at="2026-07-06T22:30:00+00:00",
         closes_at="2026-07-07T01:00:00+00:00",
     )
-    record = await _check_in(auth_client, session_row["id"], member.id)
+    # Inside the session's own window rather than now: the point here is which
+    # day the record is filed under, and that comes from the session.
+    record = await _check_in(
+        auth_client, session_row["id"], member.id, checked_in_at="2026-07-06T23:00:00+00:00"
+    )
     assert record["occurred_on"] == "2026-07-07"
 
 
@@ -171,7 +196,9 @@ async def test_occurred_on_follows_a_changed_timezone(
         opens_at="2026-07-06T22:30:00+00:00",
         closes_at="2026-07-07T01:00:00+00:00",
     )
-    record = await _check_in(auth_client, session_row["id"], member.id)
+    record = await _check_in(
+        auth_client, session_row["id"], member.id, checked_in_at="2026-07-06T23:00:00+00:00"
+    )
     assert record["occurred_on"] == "2026-07-06"
 
 
@@ -185,7 +212,7 @@ async def test_unresolvable_timezone_does_not_block_check_in(
     member = await _add_member(db_session, test_tenant.id)
     session_row = await _create_session(auth_client)
     record = await _check_in(auth_client, session_row["id"], member.id)
-    assert record["occurred_on"] == "2026-07-07"
+    assert record["occurred_on"] == _session_day(OPENS_AT, None)
 
 
 async def test_club_rejects_unknown_timezone(auth_client: AsyncClient) -> None:
@@ -650,7 +677,11 @@ async def test_board_sees_member_history(
 
     filtered = await auth_client.get(
         f"/api/v1/members/{member.id}/attendance",
-        params={"from_date": "2026-08-01"},
+        params={
+            "from_date": (
+                date.fromisoformat(_session_day(OPENS_AT, test_tenant.timezone)) + timedelta(days=1)
+            ).isoformat()
+        },
     )
     assert filtered.json()["meta"]["total"] == 0
 

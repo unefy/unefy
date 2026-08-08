@@ -1,7 +1,7 @@
 """Tests for the generic events API: CRUD, registration, waitlist, tenant scope."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -598,7 +598,13 @@ async def test_open_attendance_session_requires_board(
 async def test_event_detail_embeds_attendance_sessions_for_board(
     auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
 ) -> None:
-    event = await _create_event(auth_client, title="Übungsabend")
+    # An event happening now: the session it opens inherits its window, and a
+    # check-in has to fall on the session's own evening.
+    event = await _create_event(
+        auth_client,
+        title="Übungsabend",
+        starts_at=(datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+    )
     opened = await auth_client.post(f"/api/v1/events/{event['id']}/attendance-session")
     session_id = opened.json()["data"]["id"]
 

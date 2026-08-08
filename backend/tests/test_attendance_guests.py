@@ -6,7 +6,7 @@ true is that a guest never counts towards anyone's §14 proof.
 """
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -16,8 +16,11 @@ from app.models.member import Member
 from app.models.tenant import Tenant
 from app.models.user import User
 
-OPENS_AT = "2026-07-07T17:00:00+00:00"
-CLOSES_AT = "2026-07-07T21:00:00+00:00"
+# A live evening, not a fixed date: a check-in has to fall on the session's own
+# day, so a window pinned to some date in the past would make every test here
+# fail the moment that day passed.
+OPENS_AT = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+CLOSES_AT = (datetime.now(UTC) + timedelta(hours=3)).isoformat()
 
 
 async def _add_member(session: AsyncSession, tenant_id: uuid.UUID, **overrides: object) -> Member:

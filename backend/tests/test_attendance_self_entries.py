@@ -77,8 +77,8 @@ async def test_entries_appear_in_both_own_lists(
         "/api/v1/attendance/sessions",
         json={
             "title": "Übungsabend",
-            "opens_at": "2026-08-04T17:00:00+00:00",
-            "closes_at": "2026-08-04T21:00:00+00:00",
+            "opens_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "closes_at": (datetime.now(UTC) + timedelta(hours=3)).isoformat(),
         },
     )
     session_id = session_resp.json()["data"]["id"]
@@ -195,8 +195,8 @@ async def test_club_records_are_not_deletable_here(
         "/api/v1/attendance/sessions",
         json={
             "title": "Übungsabend",
-            "opens_at": "2026-08-04T17:00:00+00:00",
-            "closes_at": "2026-08-04T21:00:00+00:00",
+            "opens_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+            "closes_at": (datetime.now(UTC) + timedelta(hours=3)).isoformat(),
         },
     )
     session_id = session_resp.json()["data"]["id"]

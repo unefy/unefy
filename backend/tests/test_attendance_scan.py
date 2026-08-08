@@ -9,7 +9,7 @@ paths which must fail do fail through the API.
 import json
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -32,8 +32,11 @@ from app.services.attendance_code import (
     seed_period,
 )
 
-OPENS_AT = "2026-07-07T17:00:00+00:00"
-CLOSES_AT = "2026-07-07T21:00:00+00:00"
+# A live evening, not a fixed date: a check-in has to fall on the session's own
+# day, so a window pinned to some date in the past would make every test here
+# fail the moment that day passed.
+OPENS_AT = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+CLOSES_AT = (datetime.now(UTC) + timedelta(hours=3)).isoformat()
 
 
 async def _add_member(
@@ -688,9 +691,9 @@ async def test_buffered_scan_is_verified_against_the_moment_it_claims(
     member = await _add_member(db_session, test_tenant.id)
     created = await _create_session(auth_client)
 
-    # An hour into the session, which was weeks ago — far outside the drift a
-    # live scan is allowed.
-    scanned_at = datetime(2026, 7, 7, 18, 0, tzinfo=UTC)
+    # Half an hour ago: inside the session, and far outside the drift a live
+    # scan is allowed — so only the claim can make this verify.
+    scanned_at = datetime.now(UTC) - timedelta(minutes=30)
     at = int(scanned_at.timestamp())
     seed_data = await _seed_of(db_session, test_tenant.id, member, at)
     code = build_code(seed_data["seed"], seed_data["member_ref"], test_tenant.id, counter_for(at))
@@ -702,7 +705,7 @@ async def test_buffered_scan_is_verified_against_the_moment_it_claims(
 
     assert resp.status_code == 201, resp.text
     record = resp.json()["data"]
-    assert record["checked_in_at"].startswith("2026-07-07T18:00")
+    assert record["checked_in_at"].startswith(scanned_at.isoformat()[:16])
     # Both facts kept apart: when it happened, and when it reached us.
     assert record["synced_at"] is not None
     assert record["assurance"] == "high"
@@ -731,18 +734,19 @@ async def test_buffered_manual_check_in_keeps_both_times(
 ) -> None:
     member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
     created = await _create_session(auth_client)
+    buffered_at = datetime.now(UTC) - timedelta(minutes=30)
 
     resp = await auth_client.post(
         f"/api/v1/attendance/sessions/{created['id']}/check-in",
         json={
             "member_id": str(member.id),
-            "checked_in_at": "2026-07-07T18:30:00+00:00",
+            "checked_in_at": buffered_at.isoformat(),
         },
     )
 
     assert resp.status_code == 201, resp.text
     record = resp.json()["data"]
-    assert record["checked_in_at"].startswith("2026-07-07T18:30")
+    assert record["checked_in_at"].startswith(buffered_at.isoformat()[:16])
     assert record["synced_at"] is not None
 
 
@@ -791,3 +795,83 @@ async def test_an_out_of_range_device_time_is_refused(
     )
 
     assert resp.status_code == 422, f"{reason}: {resp.text}"
+
+
+# --- The session's own evening ---
+
+
+async def test_a_check_in_into_a_session_from_another_day_is_refused(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """The hazard this closes: nothing ever closes a session on its own.
+
+    A session nobody remembered to close kept appearing in the scanner and kept
+    accepting check-ins — and because `occurred_on` comes from the session's own
+    `opens_at`, tapping last month's chip filed people onto a date they were not
+    there. Under §14 that is a false record, not untidiness.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    stale = await _create_session(
+        auth_client,
+        opens_at=(datetime.now(UTC) - timedelta(days=30)).isoformat(),
+        closes_at=(datetime.now(UTC) - timedelta(days=30) + timedelta(hours=4)).isoformat(),
+    )
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{stale['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+
+    assert resp.status_code == 409, resp.text
+    # Its own code: the scanner has to tell "wrong evening" apart from the two
+    # conflicts that are about the person.
+    assert resp.json()["error"]["code"] == "SESSION_WINDOW_PASSED"
+
+
+async def test_an_evening_that_runs_late_still_takes_check_ins(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """A hard stop at `closes_at` would refuse every late arrival at the door.
+
+    The guard is about the day, so the window running out mid-evening costs
+    nobody their entry — which is the failure the fix must not introduce.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    ran_out = await _create_session(
+        auth_client,
+        opens_at=(datetime.now(UTC) - timedelta(hours=3)).isoformat(),
+        closes_at=(datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+    )
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{ran_out['id']}/check-in",
+        json={"member_id": str(member.id)},
+    )
+
+    assert resp.status_code == 201, resp.text
+
+
+async def test_a_queued_check_in_is_judged_by_when_it_was_taken(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """The queue must survive the new guard.
+
+    A scan taken during the evening and drained after the window closed belongs
+    to that evening. Judging it by the drain's clock would throw away exactly
+    the check-ins the offline queue exists to save.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    ran_out = await _create_session(
+        auth_client,
+        opens_at=(datetime.now(UTC) - timedelta(hours=4)).isoformat(),
+        closes_at=(datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+    )
+    taken_at = datetime.now(UTC) - timedelta(hours=2)
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{ran_out['id']}/check-in",
+        json={"member_id": str(member.id), "checked_in_at": taken_at.isoformat()},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["data"]["synced_at"] is not None

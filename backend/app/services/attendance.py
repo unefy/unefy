@@ -79,6 +79,13 @@ CHECK_IN_SIGNAL = "check-ins"
 # far short of letting anyone book into the future.
 CLOCK_SKEW_ALLOWANCE = timedelta(minutes=5)
 
+#: A check-in whose moment lies outside the session's own window. Its own code
+#: rather than a plain 409, because the scanner has to tell it apart from the
+#: two conflicts that are about the *person* — this one says "wrong evening",
+#: and the remedy is to pick or open another session. Mirrored by
+#: `ScannerViewModel` on Android.
+SESSION_WINDOW_PASSED = "SESSION_WINDOW_PASSED"
+
 # One message for every way a code can fail. Which half of a guess was right is
 # not something the endpoint should confirm.
 INVALID_CODE_MESSAGE = "Code is not valid. Ask the member for a fresh one."
@@ -383,7 +390,7 @@ class AttendanceService:
             claimed_at=data.checked_in_at,
         )
 
-    def _resolve_occurred_at(
+    async def _resolve_occurred_at(
         self, row: AttendanceSession, claimed_at: datetime | None
     ) -> tuple[datetime, datetime | None]:
         """Settle when the check-in happened, and whether it arrived late.
@@ -397,17 +404,62 @@ class AttendanceService:
         backdate someone into an evening they were not at, which is precisely
         the attack the freeze on closed sessions exists to prevent — a buffered
         write must not become a way around it.
+
+        Both bounds are checked against the moment the check-in *happened*, not
+        against the server's clock. That is the whole reason the queue works: a
+        scan taken at 19:00 and drained at 23:00 belongs to the evening it was
+        taken in, and judging it by the drain's clock would throw away exactly
+        the check-ins the queue exists to save.
         """
         now = datetime.now(UTC)
-        if claimed_at is None:
-            return now, None
+        occurred = now if claimed_at is None else claimed_at.astimezone(UTC)
 
-        claimed = claimed_at.astimezone(UTC)
-        if claimed > now + CLOCK_SKEW_ALLOWANCE:
-            raise ValidationError("checked_in_at is in the future")
-        if claimed < row.opens_at:
-            raise ValidationError("checked_in_at is before the session opened")
-        return claimed, now
+        if claimed_at is not None:
+            if occurred > now + CLOCK_SKEW_ALLOWANCE:
+                raise ValidationError("checked_in_at is in the future")
+            if occurred < row.opens_at:
+                raise ValidationError("checked_in_at is before the session opened")
+
+        await self._require_within_session(row, occurred)
+        return (occurred, None) if claimed_at is None else (occurred, now)
+
+    async def _require_within_session(self, row: AttendanceSession, occurred: datetime) -> None:
+        """Refuse a check-in that does not belong to this session's evening.
+
+        Nothing ever closes a session on its own — `close_session` is a
+        deliberate act, and rightly so, because it freezes the evening for the
+        proof chain. The consequence was that a session nobody remembered to
+        close stayed a live target indefinitely: it kept appearing in the
+        scanner, and it kept accepting check-ins. And since a record's
+        `occurred_on` is derived from the session's own `opens_at`, tapping
+        last month's chip filed people onto a date they were not there. For a
+        §14 proof that is not untidiness, it is a false record.
+
+        The guard is about the *day* rather than about `closes_at` alone,
+        because the day is what the record actually asserts. Two ways to
+        belong, and a check-in needs only one:
+
+        * inside `[opens_at, closes_at)` — which is what the window is for, and
+          the only clause that can hold for a session running past midnight;
+        * on the same club-day as `opens_at` — so an evening that simply ran
+          longer than planned still works. A hard stop at `closes_at` would
+          turn every late arrival into a refusal at the door, which is a worse
+          failure than the one being fixed.
+
+        Judged against the moment the check-in *happened*, so a queued scan is
+        measured by the evening it was taken in and not by the drain's clock.
+        """
+        if row.opens_at <= occurred < row.closes_at:
+            return
+
+        zone = await self.club_timezone()
+        if occurred.astimezone(zone).date() == row.opens_at.astimezone(zone).date():
+            return
+
+        raise ConflictError(
+            "This attendance session belongs to another day.",
+            code=SESSION_WINDOW_PASSED,
+        )
 
     async def _record_check_in(
         self,
@@ -432,7 +484,7 @@ class AttendanceService:
             if replayed is not None:
                 return replayed
 
-        occurred_at, synced_at = self._resolve_occurred_at(row, claimed_at)
+        occurred_at, synced_at = await self._resolve_occurred_at(row, claimed_at)
 
         # Resolved once, for two decisions: what this record is worth, and which
         # device to tell about it.
@@ -698,7 +750,7 @@ class AttendanceService:
         # member's own device produced this code for that counter. What is lost
         # is the server's independent word on *when*, which is exactly why
         # `synced_at` is stored beside it.
-        occurred_at, _ = self._resolve_occurred_at(row, data.checked_in_at)
+        occurred_at, _ = await self._resolve_occurred_at(row, data.checked_in_at)
 
         settings = get_settings()
         try:
