@@ -31,4 +31,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // A MockEngine that refuses every call, so a repository test cannot pass
+    // by quietly falling back to the network.
+    testImplementation(libs.ktor.client.mock)
 }

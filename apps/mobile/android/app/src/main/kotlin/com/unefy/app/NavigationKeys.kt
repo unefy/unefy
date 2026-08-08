@@ -22,13 +22,13 @@ data object MembersKey : UnefyNavKey
 data class MemberDetailKey(val memberId: String) : UnefyNavKey
 
 /**
- * Creating a member and editing one, which are the same screen.
+ * Creating a member.
  *
- * A null [memberId] means create. One key rather than two, because the
- * difference the screen makes of it is a title and a verb.
+ * Only creating: editing happens on [MemberDetailKey], in place. A record that
+ * does not exist yet is the one case with no detail screen to edit.
  */
 @Serializable
-data class MemberFormKey(val memberId: String? = null) : UnefyNavKey
+data object MemberFormKey : UnefyNavKey
 
 @Serializable
 data object EventsKey : UnefyNavKey
@@ -36,9 +36,9 @@ data object EventsKey : UnefyNavKey
 @Serializable
 data class EventDetailKey(val eventId: String) : UnefyNavKey
 
-/** Creating an event and editing one — see [MemberFormKey]. */
+/** Creating an event — see [MemberFormKey]. Editing is on the detail screen. */
 @Serializable
-data class EventFormKey(val eventId: String? = null) : UnefyNavKey
+data object EventFormKey : UnefyNavKey
 
 @Serializable
 data object DuesKey : UnefyNavKey

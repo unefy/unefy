@@ -501,6 +501,5 @@ private class FakeDetailRepository(
 
     override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
 
-    override fun draftFor(id: String): Flow<EventDraft?> = MutableStateFlow(null)
 
 }

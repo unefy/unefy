@@ -121,13 +121,12 @@ class MemberWriteTest {
         assertTrue(!MemberDraft(firstName = "", lastName = "Beispiel").isComplete)
     }
 
-    // --- The form ---
+    // --- The create screen ---
 
     @Test
     fun `creating saves and hands back the new id`() = runTest(dispatcher) {
         val repository = RecordingRepository()
         val viewModel = MemberFormViewModel(repository)
-        viewModel.bind(null)
 
         viewModel.update { it.copy(firstName = "Ida", lastName = "Beispiel") }
         var saved: String? = null
@@ -135,6 +134,8 @@ class MemberWriteTest {
         advanceUntilIdle()
 
         assertEquals("generated-id", saved)
+        // Null id: this screen only ever creates. Editing is on the detail
+        // screen now, and passing an id here would quietly turn it into a PATCH.
         assertEquals(null, repository.savedId)
         assertEquals("Ida", repository.savedDraft?.firstName)
     }
@@ -143,7 +144,6 @@ class MemberWriteTest {
     fun `an incomplete draft is not saved`() = runTest(dispatcher) {
         val repository = RecordingRepository()
         val viewModel = MemberFormViewModel(repository)
-        viewModel.bind(null)
 
         viewModel.update { it.copy(firstName = "Ida") }
         var saved = false
@@ -154,37 +154,6 @@ class MemberWriteTest {
         assertNull(repository.savedDraft)
     }
 
-    @Test
-    fun `editing opens on the record as it stands`() = runTest(dispatcher) {
-        val repository = RecordingRepository(
-            existing = MemberDraft(firstName = "Ida", lastName = "Beispiel", city = "Konstanz"),
-        )
-        val viewModel = MemberFormViewModel(repository)
-
-        viewModel.bind("m1")
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.first()
-        assertEquals("Konstanz", state.draft.city)
-        assertEquals("m1", state.memberId)
-        assertTrue(!state.loading)
-    }
-
-    @Test
-    fun `binding twice does not discard what has been typed`() = runTest(dispatcher) {
-        // The route re-binds on every recomposition that changes the key, and a
-        // configuration change would otherwise wipe a half-filled form.
-        val repository = RecordingRepository(existing = MemberDraft(firstName = "Ida"))
-        val viewModel = MemberFormViewModel(repository)
-
-        viewModel.bind("m1")
-        advanceUntilIdle()
-        viewModel.update { it.copy(firstName = "Getippt") }
-        viewModel.bind("m1")
-        advanceUntilIdle()
-
-        assertEquals("Getippt", viewModel.uiState.first().draft.firstName)
-    }
 }
 
 /** Records what the form asked for, and answers with whatever it was given. */
@@ -201,7 +170,6 @@ private class RecordingRepository(
         return id ?: "generated-id"
     }
 
-    override fun draftFor(id: String): Flow<MemberDraft?> = flowOf(existing)
 }
 
 /**
@@ -229,6 +197,5 @@ private class NotUsedRepository : MembersRepository {
 
     override suspend fun save(id: String?, draft: MemberDraft): String = error("not used")
     override fun pendingIds(): Flow<Set<String>> = flowOf(emptySet())
-    override fun draftFor(id: String): Flow<MemberDraft?> = flowOf(null)
     override suspend fun discardPending(id: String) = Unit
 }

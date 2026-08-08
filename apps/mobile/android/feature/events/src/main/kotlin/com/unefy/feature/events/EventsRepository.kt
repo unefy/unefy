@@ -251,8 +251,6 @@ interface EventsRepository {
     /** The ids with an unsent write, so a list can mark them. */
     fun pendingIds(): Flow<Set<String>>
 
-    /** The draft to open a form with: the queued version, else the mirror's. */
-    fun draftFor(id: String): Flow<EventDraft?>
 }
 
 /** One row of the add sheet — who could be put on the event. */
@@ -401,13 +399,6 @@ class DefaultEventsRepository @Inject constructor(
     override fun pendingIds(): Flow<Set<String>> =
         writes.pending(EventSyncCollection.COLLECTION)
             .map { queued -> queued.mapTo(mutableSetOf()) { it.recordId } }
-
-    override fun draftFor(id: String): Flow<EventDraft?> = combine(
-        events.byIdStream(id),
-        writes.pendingFor(EventSyncCollection.COLLECTION, id),
-    ) { row, queued ->
-        queued?.let(::draftOf) ?: row?.toDomain()?.toDraft()
-    }
 
     /** See `DefaultMembersRepository.draftOf` for why this swallows a bad payload. */
     private fun draftOf(write: PendingWrite): EventDraft? = runCatching {

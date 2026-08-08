@@ -152,9 +152,5 @@ private class FakeDetailRepository(
 
     override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
 
-    override fun draftFor(id: String): Flow<MemberDraft?> = rows.map { list ->
-        list.firstOrNull { it.id == id }?.toDraft()
-    }
-
     override suspend fun discardPending(id: String) = Unit
 }

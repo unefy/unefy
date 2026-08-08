@@ -325,10 +325,6 @@ private class FakeMembersRepository(
 
     override fun pendingIds(): Flow<Set<String>> = pending
 
-    override fun draftFor(id: String): Flow<MemberDraft?> = rows.map { list ->
-        list.firstOrNull { it.id == id }?.toDraft()
-    }
-
     override suspend fun discardPending(id: String) {
         pending.value = pending.value - id
     }

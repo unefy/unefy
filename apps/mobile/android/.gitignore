@@ -13,3 +13,8 @@ build/
 .externalNativeBuild
 .cxx
 local.properties
+# The Kotlin compiler's own scratch directory — session files and error logs
+# from failed builds. It sits beside the modules rather than inside build/,
+# which is why the usual rule above misses it, and it is how a stray
+# errors-*.log ends up in a commit.
+.kotlin/

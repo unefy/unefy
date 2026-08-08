@@ -228,16 +228,6 @@ interface MembersRepository {
     /** The ids with an unsent write, so a list can mark them. */
     fun pendingIds(): Flow<Set<String>>
 
-    /**
-     * The draft to open a form with: the queued version if there is one, the
-     * mirror's otherwise.
-     *
-     * Queued wins on purpose — it is what this person last typed, and showing
-     * them the server's older copy would quietly discard their edit the moment
-     * they saved again.
-     */
-    fun draftFor(id: String): Flow<MemberDraft?>
-
     /** Throw away an unsent write. */
     suspend fun discardPending(id: String)
 }
@@ -287,8 +277,38 @@ class DefaultMembersRepository @Inject constructor(
     override fun hasSynced(): Flow<Boolean> =
         cursors.bootstrapCompleteStream(MemberSyncCollection.COLLECTION)
 
-    override fun byIdStream(id: String): Flow<Member?> =
-        members.byIdStream(id).map { it?.toDomain() }
+    /**
+     * One member, with an unsent write laid over it — the same overlay
+     * [stream] applies, and for the same reason.
+     *
+     * Without it the detail screen reads the mirror alone, so a member edited
+     * without a connection would show the *old* values the moment the form
+     * closed: the edit is in the queue, the mirror has not heard of it, and to
+     * whoever typed it that is indistinguishable from a save that failed.
+     */
+    /**
+     * One member, with an unsent write laid over it — the same overlay
+     * [stream] applies, and for the same reason.
+     *
+     * Without it the detail screen reads the mirror alone, so a member edited
+     * without a connection would show the *old* values the moment the form
+     * closed: the edit is in the queue, the mirror has not heard of it, and to
+     * whoever typed it that is indistinguishable from a save that failed.
+     */
+    override fun byIdStream(id: String): Flow<Member?> = combine(
+        members.byIdStream(id),
+        writes.pendingFor(MemberSyncCollection.COLLECTION, id),
+    ) { row, queued ->
+        val draft = queued?.let(::draftOf)
+        when {
+            row != null && draft != null -> row.toDomain().withDraft(draft)
+            row != null -> row.toDomain()
+            // Created on this device and never sent: there is no mirror row to
+            // sit on, and the detail screen still has to open on it.
+            draft != null -> draft.asNewMember(id)
+            else -> null
+        }
+    }
 
     override suspend fun byId(id: String): ApiResult<Member> = apiClient
         .get<MemberDto>(ApiEndpoints.member(id))
@@ -334,13 +354,6 @@ class DefaultMembersRepository @Inject constructor(
     override fun pendingIds(): Flow<Set<String>> =
         writes.pending(MemberSyncCollection.COLLECTION)
             .map { writes -> writes.mapTo(mutableSetOf()) { it.recordId } }
-
-    override fun draftFor(id: String): Flow<MemberDraft?> = combine(
-        members.byIdStream(id),
-        writes.pendingFor(MemberSyncCollection.COLLECTION, id),
-    ) { row, queued ->
-        queued?.let(::draftOf) ?: row?.toDomain()?.toDraft()
-    }
 
     override suspend fun discardPending(id: String) =
         writes.discard(MemberSyncCollection.COLLECTION, id)
