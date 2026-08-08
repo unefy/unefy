@@ -68,6 +68,14 @@ sealed interface ScanFeedback {
     /** A second scan arrived while the first was still in flight. */
     data object Busy : ScanFeedback
 
+    /**
+     * The chosen session belongs to another day. Its own case because the
+     * remedy is neither "ask for a fresh code" nor "try again" but "pick or
+     * open the right evening" — and because filing somebody onto the wrong
+     * date is precisely what the server now refuses.
+     */
+    data object WrongEvening : ScanFeedback
+
     /** Antennas found each other. Hold still. */
     data object Detected : ScanFeedback
 
@@ -471,6 +479,7 @@ class ScannerViewModel @Inject constructor(
         error !is ApiError.Http -> ScanFeedback.Failed(error)
         error.code == ALREADY_CHECKED_IN -> ScanFeedback.AlreadyPresent
         error.code == CODE_ALREADY_USED -> ScanFeedback.CodeUsed
+        error.code == SESSION_WINDOW_PASSED -> ScanFeedback.WrongEvening
         error.status == UNPROCESSABLE -> ScanFeedback.CodeInvalid
         else -> ScanFeedback.Failed(error)
     }
@@ -655,5 +664,8 @@ class ScannerViewModel @Inject constructor(
         // reusing a code — see backend/app/services/attendance.py.
         const val ALREADY_CHECKED_IN = "ALREADY_CHECKED_IN"
         const val CODE_ALREADY_USED = "CODE_ALREADY_USED"
+
+        /** Mirrors SESSION_WINDOW_PASSED in backend/app/services/attendance.py. */
+        const val SESSION_WINDOW_PASSED = "SESSION_WINDOW_PASSED"
     }
 }

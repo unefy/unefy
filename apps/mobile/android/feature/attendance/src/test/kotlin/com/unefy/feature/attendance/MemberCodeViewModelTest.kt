@@ -42,10 +42,21 @@ class MemberCodeViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    /** The test scheduler's virtual time, so delay() and the code agree on "now". */
-    private fun clock() = AttendanceClock { dispatcher.scheduler.currentTime / 1_000 }
+    /**
+     * The test scheduler's virtual time, so delay() and the code agree on "now"
+     * — offset when a test needs a real-looking wall clock rather than zero.
+     */
+    private fun clock(startEpochSeconds: Long = 0) =
+        AttendanceClock { startEpochSeconds + dispatcher.scheduler.currentTime / 1_000 }
 
     private val signals = NfcCheckInSignals()
+
+    private companion object {
+        /** End of seed period 20641, and the first second at which codes from
+         *  it are refused — both taken from the backend, see AttendanceCodeTest. */
+        const val SEED_EXPIRES_AT = 1_783_468_800L
+        const val SEED_REJECTED_FROM = 1_783_641_600L
+    }
 
     /**
      * Runs [block] against a fresh view model and cancels its scope afterwards
@@ -57,12 +68,13 @@ class MemberCodeViewModelTest {
         repository: FakeAttendanceRepository,
         coordinator: FakeCoordinator = FakeCoordinator(),
         seedStore: FakeSeedStore = FakeSeedStore(),
+        startEpochSeconds: Long = 0,
         block: (MemberCodeViewModel) -> Unit,
     ) {
         val viewModel = MemberCodeViewModel(
             repository = repository,
             seedStore = seedStore,
-            clock = clock(),
+            clock = clock(startEpochSeconds),
             nfcSignals = signals,
             coordinator = coordinator,
         )
@@ -250,7 +262,7 @@ class MemberCodeViewModelTest {
                 val state = it.uiState.value
                 assertTrue("still $state", state is MemberCodeUiState.Content)
                 // Said out loud on screen, because it might not verify.
-                assertTrue((state as MemberCodeUiState.Content).seedStale)
+                assertEquals(SeedAge.Stale, (state as MemberCodeUiState.Content).seedAge)
             }
         }
 
@@ -273,7 +285,7 @@ class MemberCodeViewModelTest {
         )
         withViewModel(repository, seedStore = store) {
             runCurrent()
-            assertTrue((it.uiState.value as MemberCodeUiState.Content).seedStale)
+            assertEquals(SeedAge.Stale, (it.uiState.value as MemberCodeUiState.Content).seedAge)
 
             answered.complete(ApiResult.Success(fresh))
             advanceTimeBy(1_000)
@@ -281,9 +293,59 @@ class MemberCodeViewModelTest {
 
             val state = it.uiState.value
             assertTrue("still $state", state is MemberCodeUiState.Content)
-            assertTrue(!(state as MemberCodeUiState.Content).seedStale)
+            assertEquals(SeedAge.Current, (state as MemberCodeUiState.Content).seedAge)
             // Kept, or the next cold start would be stale again.
             assertEquals(fresh, store.written)
+        }
+    }
+
+    /**
+     * The seed is inside the grace window, so the code very probably works and
+     * the screen says only that. One second later it does not — see below.
+     *
+     * The timestamps are the backend's own boundary, from AttendanceCodeTest.
+     */
+    @Test
+    fun `a seed within the grace window is only called stale`() = runTest(dispatcher) {
+        val repository = FakeAttendanceRepository(
+            ownCheckIn = ApiResult.Failure(ApiError.Network(IOException("offline"))),
+            seedResult = { awaitCancellation() },
+        )
+        withViewModel(
+            repository,
+            seedStore = FakeSeedStore(expiresAtEpochSeconds = SEED_EXPIRES_AT),
+            startEpochSeconds = SEED_REJECTED_FROM - 1,
+        ) {
+            runCurrent()
+
+            val state = it.uiState.value as MemberCodeUiState.Content
+            assertEquals(SeedAge.Stale, state.seedAge)
+        }
+    }
+
+    /**
+     * Past the grace the code cannot be accepted, and the member is the last
+     * person who should find that out from the scanner. The QR stays up —
+     * clocks differ and it costs nothing — but the screen stops implying it
+     * will work.
+     */
+    @Test
+    fun `a seed past the grace window says the code will be refused`() = runTest(dispatcher) {
+        val repository = FakeAttendanceRepository(
+            ownCheckIn = ApiResult.Failure(ApiError.Network(IOException("offline"))),
+            seedResult = { awaitCancellation() },
+        )
+        withViewModel(
+            repository,
+            seedStore = FakeSeedStore(expiresAtEpochSeconds = SEED_EXPIRES_AT),
+            startEpochSeconds = SEED_REJECTED_FROM,
+        ) {
+            runCurrent()
+
+            val state = it.uiState.value as MemberCodeUiState.Content
+            assertEquals(SeedAge.Rejected, state.seedAge)
+            // Still shown, deliberately.
+            assertTrue(state.code.startsWith("${AttendanceCode.VERSION}."))
         }
     }
 

@@ -7,6 +7,7 @@
     <string name="attendance_code_read_body">Einen Moment, die Aufsicht bestätigt gerade.</string>
     <string name="attendance_code_confirmed">Eingecheckt</string>
     <string name="attendance_code_offline">Ohne Verbindung erstellt. Der Code sollte funktionieren; falls nicht, kurz online gehen.</string>
+    <string name="attendance_code_rejected">Dieser Code ist zu alt und wird nicht mehr angenommen. Geh einmal kurz online — oder lass dich von der Aufsicht von Hand eintragen.</string>
     <string name="attendance_code_error_title">Code nicht ladbar</string>
     <string name="attendance_code_error_body">Der Check-in-Code konnte nicht geladen werden.</string>
     <string name="attendance_code_no_membership_title">Kein Mitgliedsdatensatz</string>
@@ -30,6 +31,7 @@
          paying. Saying nothing left both people waving phones at each other. -->
     <string name="scanner_nfc_hint">Halte dein Telefon ruhig — das Mitglied legt seines mit der Rückseite dagegen. Es vibriert auf beiden Geräten, sobald sich die Antennen finden.</string>
     <string name="scanner_pick_session">Zuerst die Einheit oben auswählen</string>
+    <string name="scanner_wrong_evening">Diese Einheit gehört zu einem anderen Tag. Wähl die heutige oder starte eine neue.</string>
     <string name="scanner_checked_in">%1$s eingecheckt</string>
     <string name="scanner_unknown_member">Mitglied</string>
     <string name="scanner_already_present">Schon eingecheckt</string>

@@ -28,6 +28,12 @@ object AttendanceCode {
     const val VERSION: String = "uf1"
     const val INTERVAL_SECONDS: Long = 30
 
+    /** Mirrors `SEED_PERIOD_SECONDS` in the backend's attendance_code.py. */
+    private const val SEED_PERIOD_SECONDS: Long = 86_400
+
+    /** Mirrors `SEED_GRACE_PERIODS`: how many expired seeds still verify. */
+    private const val SEED_GRACE_PERIODS: Long = 2
+
     private const val MAC_BYTES = 10
     private const val HMAC_ALGORITHM = "HmacSHA256"
 
@@ -36,6 +42,22 @@ object AttendanceCode {
     /** Seconds until the current code is replaced — what the countdown shows. */
     fun secondsUntilNextCode(epochSeconds: Long): Long =
         INTERVAL_SECONDS - (epochSeconds % INTERVAL_SECONDS)
+
+    /**
+     * The moment codes from this seed stop verifying, server-side.
+     *
+     * Derived rather than sent, because the server does not send it: it accepts
+     * the code's own period and the two before it, and a seed's `expires_at` is
+     * the end of its period — so the last period that still contains it ends two
+     * periods later.
+     *
+     * Worth mirroring at all because the difference matters to the person
+     * holding the phone. "Expired" says only that a newer seed exists and the
+     * code almost certainly still works; past this it certainly does not, and
+     * the remedy is a minute of signal rather than a second attempt at the door.
+     */
+    fun seedRejectedFrom(expiresAtEpochSeconds: Long): Long =
+        expiresAtEpochSeconds + SEED_GRACE_PERIODS * SEED_PERIOD_SECONDS
 
     fun build(seed: String, memberRef: String, tenantId: String, counter: Long): String =
         "$VERSION.$memberRef.$counter.${mac(seed, memberRef, tenantId, counter)}"

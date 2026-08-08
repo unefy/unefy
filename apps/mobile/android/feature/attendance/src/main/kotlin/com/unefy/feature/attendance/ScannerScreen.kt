@@ -421,7 +421,8 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         ScanFeedback.Detected -> MaterialTheme.colorScheme.secondaryContainer
 
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, ScanFeedback.WrongEvening,
+        is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.errorContainer
 
         null -> MaterialTheme.colorScheme.surfaceContainer
@@ -435,7 +436,8 @@ private fun FeedbackBanner(text: String, feedback: ScanFeedback?) {
         ScanFeedback.Detected -> MaterialTheme.colorScheme.onSecondaryContainer
 
         ScanFeedback.CodeUsed, ScanFeedback.CodeInvalid, ScanFeedback.Offline,
-        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, is ScanFeedback.Failed,
+        ScanFeedback.CardNotReady, ScanFeedback.NoSessionChosen, ScanFeedback.WrongEvening,
+        is ScanFeedback.Failed,
         -> MaterialTheme.colorScheme.onErrorContainer
 
         null -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -504,6 +506,7 @@ private fun feedbackText(feedback: ScanFeedback?): String = when (feedback) {
     ScanFeedback.Offline -> stringResource(R.string.scanner_offline)
     ScanFeedback.CardNotReady -> stringResource(R.string.scanner_card_not_ready)
     ScanFeedback.NoSessionChosen -> stringResource(R.string.scanner_pick_session)
+    ScanFeedback.WrongEvening -> stringResource(R.string.scanner_wrong_evening)
     ScanFeedback.Busy -> stringResource(R.string.scanner_busy)
     ScanFeedback.Detected -> stringResource(R.string.scanner_detected)
 

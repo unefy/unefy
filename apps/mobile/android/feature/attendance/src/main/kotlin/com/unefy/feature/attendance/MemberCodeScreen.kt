@@ -202,11 +202,25 @@ private fun CodeCard(state: MemberCodeUiState.Content) {
 
         CodeCountdown(state.secondsRemaining)
 
-        if (state.seedStale) {
-            Text(
+        when (state.seedAge) {
+            SeedAge.Current -> Unit
+
+            SeedAge.Stale -> Text(
                 text = stringResource(R.string.attendance_code_offline),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+
+            // Loud, and in the error colour: this one is not a caveat but a
+            // fact — the server will refuse this code. The QR stays up anyway,
+            // because it costs nothing and the phone's idea of "now" is not the
+            // only one that counts; but nobody should hold it out expecting it
+            // to work.
+            SeedAge.Rejected -> Text(
+                text = stringResource(R.string.attendance_code_rejected),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
             )
         }
@@ -340,7 +354,7 @@ private fun MemberCodePreview() {
             state = MemberCodeUiState.Content(
                 code = "uf1.AAAAAAAAAAAAAAAA.59448240.VW54OV2ZM3OO4N6X",
                 secondsRemaining = 18,
-                seedStale = false,
+                seedAge = SeedAge.Current,
             ),
             canScan = true,
         )

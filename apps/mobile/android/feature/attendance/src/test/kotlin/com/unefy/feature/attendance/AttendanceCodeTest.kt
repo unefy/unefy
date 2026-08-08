@@ -118,4 +118,23 @@ class AttendanceCodeTest {
         assertEquals(1L, AttendanceCode.secondsUntilNextCode(1_783_447_229L))
         assertEquals(30L, AttendanceCode.secondsUntilNextCode(1_783_447_230L))
     }
+
+    /**
+     * Also from the real implementation, not from the formula this checks.
+     * Codes were built from the seed of period 20641 (`expires_at`
+     * 1783468800) and fed to the backend's own `verify_code` at advancing
+     * timestamps; the last one it accepted was at 1783641599.
+     *
+     * ```
+     * uv run python -c "from app.services.attendance_code import *; ..."
+     * ```
+     *
+     * The app needs the boundary because the two sides of it call for
+     * different things from the member — a moment's patience, or finding
+     * signal before standing at the door.
+     */
+    @Test
+    fun `agrees with the backend on when a seed stops verifying`() {
+        assertEquals(1_783_641_600L, AttendanceCode.seedRejectedFrom(1_783_468_800L))
+    }
 }

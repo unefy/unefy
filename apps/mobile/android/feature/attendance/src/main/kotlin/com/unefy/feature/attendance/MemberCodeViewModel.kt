@@ -29,6 +29,24 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 internal const val CHECK_IN_SIGNAL = "check-ins"
 
+/**
+ * How much the seed behind the code has aged.
+ *
+ * Three states rather than a boolean because the middle one and the last one
+ * call for different things from the member: waiting a moment versus finding
+ * signal, or giving up on the code and asking to be ticked off by hand.
+ */
+enum class SeedAge {
+    /** Fetched within its own period. Nothing to say.  */
+    Current,
+
+    /** Past its period, inside the server's grace. Almost certainly still fine. */
+    Stale,
+
+    /** Past the grace too. The server will refuse this code. */
+    Rejected,
+}
+
 sealed interface MemberCodeUiState {
     data object Loading : MemberCodeUiState
 
@@ -36,12 +54,7 @@ sealed interface MemberCodeUiState {
         val code: String,
         /** Counts down to the next rotation, so the code is visibly alive. */
         val secondsRemaining: Long,
-        /**
-         * True when the code is computed from a seed the server would now
-         * consider expired. It very likely still verifies — the backend allows
-         * two periods of grace — but the member should know why it might not.
-         */
-        val seedStale: Boolean,
+        val seedAge: SeedAge,
     ) : MemberCodeUiState
 
     /**
@@ -245,7 +258,7 @@ class MemberCodeViewModel @Inject constructor(
                             counter = AttendanceCode.counterFor(now),
                         ),
                         secondsRemaining = AttendanceCode.secondsUntilNextCode(now),
-                        seedStale = now >= current.expiresAtEpochSeconds,
+                        seedAge = ageOf(current, now),
                     )
                 }
                 // A tick, unless the doorbell rings first. That is the whole
@@ -290,6 +303,12 @@ class MemberCodeViewModel @Inject constructor(
                 false
             }
         }
+    }
+
+    private fun ageOf(seed: AttendanceSeed, now: Long): SeedAge = when {
+        now < seed.expiresAtEpochSeconds -> SeedAge.Current
+        now < AttendanceCode.seedRejectedFrom(seed.expiresAtEpochSeconds) -> SeedAge.Stale
+        else -> SeedAge.Rejected
     }
 
     /**
