@@ -835,12 +835,17 @@ async def test_an_evening_that_runs_late_still_takes_check_ins(
 
     The guard is about the day, so the window running out mid-evening costs
     nobody their entry — which is the failure the fix must not introduce.
+
+    Minutes rather than hours between the session and now: the day is the
+    club's, not UTC's, so "three hours ago" lands on yesterday's evening for
+    the three hours after local midnight and this test would be red twice a
+    night. Small offsets keep it honest at any hour.
     """
     member = await _add_member(db_session, test_tenant.id)
     ran_out = await _create_session(
         auth_client,
-        opens_at=(datetime.now(UTC) - timedelta(hours=3)).isoformat(),
-        closes_at=(datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+        opens_at=(datetime.now(UTC) - timedelta(minutes=2)).isoformat(),
+        closes_at=(datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
     )
 
     resp = await auth_client.post(
@@ -861,12 +866,13 @@ async def test_a_queued_check_in_is_judged_by_when_it_was_taken(
     the check-ins the offline queue exists to save.
     """
     member = await _add_member(db_session, test_tenant.id)
+    # Minutes, for the same reason as the test above.
     ran_out = await _create_session(
         auth_client,
-        opens_at=(datetime.now(UTC) - timedelta(hours=4)).isoformat(),
-        closes_at=(datetime.now(UTC) - timedelta(hours=1)).isoformat(),
+        opens_at=(datetime.now(UTC) - timedelta(minutes=4)).isoformat(),
+        closes_at=(datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
     )
-    taken_at = datetime.now(UTC) - timedelta(hours=2)
+    taken_at = datetime.now(UTC) - timedelta(minutes=2)
 
     resp = await auth_client.post(
         f"/api/v1/attendance/sessions/{ran_out['id']}/check-in",
@@ -875,3 +881,32 @@ async def test_a_queued_check_in_is_judged_by_when_it_was_taken(
 
     assert resp.status_code == 201, resp.text
     assert resp.json()["data"]["synced_at"] is not None
+
+
+async def test_a_seed_handout_records_when_it_happened(
+    db_session: AsyncSession, fake_redis, test_tenant: Tenant, test_user: User
+) -> None:
+    """Written on every handout, not only the first.
+
+    The question it answers is whether a member's phone is still collecting
+    seeds — three background paths try, none of them is guaranteed, and a
+    member whose last fetch was a week ago stands at the range with a code
+    that no longer verifies. A first-fetch stamp would answer once and then
+    lie for years.
+    """
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    assert member.last_seed_fetch_at is None
+
+    client = await _client_as(db_session, fake_redis, test_user.id, test_tenant.id)
+    try:
+        assert (await client.get("/api/v1/attendance/me/seed")).status_code == 200
+        await db_session.refresh(member)
+        first = member.last_seed_fetch_at
+        assert first is not None
+
+        assert (await client.get("/api/v1/attendance/me/seed")).status_code == 200
+        await db_session.refresh(member)
+        assert member.last_seed_fetch_at is not None
+        assert member.last_seed_fetch_at >= first
+    finally:
+        await client.aclose()

@@ -702,7 +702,12 @@ class AttendanceService:
         """
         if member.attendance_ref is None:
             member.attendance_ref = new_member_ref()
-            await self.session.flush()
+
+        # Stamped on every handout, not only the first: the question this
+        # answers is "is this member's phone still collecting seeds", and a
+        # first-fetch timestamp would answer it once and then lie for years.
+        member.last_seed_fetch_at = datetime.now(UTC)
+        await self.session.flush()
 
         settings = get_settings()
         period = seed_period(int(datetime.now(UTC).timestamp()))

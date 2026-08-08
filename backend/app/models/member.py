@@ -1,7 +1,17 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Date, ForeignKey, Index, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, SoftDeleteMixin, TenantModel
@@ -72,6 +82,18 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
     # Null until the member first asks for a seed — there is no reason to mint
     # one for a club that never turns scanning on.
     attendance_ref: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # When this member's device last collected a seed.
+    #
+    # Kept because it is the only way to find out whether the app's background
+    # refresh actually reaches real phones. A seed goes stale on the calendar,
+    # the refresh depends on Doze, standby buckets and each vendor's battery
+    # manager, and none of that can be reasoned about from here — but a member
+    # whose last fetch was a week ago will stand at the range with a code that
+    # no longer verifies. Written on handout, read by nothing yet.
+    last_seed_fetch_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class MemberFederationMembership(TenantModel, AuditMixin, SoftDeleteMixin):
