@@ -29,6 +29,35 @@
       "members": "Members"
     }
   },
+  "verify": {
+    "title": "Verify certificate",
+    "subtitle": "This page confirms a certificate against the server that issued it.",
+    "valid": {
+      "title": "Valid certificate",
+      "description": "The details match what the club issued. This page deliberately reveals nothing further."
+    },
+    "revoked": {
+      "title": "Revoked",
+      "description": "The club has withdrawn this certificate. It is no longer valid."
+    },
+    "unknown": {
+      "title": "Unknown verification code",
+      "description": "No certificate exists for this code. Check the spelling — or the document did not come from here."
+    },
+    "fields": {
+      "club": "Club",
+      "member": "Member",
+      "period": "Period",
+      "days": "Range days",
+      "issuedAt": "Issued on",
+      "result": "Result"
+    },
+    "result": {
+      "passed": "Met",
+      "failed": "Not met"
+    },
+    "footer": "Verification code"
+  },
   "nav": {
     "groups": {
       "start": "Start",
@@ -1500,7 +1529,8 @@
         "result": "Result",
         "status": "Status",
         "code": "Code"
-      }
+      },
+      "download": "Download as PDF"
     },
     "revoke": {
       "action": "Revoke",

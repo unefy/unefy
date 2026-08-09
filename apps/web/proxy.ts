@@ -7,7 +7,17 @@ import { APP_HOME, LOGIN_NEXT_COOKIE, safeNextPath } from "@/lib/next-path"
  * Routes reachable without a session. Everything else is protected by
  * default, so a newly added route is gated unless it is listed here.
  */
-const PUBLIC_ROUTES = ["/login"]
+const PUBLIC_ROUTES = ["/login", "/verify"]
+
+/**
+ * Public routes that a *signed-in* visitor must still reach.
+ *
+ * Only the login page bounces someone who already has a session — the
+ * certificate check does not. A board member scanning the QR on a printout is
+ * the likeliest reader of that page, and sending them to the dashboard instead
+ * would answer a question they did not ask.
+ */
+const SIGNED_OUT_ONLY = ["/login"]
 
 // Backend session tokens are URL-safe base64 — anything else is treated as
 // no session at all, so a garbage cookie cannot pass the gate.
@@ -44,13 +54,16 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value
   const hasSession = token !== undefined && SESSION_TOKEN.test(token)
 
-  const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  )
+  const matches = (routes: string[]) =>
+    routes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    )
+
+  const isPublicRoute = matches(PUBLIC_ROUTES)
 
   // Signed in but sitting on the login page — send them into the app, honouring
   // an explicit `?next=` if it points somewhere legitimate.
-  if (hasSession && isPublicRoute) {
+  if (hasSession && matches(SIGNED_OUT_ONLY)) {
     const target = safeNextPath(request.nextUrl.searchParams.get("next"))
     return NextResponse.redirect(new URL(target ?? APP_HOME, request.nextUrl))
   }

@@ -41,6 +41,7 @@ from app.schemas.shooting import (
     ShootingRecordDetailUpdate,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
+from app.services.certificate_pdf import CertificateDocument
 from app.services.proof_chain import append_entry, canonical_hash
 
 logger = structlog.get_logger()
@@ -440,6 +441,51 @@ class ShootingService:
         )
         await self.session.commit()
         return certificate
+
+    async def certificate_document(
+        self, certificate_id: uuid.UUID, *, web_app_url: str
+    ) -> CertificateDocument:
+        """One certificate as the printable document.
+
+        Resolved here rather than in the route: the member's number, the rule's
+        label and the check URL all come from different places, and a route
+        that assembled them would be doing the service's job.
+        """
+        certificate = await self.certificates.get_by_id(certificate_id)
+        if certificate is None:
+            raise NotFoundError("Certificate not found")
+
+        row = (
+            await self.session.execute(
+                select(Member.first_name, Member.last_name, Member.member_number)
+                .where(Member.tenant_id == self.tenant_id)
+                .where(Member.id == certificate.member_id)
+            )
+        ).first()
+        club = (
+            await self.session.execute(select(Tenant.name).where(Tenant.id == self.tenant_id))
+        ).scalar_one()
+        rule = await self.rules.get_by_key(certificate.rule_key)
+
+        return CertificateDocument(
+            club_name=club,
+            member_name=f"{row[0]} {row[1]}" if row else "—",
+            member_number=row[2] if row else None,
+            # The key is a stable identifier, not a sentence — but a rule that
+            # was deleted since must not leave the page blank.
+            rule_label=rule.label if rule else certificate.rule_key,
+            period_start=certificate.period_start,
+            period_end=certificate.period_end,
+            session_count=certificate.session_count,
+            months_covered=certificate.months_covered,
+            self_certified_days=certificate.self_certified_days,
+            external_days=certificate.external_days,
+            passed=certificate.result == "passed",
+            issued_on=certificate.issued_at.date(),
+            verification_code=certificate.verification_code,
+            verification_url=(f"{web_app_url.rstrip('/')}/verify/{certificate.verification_code}"),
+            revoked=certificate.revoked_at is not None,
+        )
 
     async def member_name(self, member_id: uuid.UUID) -> str | None:
         result = await self.session.execute(

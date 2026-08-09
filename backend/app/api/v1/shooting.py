@@ -13,6 +13,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings, get_settings
 from app.database import get_db_session
 from app.dependencies import AuthContext, require_module, require_role
 from app.schemas.shooting import (
@@ -26,6 +27,7 @@ from app.schemas.shooting import (
     ShootingRecordDetailResponse,
     ShootingRecordDetailUpdate,
 )
+from app.services.certificate_pdf import build_certificate_pdf
 from app.services.shooting import ShootingService
 
 router = APIRouter(dependencies=[Depends(require_module("shooting"))])
@@ -228,6 +230,29 @@ async def list_certificates(
             "total_pages": math.ceil(total / per_page) if total else 0,
         },
     }
+
+
+@router.get("/certificates/{certificate_id}/pdf")
+async def certificate_pdf(
+    certificate_id: uuid.UUID,
+    auth: AuthContext = Depends(require_board),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
+) -> Response:
+    """The printable certificate.
+
+    The QR on it points at the web app's public check page rather than at this
+    API: whoever scans a piece of paper expects a page. Which is why the app's
+    URL is configuration the backend reads, not something the PDF can guess.
+    """
+    service = _service(session, auth)
+    document = await service.certificate_document(certificate_id, web_app_url=settings.WEB_APP_URL)
+    filename = f"schiessnachweis-{document.verification_code}.pdf"
+    return Response(
+        content=build_certificate_pdf(document),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/certificates/{certificate_id}/revoke")

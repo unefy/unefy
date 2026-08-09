@@ -20,6 +20,10 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "aiosmtplib>=5.1.2",
     "google-auth>=2.40",
+    # The certificate PDF. Chosen over a PDF library plus a QR library
+    # because reportlab draws the code itself, as vector — a proof that
+    # has to survive a photocopier should not carry a bitmap.
+    "reportlab>=4.2",
 ]
 
 [dependency-groups]

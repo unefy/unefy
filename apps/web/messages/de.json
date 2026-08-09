@@ -29,6 +29,35 @@
       "members": "Mitglieder"
     }
   },
+  "verify": {
+    "title": "Bescheinigung prüfen",
+    "subtitle": "Diese Seite bestätigt eine Bescheinigung gegen den ausstellenden Server.",
+    "valid": {
+      "title": "Gültige Bescheinigung",
+      "description": "Die Angaben stimmen mit dem überein, was der Verein ausgestellt hat. Weitere Daten gibt diese Seite bewusst nicht preis."
+    },
+    "revoked": {
+      "title": "Widerrufen",
+      "description": "Der Verein hat diese Bescheinigung zurückgezogen. Sie ist nicht mehr gültig."
+    },
+    "unknown": {
+      "title": "Unbekannter Prüfcode",
+      "description": "Zu diesem Code gibt es keine Bescheinigung. Prüfe die Schreibweise — oder das Dokument stammt nicht von hier."
+    },
+    "fields": {
+      "club": "Verein",
+      "member": "Mitglied",
+      "period": "Zeitraum",
+      "days": "Schießtage",
+      "issuedAt": "Ausgestellt am",
+      "result": "Ergebnis"
+    },
+    "result": {
+      "passed": "Erfüllt",
+      "failed": "Nicht erfüllt"
+    },
+    "footer": "Prüfcode"
+  },
   "nav": {
     "groups": {
       "start": "Start",
@@ -1500,7 +1529,8 @@
         "result": "Ergebnis",
         "status": "Status",
         "code": "Prüfcode"
-      }
+      },
+      "download": "Als PDF herunterladen"
     },
     "revoke": {
       "action": "Widerrufen",

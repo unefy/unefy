@@ -13,15 +13,18 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
+from app.dependencies import AuthContext
 from app.models import Tenant
 from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.audit import TenantAuditLog
 from app.models.division import Division
 from app.models.member import Member
-from app.models.shooting import ShootingRecordDetail
+from app.models.shooting import ShootingProofRule, ShootingRecordDetail
 from app.models.sport import Sport
 from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership, User
+from app.services.shooting import ShootingService
 
 BASE = "/api/v1/modules/shooting"
 
@@ -1059,3 +1062,108 @@ async def test_own_details_need_the_module(
     """A club without the shooting module has no such endpoint at all."""
     async with _client_as(db_session, fake_redis, test_user.id, test_tenant.id, "member") as client:
         assert (await client.get(f"{BASE}/me/records")).status_code == 403
+
+
+# --- The printable certificate ---
+
+
+async def _issue(client: AsyncClient, member_id: uuid.UUID) -> dict[str, object]:
+    resp = await client.post(
+        f"{BASE}/certificates",
+        json={"member_id": str(member_id), "rule_key": "waffg-14"},
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["data"]
+
+
+async def test_the_certificate_pdf_is_a_pdf_and_points_at_the_check_page(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The QR has to lead to a page, so the app's URL must reach the document.
+
+    Asserted on the bytes rather than by rendering: the URL is written into the
+    PDF as literal text next to the code, and a document that carries the API
+    host instead would send whoever scans it to JSON.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add(
+        ShootingProofRule(
+            tenant_id=shooting_tenant.id,
+            rule_key="waffg-14",
+            label="§14 WaffG",
+            window_months=12,
+            min_total_days=1,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+        resp = await client.get(f"{BASE}/certificates/{certificate['id']}/pdf")
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content.startswith(b"%PDF")
+        assert len(resp.content) > 1000
+
+    # Where the QR points is asserted on the document rather than on the bytes:
+    # reportlab compresses the content stream, so a byte-level check would only
+    # be testing the compressor.
+    settings = get_settings()
+    document = await ShootingService(
+        db_session, AuthContext(user_id=test_user.id, tenant_id=shooting_tenant.id, role="owner")
+    ).certificate_document(uuid.UUID(str(certificate["id"])), web_app_url=settings.WEB_APP_URL)
+    assert document.verification_url == (
+        f"{settings.WEB_APP_URL.rstrip('/')}/verify/{certificate['verification_code']}"
+    )
+    assert "/api/" not in document.verification_url
+
+
+async def test_the_certificate_pdf_is_board_work(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add(
+        ShootingProofRule(
+            tenant_id=shooting_tenant.id,
+            rule_key="waffg-14",
+            label="§14 WaffG",
+            window_months=12,
+            min_total_days=1,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as member_client:
+        resp = await member_client.get(f"{BASE}/certificates/{certificate['id']}/pdf")
+        assert resp.status_code == 403
+
+
+async def test_an_unknown_certificate_is_a_404(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        resp = await client.get(f"{BASE}/certificates/{uuid.uuid4()}/pdf")
+        assert resp.status_code == 404

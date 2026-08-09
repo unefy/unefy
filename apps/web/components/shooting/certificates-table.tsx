@@ -2,7 +2,9 @@
 
 import { useLocale, useTranslations } from "next-intl"
 
+import { DownloadIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table"
 import { RevokeDialog } from "@/components/shooting/revoke-dialog"
 import { formatDate } from "@/lib/time"
@@ -90,9 +92,27 @@ export function CertificatesTable({
     {
       key: "actions",
       header: "",
+      align: "right",
       shrink: true,
-      cell: (row) =>
-        row.revoked_at === null ? <RevokeDialog certificate={row} /> : null,
+      cell: (row) => (
+        <span className="flex items-center justify-end gap-1">
+          {/* Navigation, not fetch: the browser handles the download. Offered
+              for revoked ones too — a withdrawn proof still has to be
+              producible, and the PDF says on its face that it was revoked. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={t("download")}
+            title={t("download")}
+            render={
+              <a href={`/api/shooting/certificate?id=${row.id}`} download>
+                <DownloadIcon className="text-muted-foreground" />
+              </a>
+            }
+          />
+          {row.revoked_at === null ? <RevokeDialog certificate={row} /> : null}
+        </span>
+      ),
     },
   ]
 
