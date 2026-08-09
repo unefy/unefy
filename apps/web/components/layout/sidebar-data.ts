@@ -7,6 +7,7 @@ import {
   ReceiptIcon,
   SettingsIcon,
   TargetIcon,
+  TrophyIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -82,9 +83,11 @@ export const sidebarData: SidebarData = {
           url: "/events",
           icon: CalendarIcon,
         },
-        // Wettkämpfe are built in the backend and in the Android app, but have
-        // no web page yet — an entry here would only lead to a 404. It comes
-        // back with its page (docs/plans/roadmap.md).
+        {
+          titleKey: "competitions",
+          url: "/competitions",
+          icon: TrophyIcon,
+        },
         {
           titleKey: "shooting",
           url: "/shooting",

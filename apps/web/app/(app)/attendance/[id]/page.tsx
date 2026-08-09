@@ -17,7 +17,8 @@ import {
   getClubTimeZone,
 } from "@/lib/attendance"
 import { getClub } from "@/lib/club"
-import { listClubDisciplines, listSessionShootingDetails } from "@/lib/shooting"
+import { listClubDisciplines } from "@/lib/catalog"
+import { listSessionShootingDetails } from "@/lib/shooting"
 import { formatDate, formatTime } from "@/lib/time"
 import { deleteSessionAction } from "@/actions/attendance"
 import { ArrowLeftIcon, LockIcon, Trash2Icon } from "lucide-react"

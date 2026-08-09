@@ -1,6 +1,5 @@
 import { apiCall, apiList } from "@/lib/api"
 import type {
-  ClubDiscipline,
   ProofChainStatus,
   ProofEvaluation,
   ShootingCertificate,
@@ -54,6 +53,3 @@ export async function listSessionShootingDetails(sessionId: string) {
 }
 
 /** The disciplines the club offers, for the entry form's select. */
-export async function listClubDisciplines() {
-  return apiCall<ClubDiscipline[]>("/api/v1/club-disciplines")
-}

@@ -387,7 +387,7 @@
     "title": "Verein anlegen",
     "description": "Ein paar Angaben, dann kann es losgehen.",
     "clubName": "Vereinsname",
-    "clubNamePlaceholder": "Schützenverein Musterstadt 1900 e.V.",
+    "clubNamePlaceholder": "Sportverein Musterstadt 1900 e.V.",
     "hasDivisions": "Der Verein hat Sparten",
     "hasDivisionsHint": "Aktivieren Sie das, wenn Ihr Verein in mehreren Abteilungen mit unterschiedlichen Sportarten organisiert ist.",
     "sport": "Sportart",
@@ -979,8 +979,8 @@
         "deadline": "Anmeldeschluss"
       },
       "placeholders": {
-        "title": "Übungsabend",
-        "location": "Schützenhaus"
+        "title": "Trainingsabend",
+        "location": "Vereinsheim"
       },
       "hints": {
         "endsAt": "Optional.",
@@ -1171,6 +1171,158 @@
       "cancel": "Abbrechen",
       "save": "Speichern",
       "saving": "Speichern …"
+    }
+  },
+  "competitions": {
+    "title": "Wettkämpfe",
+    "description": "{count, plural, one {# Wettkampf} other {# Wettkämpfe}} im Verein.",
+    "empty": "Noch kein Wettkampf angelegt.",
+    "searchPlaceholder": "Name, Beschreibung oder Disziplin suchen",
+    "columns": {
+      "name": "Name",
+      "type": "Art",
+      "period": "Zeitraum",
+      "scoring": "Wertung",
+      "disciplines": "Disziplinen"
+    },
+    "types": {
+      "competition": "Wettkampf",
+      "league": "Liga",
+      "training": "Training"
+    },
+    "modes": {
+      "highest_wins": "höchster Wert gewinnt",
+      "lowest_wins": "niedrigster Wert gewinnt"
+    },
+    "filters": {
+      "allTypes": "Alle Arten"
+    },
+    "fields": {
+      "scoringUnit": "Einheit",
+      "scoringMode": "Wertungsart",
+      "description": "Beschreibung"
+    },
+    "detail": {
+      "back": "Zurück zu den Wettkämpfen",
+      "delete": "Wettkampf löschen"
+    },
+    "deleteDialog": {
+      "title": "Wettkampf löschen?",
+      "description": "Durchgänge und Ergebnisse verschwinden mit ihm aus der Ansicht.",
+      "confirm": "Löschen"
+    },
+    "toasts": {
+      "deleted": "Wettkampf gelöscht."
+    },
+    "errors": {
+      "conflict": "Nicht möglich — der Eintrag steht dem entgegen.",
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen.",
+      "unknown": "Da ist etwas schiefgelaufen.",
+      "unreachable": "Server nicht erreichbar."
+    },
+    "form": {
+      "create": "Wettkampf anlegen",
+      "edit": "Bearbeiten",
+      "createTitle": "Neuer Wettkampf",
+      "editTitle": "Wettkampf bearbeiten",
+      "description": "Was gemessen wird und wie gewertet wird, bestimmt die Rangliste.",
+      "fields": {
+        "name": "Name",
+        "type": "Art",
+        "startDate": "Beginn",
+        "endDate": "Ende",
+        "scoringUnit": "Einheit",
+        "scoringMode": "Wertungsart",
+        "disciplines": "Disziplinen",
+        "description": "Beschreibung"
+      },
+      "placeholders": {
+        "name": "Vereinsmeisterschaft 2026"
+      },
+      "hints": {
+        "endDate": "Leer lassen für einen eintägigen Wettkampf.",
+        "scoringUnit": "Womit gerechnet wird: Punkte, Ringe, Sekunden, Meter …",
+        "disciplines": "Mehrere durch Komma trennen.",
+        "disciplinesWithSuggestions": "Mehrere durch Komma trennen, z. B. {examples}."
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern …",
+      "createdToast": "Wettkampf angelegt.",
+      "savedToast": "Wettkampf gespeichert."
+    },
+    "scoreboard": {
+      "title": "Rangliste",
+      "empty": "Noch keine Ergebnisse erfasst.",
+      "searchPlaceholder": "Name suchen",
+      "columns": {
+        "rank": "Platz",
+        "member": "Mitglied",
+        "total": "Gesamt",
+        "best": "Bestwert",
+        "average": "Ø",
+        "entries": "Ergebnisse"
+      },
+      "disciplineHint": "Disziplinen in diesem Wettkampf: {disciplines}"
+    },
+    "rounds": {
+      "title": "Durchgänge ({count})",
+      "add": "Durchgang anlegen",
+      "addTitle": "Neuer Durchgang",
+      "addDescription": "Ein Wettkampftag, eine Runde, ein Trainingsabend.",
+      "namePlaceholder": "1. Durchgang",
+      "columns": {
+        "date": "Datum",
+        "name": "Name",
+        "location": "Ort",
+        "discipline": "Disziplin"
+      },
+      "unnamed": "Ohne Namen",
+      "inCalendar": "Im Kalender",
+      "withEvent": "Auch als Termin in den Kalender",
+      "withEventHint": "Dann läuft die Anmeldung über den Termin, die Ergebnisse bleiben hier.",
+      "empty": "Noch kein Durchgang angelegt.",
+      "remove": "Durchgang löschen",
+      "addedToast": "Durchgang angelegt.",
+      "removedToast": "Durchgang gelöscht.",
+      "deleteDialog": {
+        "title": "Durchgang löschen?",
+        "description": "Die Ergebnisse des Durchgangs verschwinden mit ihm; ein verknüpfter Termin wird ebenfalls entfernt.",
+        "confirm": "Löschen"
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern …"
+    },
+    "entries": {
+      "title": "Ergebnisse ({count})",
+      "empty": "Noch kein Ergebnis erfasst.",
+      "searchPlaceholder": "Name oder Notiz suchen",
+      "columns": {
+        "member": "Mitglied",
+        "score": "Ergebnis",
+        "discipline": "Disziplin",
+        "source": "Erfasst",
+        "notes": "Notiz"
+      },
+      "sources": {
+        "manual": "Von Hand",
+        "scan": "Gescannt"
+      },
+      "add": "Eintragen",
+      "saving": "Speichern …",
+      "choose": "Wählen",
+      "clear": "Ändern",
+      "remove": "Ergebnis löschen",
+      "addedToast": "Ergebnis eingetragen.",
+      "removedToast": "Ergebnis gelöscht.",
+      "deleteDialog": {
+        "title": "Ergebnis löschen?",
+        "description": "Das Ergebnis verschwindet aus der Rangliste.",
+        "confirm": "Löschen"
+      }
     }
   },
   "clubSettings": {

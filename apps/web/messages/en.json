@@ -387,7 +387,7 @@
     "title": "Create your club",
     "description": "A few details and you are ready to go.",
     "clubName": "Club name",
-    "clubNamePlaceholder": "Musterstadt Shooting Club 1900",
+    "clubNamePlaceholder": "Sports Club Anytown 1900",
     "hasDivisions": "The club has divisions",
     "hasDivisionsHint": "Turn this on if your club is organised into several departments with different sports.",
     "sport": "Sport",
@@ -1171,6 +1171,158 @@
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving …"
+    }
+  },
+  "competitions": {
+    "title": "Competitions",
+    "description": "{count, plural, one {# competition} other {# competitions}} in the club.",
+    "empty": "No competition created yet.",
+    "searchPlaceholder": "Search name, description or discipline",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "period": "Period",
+      "scoring": "Scoring",
+      "disciplines": "Disciplines"
+    },
+    "types": {
+      "competition": "Competition",
+      "league": "League",
+      "training": "Training"
+    },
+    "modes": {
+      "highest_wins": "highest wins",
+      "lowest_wins": "lowest wins"
+    },
+    "filters": {
+      "allTypes": "All types"
+    },
+    "fields": {
+      "scoringUnit": "Unit",
+      "scoringMode": "Ranking",
+      "description": "Description"
+    },
+    "detail": {
+      "back": "Back to competitions",
+      "delete": "Delete competition"
+    },
+    "deleteDialog": {
+      "title": "Delete this competition?",
+      "description": "Its rounds and results disappear from view with it.",
+      "confirm": "Delete"
+    },
+    "toasts": {
+      "deleted": "Competition deleted."
+    },
+    "errors": {
+      "conflict": "Not possible — something is in the way.",
+      "forbidden": "You do not have permission for this.",
+      "notFound": "Not found.",
+      "validation": "Please check your input.",
+      "unknown": "Something went wrong.",
+      "unreachable": "Server unreachable."
+    },
+    "form": {
+      "create": "Add competition",
+      "edit": "Edit",
+      "createTitle": "New competition",
+      "editTitle": "Edit competition",
+      "description": "What is measured and how it ranks decides the scoreboard.",
+      "fields": {
+        "name": "Name",
+        "type": "Type",
+        "startDate": "Starts",
+        "endDate": "Ends",
+        "scoringUnit": "Unit",
+        "scoringMode": "Ranking",
+        "disciplines": "Disciplines",
+        "description": "Description"
+      },
+      "placeholders": {
+        "name": "Club championship 2026"
+      },
+      "hints": {
+        "endDate": "Leave empty for a single-day competition.",
+        "scoringUnit": "What is counted: points, rings, seconds, metres …",
+        "disciplines": "Separate several with commas.",
+        "disciplinesWithSuggestions": "Separate several with commas, e.g. {examples}."
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …",
+      "createdToast": "Competition created.",
+      "savedToast": "Competition saved."
+    },
+    "scoreboard": {
+      "title": "Scoreboard",
+      "empty": "No results recorded yet.",
+      "searchPlaceholder": "Search name",
+      "columns": {
+        "rank": "Rank",
+        "member": "Member",
+        "total": "Total",
+        "best": "Best",
+        "average": "Avg",
+        "entries": "Results"
+      },
+      "disciplineHint": "Disciplines in this competition: {disciplines}"
+    },
+    "rounds": {
+      "title": "Rounds ({count})",
+      "add": "Add round",
+      "addTitle": "New round",
+      "addDescription": "A match day, a leg, a training evening.",
+      "namePlaceholder": "Round 1",
+      "columns": {
+        "date": "Date",
+        "name": "Name",
+        "location": "Location",
+        "discipline": "Discipline"
+      },
+      "unnamed": "Unnamed",
+      "inCalendar": "In calendar",
+      "withEvent": "Also put it in the calendar",
+      "withEventHint": "Registration then runs through the event; results stay here.",
+      "empty": "No round created yet.",
+      "remove": "Delete round",
+      "addedToast": "Round created.",
+      "removedToast": "Round deleted.",
+      "deleteDialog": {
+        "title": "Delete this round?",
+        "description": "Its results disappear with it, and a linked calendar event is removed too.",
+        "confirm": "Delete"
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …"
+    },
+    "entries": {
+      "title": "Results ({count})",
+      "empty": "No result recorded yet.",
+      "searchPlaceholder": "Search name or note",
+      "columns": {
+        "member": "Member",
+        "score": "Result",
+        "discipline": "Discipline",
+        "source": "Recorded",
+        "notes": "Note"
+      },
+      "sources": {
+        "manual": "By hand",
+        "scan": "Scanned"
+      },
+      "add": "Add",
+      "saving": "Saving …",
+      "choose": "Choose",
+      "clear": "Change",
+      "remove": "Delete result",
+      "addedToast": "Result added.",
+      "removedToast": "Result deleted.",
+      "deleteDialog": {
+        "title": "Delete this result?",
+        "description": "The result disappears from the scoreboard.",
+        "confirm": "Delete"
+      }
     }
   },
   "clubSettings": {
