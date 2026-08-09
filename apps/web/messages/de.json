@@ -41,7 +41,8 @@
     "myArea": "Mein Bereich",
     "settingsSports": "Sportarten",
     "settingsFunctions": "Funktionen",
-    "functionHolders": "Funktionsträger"
+    "functionHolders": "Funktionsträger",
+    "feeTypes": "Beitragsarten"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -999,6 +1000,177 @@
         "unknown": "Da ist etwas schiefgelaufen.",
         "unreachable": "Server nicht erreichbar."
       }
+    }
+  },
+  "dues": {
+    "title": "Beiträge",
+    "description": "{count, plural, one {# Posten} other {# Posten}} im Beitragsbuch.",
+    "empty": "Noch keine Beiträge erhoben.",
+    "searchPlaceholder": "Mitglied, Beitragsart oder Notiz suchen",
+    "columns": {
+      "member": "Mitglied",
+      "fee": "Beitragsart",
+      "period": "Jahr",
+      "amount": "Betrag",
+      "dueDate": "Fällig am",
+      "status": "Status",
+      "paidAt": "Bezahlt am"
+    },
+    "status": {
+      "open": "Offen",
+      "paid": "Bezahlt",
+      "cancelled": "Storniert",
+      "overdue": "Überfällig"
+    },
+    "filters": {
+      "allStatuses": "Alle Status",
+      "allYears": "Alle Jahre"
+    },
+    "summary": {
+      "open": "Offen",
+      "paid": "Bezahlt",
+      "count": "{count, plural, one {# Posten} other {# Posten}}"
+    },
+    "actions": {
+      "cancel": "Stornieren",
+      "reopen": "Wieder öffnen"
+    },
+    "toasts": {
+      "cancelled": "Posten storniert.",
+      "reopened": "Posten wieder geöffnet."
+    },
+    "errors": {
+      "conflict": "Nicht möglich — der Posten ist nicht in diesem Zustand.",
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen.",
+      "unknown": "Da ist etwas schiefgelaufen.",
+      "unreachable": "Server nicht erreichbar."
+    },
+    "pay": {
+      "action": "Als bezahlt buchen",
+      "title": "Zahlung buchen",
+      "description": "{fee} über {amount} für {member}.",
+      "fields": {
+        "paidAt": "Bezahlt am",
+        "method": "Zahlungsweg",
+        "note": "Notiz"
+      },
+      "hints": {
+        "paidAt": "Leer lassen für heute."
+      },
+      "methods": {
+        "sepa": "Lastschrift",
+        "transfer": "Überweisung",
+        "cash": "Bar"
+      },
+      "cancel": "Abbrechen",
+      "confirm": "Buchen",
+      "saving": "Buchen …",
+      "paidToast": "Zahlung gebucht."
+    },
+    "toolbar": {
+      "generate": "Beitragslauf",
+      "generateTitle": "Beiträge erheben",
+      "generateDescription": "Erzeugt für jedes Mitglied mit gültiger Zuordnung die Posten des Jahres.",
+      "generateHint": "Der Lauf lässt sich gefahrlos wiederholen — vorhandene Posten werden übersprungen.",
+      "generateConfirm": "Lauf starten",
+      "generatedToast": "{count, plural, =0 {Nichts Neues — alle Posten gab es schon.} one {# Posten erzeugt.} other {# Posten erzeugt.}}",
+      "running": "Läuft …",
+      "sepa": "SEPA-Export",
+      "sepaTitle": "Lastschrift erzeugen",
+      "sepaDescription": "Erzeugt eine pain.008-Datei mit allen offenen Posten, hinter denen ein gültiges Mandat steht.",
+      "sepaNotReady": "Dem Verein fehlen Gläubiger-ID oder IBAN. Beides steht in den Einstellungen unter „Bankverbindung & SEPA“.",
+      "sepaConfirm": "Datei herunterladen",
+      "collectionDate": "Fälligkeitsdatum",
+      "collectionDateHint": "Leer lassen für den frühestmöglichen Termin.",
+      "year": "Jahr",
+      "cancel": "Abbrechen"
+    },
+    "feeTypes": {
+      "title": "Beitragsarten",
+      "description": "Was der Verein erhebt und in welchem Rhythmus.",
+      "back": "Zurück zu den Beiträgen",
+      "empty": "Noch keine Beitragsart angelegt.",
+      "searchPlaceholder": "Beitragsart suchen",
+      "columns": {
+        "name": "Name",
+        "amount": "Betrag",
+        "interval": "Rhythmus",
+        "description": "Beschreibung",
+        "status": "Status"
+      },
+      "intervals": {
+        "yearly": "Jährlich",
+        "half_yearly": "Halbjährlich",
+        "quarterly": "Vierteljährlich",
+        "monthly": "Monatlich",
+        "one_time": "Einmalig"
+      },
+      "filters": {
+        "allStatuses": "Alle Status"
+      },
+      "active": "Aktiv",
+      "retired": "Stillgelegt",
+      "retire": "Stilllegen",
+      "revive": "Wieder aktivieren",
+      "delete": "Löschen",
+      "retiredToast": "Beitragsart stillgelegt.",
+      "revivedToast": "Beitragsart wieder aktiv.",
+      "deletedToast": "Beitragsart gelöscht.",
+      "deleteDialog": {
+        "title": "Beitragsart löschen?",
+        "description": "Bereits erhobene Posten bleiben bestehen. Soll die Art nur nicht mehr vergeben werden, ist Stilllegen der bessere Weg.",
+        "confirm": "Löschen"
+      },
+      "form": {
+        "create": "Beitragsart anlegen",
+        "edit": "Bearbeiten",
+        "createTitle": "Neue Beitragsart",
+        "editTitle": "Beitragsart bearbeiten",
+        "description": "Name, Betrag und Rhythmus bestimmen, was der Beitragslauf erzeugt.",
+        "fields": {
+          "name": "Name",
+          "amount": "Betrag",
+          "interval": "Rhythmus",
+          "description": "Beschreibung"
+        },
+        "placeholders": {
+          "name": "Jahresbeitrag Erwachsene"
+        },
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Speichern …",
+        "createdToast": "Beitragsart angelegt.",
+        "savedToast": "Beitragsart gespeichert."
+      }
+    },
+    "assignments": {
+      "add": "Beitrag zuordnen",
+      "addTitle": "Beitrag zuordnen",
+      "addDescription": "Ab wann dieses Mitglied den Beitrag schuldet.",
+      "choose": "Bitte wählen",
+      "columns": {
+        "fee": "Beitragsart",
+        "amount": "Betrag",
+        "validFrom": "Gültig ab",
+        "validTo": "Gültig bis",
+        "note": "Notiz"
+      },
+      "openEnded": "unbefristet",
+      "validToHint": "Leer lassen, solange die Zuordnung gilt.",
+      "empty": "Diesem Mitglied ist noch kein Beitrag zugeordnet.",
+      "remove": "Zuordnung entfernen",
+      "addedToast": "Zuordnung angelegt.",
+      "removedToast": "Zuordnung entfernt.",
+      "deleteDialog": {
+        "title": "Zuordnung entfernen?",
+        "description": "Bereits erhobene Posten bleiben bestehen; künftige Beitragsläufe berücksichtigen sie nicht mehr.",
+        "confirm": "Entfernen"
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern …"
     }
   },
   "clubSettings": {

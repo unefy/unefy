@@ -1,11 +1,18 @@
 import { getTranslations } from "next-intl/server"
 import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
+import { DuesTable } from "@/components/dues/dues-table"
 import { Badge } from "@/components/ui/badge"
 import { DateCell } from "@/components/ui/date-cell"
+import { getClubTimeZone } from "@/lib/attendance"
 import { genderLabel, memberStatusLabel } from "@/lib/labels"
 import { listMyDues } from "@/lib/dues"
 import { getMyMember } from "@/lib/members"
+
+/** The club's own today, not the browser's — see `lib/time`. */
+function clubToday(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date())
+}
 
 function Fact({
   label,
@@ -32,9 +39,10 @@ function Fact({
  * anyone else's data.
  */
 export default async function MyPage() {
-  const [t, tl] = await Promise.all([
+  const [t, tl, timeZone] = await Promise.all([
     getTranslations("my"),
     getTranslations("admin"),
+    getClubTimeZone(),
   ])
 
   // 404 here is a state, not an error: the account exists without a register
@@ -103,57 +111,13 @@ export default async function MyPage() {
             <h2 className="text-sm font-medium text-muted-foreground">
               {t("dues")}
             </h2>
-            {dues.length === 0 ? (
-              <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                {t("noDues")}
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-start text-xs text-muted-foreground">
-                      <th className="p-3 text-start font-medium">
-                        {t("dueFields.fee")}
-                      </th>
-                      <th className="p-3 text-start font-medium">
-                        {t("dueFields.period")}
-                      </th>
-                      <th className="p-3 text-start font-medium">
-                        {t("dueFields.amount")}
-                      </th>
-                      <th className="p-3 text-start font-medium">
-                        {t("dueFields.status")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dues.map((due) => (
-                      <tr key={due.id} className="border-b last:border-b-0">
-                        <td className="p-3">{due.fee_name}</td>
-                        <td className="p-3">{due.period_start.slice(0, 4)}</td>
-                        <td className="p-3 font-mono">
-                          {Number(due.amount).toLocaleString("de-DE", {
-                            style: "currency",
-                            currency: "EUR",
-                          })}
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            variant={
-                              due.status === "open"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {t(`dueStatus.${due.status}`)}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {/* The shared table, same as everywhere else: sortable headers,
+                filters, one look. */}
+            <DuesTable
+              dues={dues}
+              timeZone={timeZone}
+              today={clubToday(timeZone)}
+            />
           </section>
         </>
       )}

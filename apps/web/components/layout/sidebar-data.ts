@@ -4,6 +4,7 @@ import {
   CircleUserIcon,
   ClipboardCheckIcon,
   HouseIcon,
+  ReceiptIcon,
   SettingsIcon,
   TargetIcon,
   UsersIcon,
@@ -98,8 +99,20 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
-    // The Finanzen group held a single entry pointing at /dues, which does not
-    // exist yet — the group returns with the page.
+    {
+      titleKey: "groups.finance",
+      items: [
+        {
+          titleKey: "dues",
+          url: "/dues",
+          icon: ReceiptIcon,
+          items: [
+            { titleKey: "dues", url: "/dues" },
+            { titleKey: "feeTypes", url: "/dues/fee-types" },
+          ],
+        },
+      ],
+    },
     {
       titleKey: "groups.other",
       items: [

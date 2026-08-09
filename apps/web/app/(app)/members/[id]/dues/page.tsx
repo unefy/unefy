@@ -1,18 +1,20 @@
 import { getTranslations } from "next-intl/server"
 
-import { Badge } from "@/components/ui/badge"
-import { DateCell } from "@/components/ui/date-cell"
+import { AssignmentsPanel } from "@/components/dues/assignments-panel"
+import { DuesTable } from "@/components/dues/dues-table"
+import { getClubTimeZone } from "@/lib/attendance"
+import { getSession } from "@/lib/auth"
 import {
   listFeeTypes,
   listMemberDues,
   listMemberFeeAssignments,
 } from "@/lib/dues"
 
-function euro(amount: string) {
-  return Number(amount).toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  })
+const BOARD_ROLES = ["owner", "admin", "board"]
+
+/** The club's own today, not the browser's — see `lib/time`. */
+function clubToday(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date())
 }
 
 /** Dues tab: the member's fee assignments and their billing history. */
@@ -21,17 +23,22 @@ export default async function MemberDuesPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const [t, { id }] = await Promise.all([
+  const [t, timeZone, session, { id }] = await Promise.all([
     getTranslations("members.detail.duesTab"),
+    getClubTimeZone(),
+    getSession(),
     params,
   ])
 
   const [assignments, dues, feeTypes] = await Promise.all([
     listMemberFeeAssignments(id).catch(() => []),
     listMemberDues(id).catch(() => []),
-    listFeeTypes().catch(() => []),
+    // Only active types can be assigned; retired ones stay resolvable by id
+    // because the assignment rows still name them.
+    listFeeTypes(true).catch(() => []),
   ])
-  const feeNameById = new Map(feeTypes.map((fee) => [fee.id, fee.name]))
+
+  const canManage = BOARD_ROLES.includes(session?.role ?? "")
 
   return (
     <>
@@ -39,81 +46,24 @@ export default async function MemberDuesPage({
         <h2 className="text-sm font-medium text-muted-foreground">
           {t("assignments")}
         </h2>
-        {assignments.length === 0 ? (
-          <div className="rounded-md border p-4 text-sm text-muted-foreground">
-            {t("noAssignments")}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {assignments.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="flex flex-wrap items-center gap-3 rounded-md border p-4 text-sm"
-              >
-                <span className="font-medium">
-                  {feeNameById.get(assignment.fee_type_id) ?? "—"}
-                </span>
-                <span className="text-muted-foreground">
-                  {t("validFrom")} <DateCell value={assignment.valid_from} dateOnly />
-                </span>
-                {assignment.valid_to && (
-                  <span className="text-muted-foreground">
-                    {t("validTo")} <DateCell value={assignment.valid_to} dateOnly />
-                  </span>
-                )}
-                {assignment.note && (
-                  <span className="text-muted-foreground">{assignment.note}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <AssignmentsPanel
+          memberId={id}
+          assignments={assignments}
+          feeTypes={feeTypes.filter((fee) => fee.is_active)}
+          canManage={canManage}
+        />
       </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           {t("history")}
         </h2>
-        {dues.length === 0 ? (
-          <div className="rounded-md border p-4 text-sm text-muted-foreground">
-            {t("noDues")}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-xs text-muted-foreground">
-                  <th className="p-3 text-start font-medium">{t("fee")}</th>
-                  <th className="p-3 text-start font-medium">{t("year")}</th>
-                  <th className="p-3 text-start font-medium">{t("amount")}</th>
-                  <th className="p-3 text-start font-medium">{t("status")}</th>
-                  <th className="p-3 text-start font-medium">{t("paidAt")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dues.map((due) => (
-                  <tr key={due.id} className="border-b last:border-b-0">
-                    <td className="p-3">{due.fee_name}</td>
-                    <td className="p-3">{due.period_start.slice(0, 4)}</td>
-                    <td className="p-3 font-mono">{euro(due.amount)}</td>
-                    <td className="p-3">
-                      <Badge
-                        variant={
-                          due.status === "open" ? "destructive" : "secondary"
-                        }
-                      >
-                        {t(`statusValues.${due.status}`)}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <DateCell value={due.paid_at} dateOnly />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DuesTable
+          dues={dues}
+          timeZone={timeZone}
+          today={clubToday(timeZone)}
+          canManage={canManage}
+        />
       </section>
     </>
   )

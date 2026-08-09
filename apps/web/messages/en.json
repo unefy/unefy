@@ -41,7 +41,8 @@
     "myArea": "My area",
     "settingsSports": "Sports",
     "settingsFunctions": "Functions",
-    "functionHolders": "Office holders"
+    "functionHolders": "Office holders",
+    "feeTypes": "Fee types"
   },
   "dashboard": {
     "title": "Overview",
@@ -999,6 +1000,177 @@
         "unknown": "Something went wrong.",
         "unreachable": "Server unreachable."
       }
+    }
+  },
+  "dues": {
+    "title": "Dues",
+    "description": "{count, plural, one {# item} other {# items}} in the dues ledger.",
+    "empty": "No dues assessed yet.",
+    "searchPlaceholder": "Search member, fee type or note",
+    "columns": {
+      "member": "Member",
+      "fee": "Fee type",
+      "period": "Year",
+      "amount": "Amount",
+      "dueDate": "Due on",
+      "status": "Status",
+      "paidAt": "Paid on"
+    },
+    "status": {
+      "open": "Open",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "overdue": "Overdue"
+    },
+    "filters": {
+      "allStatuses": "All statuses",
+      "allYears": "All years"
+    },
+    "summary": {
+      "open": "Open",
+      "paid": "Paid",
+      "count": "{count, plural, one {# item} other {# items}}"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "reopen": "Reopen"
+    },
+    "toasts": {
+      "cancelled": "Item cancelled.",
+      "reopened": "Item reopened."
+    },
+    "errors": {
+      "conflict": "Not possible — the item is not in that state.",
+      "forbidden": "You do not have permission for this.",
+      "notFound": "Not found.",
+      "validation": "Please check your input.",
+      "unknown": "Something went wrong.",
+      "unreachable": "Server unreachable."
+    },
+    "pay": {
+      "action": "Book as paid",
+      "title": "Book payment",
+      "description": "{fee} of {amount} for {member}.",
+      "fields": {
+        "paidAt": "Paid on",
+        "method": "Payment method",
+        "note": "Note"
+      },
+      "hints": {
+        "paidAt": "Leave empty for today."
+      },
+      "methods": {
+        "sepa": "Direct debit",
+        "transfer": "Bank transfer",
+        "cash": "Cash"
+      },
+      "cancel": "Cancel",
+      "confirm": "Book",
+      "saving": "Booking …",
+      "paidToast": "Payment booked."
+    },
+    "toolbar": {
+      "generate": "Assessment run",
+      "generateTitle": "Assess dues",
+      "generateDescription": "Creates this year's items for every member with a valid assignment.",
+      "generateHint": "The run can safely be repeated — existing items are skipped.",
+      "generateConfirm": "Start run",
+      "generatedToast": "{count, plural, =0 {Nothing new — every item existed already.} one {# item created.} other {# items created.}}",
+      "running": "Running …",
+      "sepa": "SEPA export",
+      "sepaTitle": "Create direct debit",
+      "sepaDescription": "Creates a pain.008 file with every open item backed by a valid mandate.",
+      "sepaNotReady": "The club has no creditor identifier or IBAN. Both live in settings under “Bank details & SEPA”.",
+      "sepaConfirm": "Download file",
+      "collectionDate": "Collection date",
+      "collectionDateHint": "Leave empty for the earliest possible date.",
+      "year": "Year",
+      "cancel": "Cancel"
+    },
+    "feeTypes": {
+      "title": "Fee types",
+      "description": "What the club charges, and how often.",
+      "back": "Back to dues",
+      "empty": "No fee type created yet.",
+      "searchPlaceholder": "Search fee type",
+      "columns": {
+        "name": "Name",
+        "amount": "Amount",
+        "interval": "Interval",
+        "description": "Description",
+        "status": "Status"
+      },
+      "intervals": {
+        "yearly": "Yearly",
+        "half_yearly": "Half-yearly",
+        "quarterly": "Quarterly",
+        "monthly": "Monthly",
+        "one_time": "One-off"
+      },
+      "filters": {
+        "allStatuses": "All statuses"
+      },
+      "active": "Active",
+      "retired": "Retired",
+      "retire": "Retire",
+      "revive": "Reactivate",
+      "delete": "Delete",
+      "retiredToast": "Fee type retired.",
+      "revivedToast": "Fee type active again.",
+      "deletedToast": "Fee type deleted.",
+      "deleteDialog": {
+        "title": "Delete this fee type?",
+        "description": "Items already assessed are kept. If it should merely stop being assigned, retiring is the better way.",
+        "confirm": "Delete"
+      },
+      "form": {
+        "create": "Add fee type",
+        "edit": "Edit",
+        "createTitle": "New fee type",
+        "editTitle": "Edit fee type",
+        "description": "Name, amount and interval decide what the assessment run creates.",
+        "fields": {
+          "name": "Name",
+          "amount": "Amount",
+          "interval": "Interval",
+          "description": "Description"
+        },
+        "placeholders": {
+          "name": "Annual fee, adults"
+        },
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving …",
+        "createdToast": "Fee type created.",
+        "savedToast": "Fee type saved."
+      }
+    },
+    "assignments": {
+      "add": "Assign fee",
+      "addTitle": "Assign fee",
+      "addDescription": "From when this member owes the fee.",
+      "choose": "Please choose",
+      "columns": {
+        "fee": "Fee type",
+        "amount": "Amount",
+        "validFrom": "Valid from",
+        "validTo": "Valid to",
+        "note": "Note"
+      },
+      "openEnded": "open-ended",
+      "validToHint": "Leave empty while the assignment holds.",
+      "empty": "No fee assigned to this member yet.",
+      "remove": "Remove assignment",
+      "addedToast": "Assignment created.",
+      "removedToast": "Assignment removed.",
+      "deleteDialog": {
+        "title": "Remove this assignment?",
+        "description": "Items already assessed are kept; future assessment runs will ignore it.",
+        "confirm": "Remove"
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …"
     }
   },
   "clubSettings": {
