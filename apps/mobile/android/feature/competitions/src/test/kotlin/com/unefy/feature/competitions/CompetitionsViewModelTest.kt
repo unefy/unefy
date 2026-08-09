@@ -1,6 +1,7 @@
 package com.unefy.feature.competitions
 
 import com.unefy.core.model.Competition
+import com.unefy.core.model.CompetitionRound
 import com.unefy.core.model.Scoreboard
 import com.unefy.core.model.ScoreboardRow
 import com.unefy.core.network.ApiError
@@ -281,6 +282,9 @@ private class FakeCompetitionsRepository(
 
     override fun byIdStream(id: String): Flow<Competition?> =
         rows.map { list -> list.find { it.id == id } }
+
+    override fun roundsStream(competitionId: String): Flow<List<CompetitionRound>> =
+        MutableStateFlow(emptyList())
 
     override suspend fun scoreboard(
         competitionId: String,

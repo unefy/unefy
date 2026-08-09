@@ -566,6 +566,12 @@ internal fun unefyEntryProvider(
             onOpenScoreboard = {
                 onOpen(ScoreboardKey(key.competitionId, key.competitionName))
             },
+            // Features do not talk to each other: the competition screen hands
+            // up a round id, and `app/` is what knows this becomes a recording
+            // key in feature:scoring.
+            onRecordSeries = { roundId, discipline ->
+                onOpen(RecordShotsKey(sessionId = roundId, discipline = discipline))
+            },
         )
     }
     entry<MoreKey> {

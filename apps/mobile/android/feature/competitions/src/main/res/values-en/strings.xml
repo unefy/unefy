@@ -18,6 +18,9 @@
     <string name="competition_type_competition">Competition</string>
     <string name="competition_type_training">Training</string>
     <string name="competition_detail_section_disciplines">Disciplines (%1$d)</string>
+    <string name="competition_detail_section_rounds">Rounds (%1$d)</string>
+    <string name="competition_round_unnamed">Unnamed</string>
+    <string name="competition_round_record">Record series</string>
     <string name="scoreboard_back">Back</string>
     <string name="scoreboard_subtitle">%1$d participants · %2$s</string>
     <string name="scoreboard_all_disciplines">Overall</string>

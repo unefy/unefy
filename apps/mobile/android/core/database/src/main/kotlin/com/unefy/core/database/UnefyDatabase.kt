@@ -36,13 +36,14 @@ import javax.inject.Singleton
         SyncedEvent::class,
         SyncedDue::class,
         SyncedCompetition::class,
+        SyncedCompetitionSession::class,
         PendingShotEntry::class,
         CachedShotEntry::class,
         SyncedEntry::class,
         PendingWrite::class,
         SyncCursorEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class UnefyDatabase : RoomDatabase() {
@@ -59,6 +60,8 @@ abstract class UnefyDatabase : RoomDatabase() {
     abstract fun syncedDueDao(): SyncedDueDao
 
     abstract fun syncedCompetitionDao(): SyncedCompetitionDao
+
+    abstract fun syncedCompetitionSessionDao(): SyncedCompetitionSessionDao
 
     abstract fun pendingShotEntryDao(): PendingShotEntryDao
 
@@ -106,6 +109,7 @@ object DatabaseModule {
             MIGRATION_11_12,
             MIGRATION_12_13,
             MIGRATION_13_14,
+            MIGRATION_14_15,
         )
     }
 
@@ -355,6 +359,11 @@ object DatabaseModule {
     fun provideSyncedCompetitionDao(database: UnefyDatabase): SyncedCompetitionDao =
         database.syncedCompetitionDao()
 
+    @Provides
+    fun provideSyncedCompetitionSessionDao(
+        database: UnefyDatabase,
+    ): SyncedCompetitionSessionDao = database.syncedCompetitionSessionDao()
+
     /**
      * The queue's client-assigned check-in id. Nullable on purpose: rows queued
      * before the column existed drain exactly as they always did, and every new
@@ -515,6 +524,39 @@ object DatabaseModule {
             )
             connection.execSQL(
                 "ALTER TABLE cached_sessions ADD COLUMN closesAtEpochSeconds INTEGER NOT NULL DEFAULT 0",
+            )
+        }
+    }
+
+    /**
+     * The rounds of a competition, so a series can be filed under one.
+     *
+     * A new mirror table, empty until the next sync fills it — nothing to
+     * carry over, and no device holds the only copy of a round.
+     */
+    private val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS synced_competition_sessions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    competitionId TEXT NOT NULL,
+                    name TEXT,
+                    date TEXT NOT NULL,
+                    location TEXT,
+                    discipline TEXT,
+                    eventId TEXT,
+                    generation INTEGER NOT NULL
+                )
+                """,
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_competition_sessions_competitionId " +
+                    "ON synced_competition_sessions (competitionId)",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_synced_competition_sessions_date " +
+                    "ON synced_competition_sessions (date)",
             )
         }
     }

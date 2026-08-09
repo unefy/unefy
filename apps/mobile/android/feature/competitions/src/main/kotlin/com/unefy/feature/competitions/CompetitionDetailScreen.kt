@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,12 +27,14 @@ import com.unefy.core.designsystem.theme.UnefyFormat
 import com.unefy.core.designsystem.theme.UnefySpacing
 import com.unefy.core.designsystem.theme.UnefyTheme
 import com.unefy.core.model.Competition
+import com.unefy.core.model.CompetitionRound
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -38,7 +42,11 @@ import kotlinx.coroutines.flow.stateIn
 
 sealed interface CompetitionDetailUiState {
     data object Loading : CompetitionDetailUiState
-    data class Content(val competition: Competition) : CompetitionDetailUiState
+    data class Content(
+        val competition: Competition,
+        /** Newest first, from the mirror — empty until a sync has run. */
+        val rounds: List<CompetitionRound> = emptyList(),
+    ) : CompetitionDetailUiState
 }
 
 /**
@@ -58,10 +66,16 @@ class CompetitionDetailViewModel @Inject constructor(
     private val competitionId = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<CompetitionDetailUiState> = competitionId
-        .flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) }
-        .map { competition ->
+        .flatMapLatest { id ->
+            if (id == null) {
+                flowOf(null to emptyList())
+            } else {
+                combine(repository.byIdStream(id), repository.roundsStream(id)) { c, r -> c to r }
+            }
+        }
+        .map { (competition, rounds) ->
             competition
-                ?.let(CompetitionDetailUiState::Content)
+                ?.let { CompetitionDetailUiState.Content(it, rounds) }
                 ?: CompetitionDetailUiState.Loading
         }
         .stateIn(
@@ -85,6 +99,8 @@ fun CompetitionDetailRoute(
     competitionName: String,
     onBack: () -> Unit,
     onOpenScoreboard: () -> Unit,
+    /** Round id and discipline — the screen never builds a navigation key itself. */
+    onRecordSeries: (String, String) -> Unit,
     viewModel: CompetitionDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -94,6 +110,7 @@ fun CompetitionDetailRoute(
         competitionName = competitionName,
         onBack = onBack,
         onOpenScoreboard = onOpenScoreboard,
+        onRecordSeries = onRecordSeries,
     )
 }
 
@@ -104,6 +121,7 @@ fun CompetitionDetailScreen(
     competitionName: String,
     onBack: () -> Unit = {},
     onOpenScoreboard: () -> Unit = {},
+    onRecordSeries: (String, String) -> Unit = { _, _ -> },
 ) {
     UnefyDetailScaffold(
         collapsedTitle = competitionName,
@@ -187,6 +205,33 @@ fun CompetitionDetailScreen(
             ),
         )
 
+        val rounds = (state as? CompetitionDetailUiState.Content)?.rounds.orEmpty()
+        if (rounds.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.competition_detail_section_rounds, rounds.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    start = UnefySpacing.screen,
+                    end = UnefySpacing.screen,
+                    top = UnefySpacing.lg,
+                    bottom = UnefySpacing.sm,
+                ),
+            )
+            rounds.forEach { round ->
+                RoundRow(
+                    round = round,
+                    // The round's own discipline wins; a competition with a
+                    // single one lends it, and otherwise the screen asks for
+                    // nothing it cannot know.
+                    discipline = round.discipline
+                        ?: competition.disciplines.singleOrNull().orEmpty(),
+                    onRecord = onRecordSeries,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+
         if (competition.disciplines.isNotEmpty()) {
             Text(
                 text = stringResource(
@@ -215,6 +260,44 @@ fun CompetitionDetailScreen(
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
+        }
+    }
+}
+
+/**
+ * One round, and the way into recording a series against it.
+ *
+ * The whole point of the section: without it every series filed from a phone
+ * lands in "Freies Training" and the ranking stays empty.
+ */
+@Composable
+private fun RoundRow(
+    round: CompetitionRound,
+    discipline: String,
+    onRecord: (String, String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onRecord(round.id, discipline) }
+            .padding(horizontal = UnefySpacing.screen, vertical = UnefySpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
+    ) {
+        Text(
+            text = round.name ?: stringResource(R.string.competition_round_unnamed),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = listOfNotNull(
+                UnefyFormat.date(round.date),
+                round.location?.takeIf { it.isNotBlank() },
+                round.discipline?.takeIf { it.isNotBlank() },
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = { onRecord(round.id, discipline) }) {
+            Text(stringResource(R.string.competition_round_record))
         }
     }
 }

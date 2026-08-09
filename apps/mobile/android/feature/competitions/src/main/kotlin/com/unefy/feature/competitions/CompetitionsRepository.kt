@@ -4,7 +4,10 @@ import com.unefy.core.database.DISCIPLINES_SEPARATOR
 import com.unefy.core.database.SyncCursorDao
 import com.unefy.core.database.SyncedCompetition
 import com.unefy.core.database.SyncedCompetitionDao
+import com.unefy.core.database.SyncedCompetitionSession
+import com.unefy.core.database.SyncedCompetitionSessionDao
 import com.unefy.core.model.Competition
+import com.unefy.core.model.CompetitionRound
 import com.unefy.core.model.Scoreboard
 import com.unefy.core.model.ScoreboardRow
 import com.unefy.core.network.ApiClient
@@ -108,6 +111,17 @@ internal fun SyncedCompetition.toDomain() = Competition(
     },
 )
 
+/** A round mirror row as the domain model. */
+internal fun SyncedCompetitionSession.toDomain() = CompetitionRound(
+    id = id,
+    competitionId = competitionId,
+    name = name,
+    date = date,
+    location = location,
+    discipline = discipline,
+    eventId = eventId,
+)
+
 interface CompetitionsRepository {
     /** The competition list, from the local mirror, newest first. */
     fun stream(): Flow<List<Competition>>
@@ -117,6 +131,15 @@ interface CompetitionsRepository {
 
     /** One competition from the mirror, live — the detail is fully offline. */
     fun byIdStream(id: String): Flow<Competition?>
+
+    /**
+     * The rounds of one competition, from the mirror, newest first.
+     *
+     * Offline like the rest of the detail: the round is picked at the range,
+     * and a phone with no signal must still be able to file a series under the
+     * right one.
+     */
+    fun roundsStream(competitionId: String): Flow<List<CompetitionRound>>
 
     /**
      * The live ranking. Online-only: a stale ranking shown as current would be
@@ -132,6 +155,7 @@ interface CompetitionsRepository {
 class DefaultCompetitionsRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val competitions: SyncedCompetitionDao,
+    private val rounds: SyncedCompetitionSessionDao,
     private val cursors: SyncCursorDao,
 ) : CompetitionsRepository {
 
@@ -143,6 +167,10 @@ class DefaultCompetitionsRepository @Inject constructor(
 
     override fun byIdStream(id: String): Flow<Competition?> =
         competitions.byIdStream(id).map { it?.toDomain() }
+
+    override fun roundsStream(competitionId: String): Flow<List<CompetitionRound>> =
+        rounds.byCompetition(competitionId)
+            .map { list -> list.map(SyncedCompetitionSession::toDomain) }
 
     override suspend fun scoreboard(
         competitionId: String,

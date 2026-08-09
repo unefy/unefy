@@ -41,3 +41,21 @@ data class ScoreboardRow(
     val averageScore: Double,
     val entryCount: Int,
 )
+
+/**
+ * One round of a competition — a match day, a leg, a training evening.
+ *
+ * The unit a series is filed under: results belong to a round, and the round
+ * belongs to the competition.
+ */
+data class CompetitionRound(
+    val id: String,
+    val competitionId: String,
+    val name: String?,
+    /** ISO date. */
+    val date: String,
+    val location: String?,
+    val discipline: String?,
+    /** Set when the round also sits in the calendar. */
+    val eventId: String?,
+)

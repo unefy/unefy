@@ -1,6 +1,7 @@
 package com.unefy.feature.competitions
 
 import com.unefy.core.model.Competition
+import com.unefy.core.model.CompetitionRound
 import com.unefy.core.model.Scoreboard
 import com.unefy.core.network.ApiResult
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,40 @@ class CompetitionDetailViewModelTest {
         assertEquals("Neu", state.competition.description)
     }
 
+    /**
+     * The rounds are what a series is filed under — without them the recording
+     * screen can only offer "Freies Training" and the ranking stays empty.
+     */
+    @Test
+    fun `the rounds of this competition reach the state`() = runTest(dispatcher) {
+        val repository = FakeMirrorRepository(listOf(competition("c-1")))
+        repository.rounds.value = listOf(
+            round("r-1", "c-1"),
+            round("r-2", "other"),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("c-1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CompetitionDetailUiState.Content
+        assertEquals(listOf("r-1"), state.rounds.map { it.id })
+    }
+
+    /** A round added by a sync while the screen is open must show up. */
+    @Test
+    fun `a round arriving later lands in the state`() = runTest(dispatcher) {
+        val repository = FakeMirrorRepository(listOf(competition("c-1")))
+        val viewModel = viewModel(repository)
+        viewModel.load("c-1")
+        advanceUntilIdle()
+
+        repository.rounds.value = listOf(round("r-9", "c-1"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CompetitionDetailUiState.Content
+        assertEquals(listOf("r-9"), state.rounds.map { it.id })
+    }
+
     /** Subscribes on [TestScope.backgroundScope] — `WhileSubscribed` needs a collector. */
     private fun TestScope.viewModel(repository: CompetitionsRepository) =
         CompetitionDetailViewModel(repository).also { vm ->
@@ -85,6 +120,16 @@ class CompetitionDetailViewModelTest {
     )
 }
 
+private fun round(id: String, competitionId: String) = CompetitionRound(
+    id = id,
+    competitionId = competitionId,
+    name = "1. Durchgang",
+    date = "2026-03-07",
+    location = null,
+    discipline = null,
+    eventId = null,
+)
+
 /** The mirror alone — the detail never talks to the network. */
 private class FakeMirrorRepository(
     competitions: List<Competition>,
@@ -98,6 +143,11 @@ private class FakeMirrorRepository(
 
     override fun byIdStream(id: String): Flow<Competition?> =
         rows.map { list -> list.find { it.id == id } }
+
+    val rounds = MutableStateFlow<List<CompetitionRound>>(emptyList())
+
+    override fun roundsStream(competitionId: String): Flow<List<CompetitionRound>> =
+        rounds.map { list -> list.filter { it.competitionId == competitionId } }
 
     override suspend fun scoreboard(
         competitionId: String,

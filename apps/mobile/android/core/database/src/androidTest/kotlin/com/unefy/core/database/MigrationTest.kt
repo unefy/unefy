@@ -79,7 +79,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT sessionId, code FROM pending_check_ins").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -136,7 +136,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query(
                 "SELECT title, opensAtEpochSeconds, closesAtEpochSeconds FROM cached_sessions",
             ).use { cursor ->
@@ -171,7 +171,7 @@ class MigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             db.query("SELECT id FROM pending_shot_entries").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -189,7 +189,7 @@ class MigrationTest {
     fun the_write_queue_holds_one_row_per_record() {
         helper.createDatabase(DB, 12).close()
 
-        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             val insert = "INSERT OR REPLACE INTO pending_writes (entity, recordId, op, tenantId, " +
                 "payloadJson, label, queuedAt, attempts) VALUES "
             db.execSQL(insert + "('members', 'r1', 'create', 't1', '{}', 'Erst', '2026-08-08', 0)")
@@ -214,13 +214,14 @@ class MigrationTest {
     fun the_new_tables_are_empty_and_queryable_after_migrating() {
         helper.createDatabase(DB, 5).close()
 
-        helper.runMigrationsAndValidate(DB, 14, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).use { db ->
             for (table in listOf(
                 "synced_members",
                 "sync_cursors",
                 "synced_events",
                 "synced_dues",
                 "synced_competitions",
+                "synced_competition_sessions",
                 "pending_shot_entries",
                 "cached_my_entries",
                 "synced_entries",
@@ -232,6 +233,14 @@ class MigrationTest {
                 }
             }
         }
+    }
+
+    /** The rounds mirror — a new table, nothing to carry over. */
+    @Test
+    fun migrates_from_14_to_15() {
+        helper.createDatabase(DB, 14).close()
+
+        helper.runMigrationsAndValidate(DB, 15, true, *DatabaseModule.ALL_MIGRATIONS).close()
     }
 
     private companion object {
