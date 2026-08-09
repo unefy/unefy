@@ -20,6 +20,17 @@ Teilnahme → Event. `event_type: "competition"` wird primär über den Link ges
   im Web (Competitions = Backend + iOS).
 - Letzte Alembic-Revision: `e5a3c8d94f12`.
 
+> **Korrektur 2026-08-09:** Der Ist-Zustand oben ist überholt. Die Web-`/events`-Seite
+> existiert seit dem Rebuild **nicht mehr** — `apps/web/app/(app)/` enthält nur
+> `attendance`, `functions`, `members`, `my`, `settings`, `shooting`. Schritt 5
+> (Web-UI) ist damit offen und wandert in Phase 1 von `docs/plans/roadmap.md`.
+> Backendseitig ist der Strang dagegen fertig, inklusive `create_calendar_event`
+> (Durchgang → Kalender-Termin) und der Validierung von `session_id`/`competition_id`
+> in `app/services/event.py`. Auf Client-Seite ruft die Android-App die
+> Wettkampf-Entry-Routen nicht auf: sie kennt nur `/api/v1/entries`, sodass jede
+> Serie im „Freien Training" landet und das Scoreboard keinen bedienbaren
+> Befüllungsweg hat (Phase 4 der Roadmap).
+
 ## Schritte
 
 ### 1. Backend: Schema + Migration
