@@ -90,6 +90,10 @@ object ApiEndpoints {
 
     fun attendanceRecords(sessionId: String): String = "$ATTENDANCE_SESSIONS/$sessionId/records"
 
+    /** Cuts off every check-in code a member's devices can still produce. */
+    fun revokeAttendanceCodes(memberId: String): String =
+        "$ATTENDANCE/members/$memberId/revoke-codes"
+
     /** Soft-deletes one record. Refused once the session is closed. */
     fun attendanceRecord(recordId: String): String = "$ATTENDANCE/records/$recordId"
 

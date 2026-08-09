@@ -230,6 +230,16 @@ interface MembersRepository {
 
     /** Throw away an unsent write. */
     suspend fun discardPending(id: String)
+
+    /**
+     * Cuts off every check-in code this member's devices can still produce.
+     *
+     * For a phone that was lost or passed on. Deliberately not queued when
+     * offline, unlike the edits above: a revocation that sits on the board
+     * member's own phone until it next has signal is not a revocation, and
+     * saying so beats pretending it happened.
+     */
+    suspend fun revokeAttendanceCodes(id: String): ApiResult<Unit>
 }
 
 @Singleton
@@ -354,6 +364,9 @@ class DefaultMembersRepository @Inject constructor(
     override fun pendingIds(): Flow<Set<String>> =
         writes.pending(MemberSyncCollection.COLLECTION)
             .map { writes -> writes.mapTo(mutableSetOf()) { it.recordId } }
+
+    override suspend fun revokeAttendanceCodes(id: String): ApiResult<Unit> =
+        apiClient.postNoContent(ApiEndpoints.revokeAttendanceCodes(id), body = Unit)
 
     override suspend fun discardPending(id: String) =
         writes.discard(MemberSyncCollection.COLLECTION, id)

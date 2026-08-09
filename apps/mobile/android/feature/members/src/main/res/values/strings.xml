@@ -77,4 +77,14 @@
     <string name="member_form_needs_names">Vor- und Nachname werden gebraucht.</string>
     <string name="member_form_queue_hint">Wird auf dem Gerät gespeichert und übertragen, sobald wieder Verbindung besteht.</string>
     <string name="member_pending">Nicht übertragen</string>
+    <!-- Taking a member's check-in codes away: a lost phone, a device passed
+         on. Rare and deliberate, so it asks first. -->
+    <string name="revoke_codes_action">Check-in-Codes widerrufen</string>
+    <string name="revoke_codes_title">Codes widerrufen?</string>
+    <string name="revoke_codes_message">Alle Check-in-Codes dieses Mitglieds werden sofort ungültig — auch auf dem eigenen Telefon. Beim nächsten Öffnen der App holt es sich einen neuen Code. Für ein verlorenes oder weitergegebenes Gerät.</string>
+    <string name="revoke_codes_confirm">Widerrufen</string>
+    <string name="revoke_codes_cancel">Abbrechen</string>
+    <string name="revoke_codes_working">Wird widerrufen …</string>
+    <string name="revoke_codes_done">Widerrufen. Alte Codes werden nicht mehr angenommen.</string>
+    <string name="revoke_codes_failed">Widerruf fehlgeschlagen — die alten Codes gelten weiter. Mit Verbindung erneut versuchen.</string>
 </resources>

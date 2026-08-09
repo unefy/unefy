@@ -21,6 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +67,25 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * Revoking this member's check-in codes — a lost phone, a device passed on.
+ *
+ * Its own small state rather than a snackbar: this screen has no message
+ * channel, and the outcome is worth leaving on screen anyway. A board member
+ * who taps it wants to see that it took, not catch a banner on its way past.
+ */
+enum class RevokeState {
+    Idle,
+    Working,
+
+    /** Done. Every device holding an old seed is cut off, this member's own too. */
+    Done,
+
+    /** The request did not reach the server. Deliberately not queued — see the
+     *  repository: a revocation that waits is not a revocation. */
+    Failed,
+}
+
 sealed interface MemberDetailUiState {
     data object Loading : MemberDetailUiState
     data class Content(
@@ -76,6 +100,8 @@ sealed interface MemberDetailUiState {
         /** Something has been typed that is not the record. Shows the save bar. */
         val dirty: Boolean = false,
         val saving: Boolean = false,
+        /** Where the code revocation stands, if it was asked for at all. */
+        val revoke: RevokeState = RevokeState.Idle,
     ) : MemberDetailUiState
 
     data class Failure(val error: ApiError) : MemberDetailUiState
@@ -126,13 +152,18 @@ class MemberDetailViewModel @Inject constructor(
 
     private val saving = MutableStateFlow(false)
 
+    private val revoke = MutableStateFlow(RevokeState.Idle)
+
+    /** Two small flags as one source: `combine` tops out at five of them. */
+    private val progress = combine(saving, revoke) { isSaving, revoking -> isSaving to revoking }
+
     val uiState: StateFlow<MemberDetailUiState> = combine(
         memberId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
         remote,
         federations,
         draft,
-        saving,
-    ) { mirrored, result, federationList, typed, isSaving ->
+        progress,
+    ) { mirrored, result, federationList, typed, (isSaving, revoking) ->
         val fetched = (result as? ApiResult.Success)?.data
         val member = mirrored?.copy(iban = fetched?.iban) ?: fetched
         when {
@@ -145,6 +176,7 @@ class MemberDetailViewModel @Inject constructor(
                 // the bar away, not leave it offering to save nothing.
                 dirty = typed != null && typed != member.toDraft(),
                 saving = isSaving,
+                revoke = revoking,
             )
             // Only a failure when there is nothing to show. Replacing a mirrored
             // member with an error because the connection dropped for a second
@@ -189,6 +221,27 @@ class MemberDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Cuts off every check-in code this member's devices can still produce.
+     *
+     * No optimism and no queue: the screen says "done" only once the server
+     * has said so. A revocation that looked successful on the board member's
+     * phone while sitting in a queue would be worse than one that plainly
+     * failed — the lost phone would keep working and nobody would be looking.
+     */
+    fun revokeCodes() {
+        val id = memberId.value ?: return
+        if (revoke.value == RevokeState.Working) return
+
+        revoke.value = RevokeState.Working
+        viewModelScope.launch {
+            revoke.value = when (repository.revokeAttendanceCodes(id)) {
+                is ApiResult.Success -> RevokeState.Done
+                is ApiResult.Failure -> RevokeState.Failed
+            }
+        }
+    }
+
     fun load(id: String) {
         if (memberId.value == id) return
         memberId.value = id
@@ -230,6 +283,7 @@ fun MemberDetailRoute(
         },
         onSave = viewModel::save,
         onDiscard = viewModel::discard,
+        onRevokeCodes = viewModel::revokeCodes,
     )
 }
 
@@ -255,6 +309,7 @@ fun MemberDetailScreen(
     onChange: ((MemberDraft) -> MemberDraft) -> Unit = {},
     onSave: () -> Unit = {},
     onDiscard: () -> Unit = {},
+    onRevokeCodes: () -> Unit = {},
 ) {
     val content = state as? MemberDetailUiState.Content
 
@@ -283,10 +338,15 @@ fun MemberDetailScreen(
                 modifier = Modifier.padding(UnefySpacing.screen),
             )
 
-            is MemberDetailUiState.Content -> if (canEdit) {
-                MemberEditableContent(state, onChange)
-            } else {
-                MemberDetailContent(state.member, state.federations)
+            is MemberDetailUiState.Content -> {
+                if (canEdit) {
+                    MemberEditableContent(state, onChange)
+                } else {
+                    MemberDetailContent(state.member, state.federations)
+                }
+                // Board only: it takes a credential away from somebody, and the
+                // server refuses it for anyone else anyway.
+                if (canEdit) RevokeCodesSection(state.revoke, onRevokeCodes)
             }
         }
     }
@@ -557,5 +617,79 @@ private fun MemberDetailPreview() {
                 ),
             ),
         )
+    }
+}
+
+
+/**
+ * Taking a member's check-in codes away.
+ *
+ * At the foot of the record and behind a confirmation, because it is rare,
+ * deliberate and cannot be undone from here — the member's own device is cut
+ * off along with the lost one and has to fetch a fresh seed. Not styled as a
+ * danger zone: nothing is destroyed, and the member is one app open away from
+ * a working code again.
+ */
+@Composable
+private fun RevokeCodesSection(state: RevokeState, onRevoke: () -> Unit) {
+    var confirming by rememberSaveable { mutableStateOf(false) }
+
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.revoke_codes_title)) },
+            text = { Text(stringResource(R.string.revoke_codes_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirming = false
+                        onRevoke()
+                    },
+                ) { Text(stringResource(R.string.revoke_codes_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) {
+                    Text(stringResource(R.string.revoke_codes_cancel))
+                }
+            },
+        )
+    }
+
+    Column(
+        modifier = Modifier.padding(
+            start = UnefySpacing.screen,
+            end = UnefySpacing.screen,
+            top = UnefySpacing.lg,
+            bottom = UnefySpacing.lg,
+        ),
+        verticalArrangement = Arrangement.spacedBy(UnefySpacing.xs),
+    ) {
+        TextButton(
+            onClick = { confirming = true },
+            enabled = state != RevokeState.Working,
+        ) { Text(stringResource(R.string.revoke_codes_action)) }
+
+        when (state) {
+            RevokeState.Idle -> Unit
+            RevokeState.Working -> Text(
+                text = stringResource(R.string.revoke_codes_working),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            RevokeState.Done -> Text(
+                text = stringResource(R.string.revoke_codes_done),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            // Said plainly rather than retried quietly: nothing was queued, so
+            // the old codes are still working.
+            RevokeState.Failed -> Text(
+                text = stringResource(R.string.revoke_codes_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }

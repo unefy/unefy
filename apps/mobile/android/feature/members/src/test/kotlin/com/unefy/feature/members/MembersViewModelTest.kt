@@ -328,4 +328,6 @@ private class FakeMembersRepository(
     override suspend fun discardPending(id: String) {
         pending.value = pending.value - id
     }
+
+    override suspend fun revokeAttendanceCodes(id: String): ApiResult<Unit> = error("not used")
 }

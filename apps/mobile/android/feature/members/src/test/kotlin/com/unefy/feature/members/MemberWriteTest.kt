@@ -198,4 +198,6 @@ private class NotUsedRepository : MembersRepository {
     override suspend fun save(id: String?, draft: MemberDraft): String = error("not used")
     override fun pendingIds(): Flow<Set<String>> = flowOf(emptySet())
     override suspend fun discardPending(id: String) = Unit
+
+    override suspend fun revokeAttendanceCodes(id: String): ApiResult<Unit> = error("not used")
 }

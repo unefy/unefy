@@ -7,6 +7,7 @@ import com.unefy.core.network.ApiError
 import com.unefy.core.network.ApiResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -15,6 +16,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -85,6 +87,46 @@ class MemberDetailViewModelTest {
         assertEquals(emptyList<FederationMembership>(), state.federations)
     }
 
+    /**
+     * Revoking is the only answer to a lost phone that does not mean waiting
+     * three days for the grace window to run out.
+     */
+    @Test
+    fun `revoking reports success only once the server has answered`() = runTest {
+        val repository = FakeDetailRepository(listOf(member("1")))
+        val viewModel = viewModel(repository)
+        viewModel.load("1")
+        runCurrent()
+
+        viewModel.revokeCodes()
+        runCurrent()
+
+        assertEquals(1, repository.revokeCalls)
+        assertEquals(RevokeState.Done, content(viewModel).revoke)
+    }
+
+    /**
+     * Deliberately not queued, and therefore deliberately not dressed up: a
+     * revocation that looked successful while sitting in a queue would leave
+     * the lost phone working with nobody looking.
+     */
+    @Test
+    fun `a revocation that cannot reach the server says so`() = runTest {
+        val repository = FakeDetailRepository(listOf(member("1")))
+        repository.revokeResult = ApiResult.Failure(ApiError.Network(IOException("offline")))
+        val viewModel = viewModel(repository)
+        viewModel.load("1")
+        runCurrent()
+
+        viewModel.revokeCodes()
+        runCurrent()
+
+        assertEquals(RevokeState.Failed, content(viewModel).revoke)
+    }
+
+    private fun content(viewModel: MemberDetailViewModel) =
+        viewModel.uiState.value as MemberDetailUiState.Content
+
     /** See MembersViewModelTest — WhileSubscribed needs a live collector. */
     private fun TestScope.viewModel(repository: MembersRepository): MemberDetailViewModel {
         val viewModel = MemberDetailViewModel(repository)
@@ -153,4 +195,14 @@ private class FakeDetailRepository(
     override fun pendingIds(): Flow<Set<String>> = MutableStateFlow(emptySet())
 
     override suspend fun discardPending(id: String) = Unit
+
+    /** Counted and steerable: the revocation must reach the server, and must
+     *  say so when it did not. */
+    var revokeCalls = 0
+    var revokeResult: ApiResult<Unit> = ApiResult.Success(Unit)
+
+    override suspend fun revokeAttendanceCodes(id: String): ApiResult<Unit> {
+        revokeCalls++
+        return revokeResult
+    }
 }
