@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attendance_code_title">My check-in</string>
+    <string name="attendance_code_hint">Show this code to the supervisor — or hold the back of your phone against theirs. The code changes every 30 seconds.</string>
+    <string name="attendance_code_refresh_in">New code in %1$d s</string>
+    <string name="attendance_code_read_title">Read</string>
+    <string name="attendance_code_read_body">One moment — the supervisor is confirming.</string>
+    <string name="attendance_code_confirmed">Checked in</string>
+    <string name="attendance_code_offline">Made without a connection. The code should work; if it does not, go online briefly.</string>
+    <string name="attendance_code_rejected">This code is too old and will no longer be accepted. Go online briefly — or ask the supervisor to tick you off by hand.</string>
+    <string name="attendance_code_error_title">Code unavailable</string>
+    <string name="attendance_code_error_body">The check-in code could not be loaded.</string>
+    <string name="attendance_code_no_membership_title">No member record</string>
+    <string name="attendance_code_no_membership_body">Your account is not linked to a member of this club. The board can add that.</string>
+    <string name="attendance_open_scanner">Scan codes</string>
+    <string name="attendance_retry">Try again</string>
+
+    <!-- Short: the header also carries a back arrow, the manual action and the
+         account, and the longer wording was being truncated. -->
+    <string name="scanner_title">Scan</string>
+    <string name="scanner_back">Back</string>
+    <string name="scanner_waiting">Ready — scan a code or hold the phones together</string>
+    <string name="scanner_detected">Found — hold still</string>
+    <string name="scanner_undo">Undo</string>
+    <string name="scanner_undone">%1$s undone</string>
+    <string name="scanner_nfc_off">NFC is switched off. Without it, only the QR code works.</string>
+    <string name="scanner_nfc_unavailable">This device has no NFC. Only the QR code works.</string>
+    <string name="scanner_nfc_idle">Choose a session first, then NFC is ready.</string>
+    <!-- Who holds what. The scanner is the terminal: it stays put and the
+         member brings their phone to it, the way everybody already knows from
+         paying. Saying nothing left both people waving phones at each other. -->
+    <string name="scanner_nfc_hint">Hold your phone still — the member puts the back of theirs against it. Both phones vibrate as soon as the antennas find each other.</string>
+    <string name="scanner_pick_session">Choose the session above first</string>
+    <string name="scanner_wrong_evening">This session belongs to another day. Pick today\'s or start a new one.</string>
+    <string name="scanner_checked_in">%1$s checked in</string>
+    <string name="scanner_unknown_member">Member</string>
+    <string name="scanner_already_present">Already checked in</string>
+    <string name="scanner_code_used">This code has already been used. Ask for a fresh one.</string>
+    <string name="scanner_code_invalid">Code invalid or expired</string>
+    <string name="scanner_busy">One moment — the last check-in is still going</string>
+    <string name="scanner_card_not_ready">The member\'s device has no code yet. Open the app once, then try again.</string>
+    <string name="scanner_offline">No connection — not recorded. Note the person down and scan again once there is signal.</string>
+    <string name="scanner_queued">%1$s recorded — held until there is a connection</string>
+    <plurals name="scanner_pending">
+        <item quantity="one">1 check-in waiting for a connection</item>
+        <item quantity="other">%1$d check-ins waiting for a connection</item>
+    </plurals>
+    <string name="scanner_failed">Check-in failed</string>
+    <!-- A button, not a counter: it carries the count and opens the list. -->
+    <string name="scanner_attendance_list">%1$d recorded — open attendance</string>
+
+    <!-- The attendance list, as its own screen behind the scanner. -->
+    <string name="attendance_list_title">Attendance</string>
+    <string name="attendance_list_empty_title">Nobody here yet</string>
+    <string name="attendance_list_empty_body">As soon as somebody checks in, they appear here.</string>
+    <string name="attendance_list_error_title">List unavailable</string>
+    <string name="attendance_list_error_body">The attendance list could not be loaded.</string>
+    <string name="attendance_list_undo_failed">Undo failed</string>
+    <string name="shooting_save_failed">Saving failed</string>
+    <string name="nfc_service_description">unefy check-in</string>
+    <string name="nfc_aid_group_description">Attendance check-in</string>
+    <string name="scanner_row_scanned">Scanned</string>
+    <!-- Parallel to "Scanned", and deliberately not "Manual": that word is
+         already the header action, and the two collided on screen. -->
+    <string name="scanner_row_manual">By hand</string>
+    <!-- The supervisor's own attendance. Nobody else vouched for it — a QR needs
+         two devices and this one is the reader — so the row says so rather than
+         reading like a record somebody else made. -->
+    <string name="scanner_row_self">Entered by themselves</string>
+    <!-- Shooting details: only reachable for a club whose sports carry the
+         shooting module. -->
+    <string name="shooting_sheet_hint">Discipline, weapon type and round count for this evening. Goes into the range book afterwards.</string>
+    <string name="shooting_discipline">Discipline</string>
+    <string name="shooting_weapon">Weapon type</string>
+    <string name="shooting_rounds">Rounds</string>
+    <string name="shooting_none">Not stated</string>
+    <string name="shooting_save">Save</string>
+    <string name="shooting_saving">Saving …</string>
+    <!-- The German categories of §14 WaffG. Kept as the law names them rather
+         than translated into handgun/long gun: the range book is a legal record
+         and these are the words on it. -->
+    <string name="shooting_weapon_kurzwaffe">Kurzwaffe (handgun)</string>
+    <string name="shooting_weapon_langwaffe">Langwaffe (long gun)</string>
+    <string name="shooting_weapon_luftdruck">Luftdruck (air)</string>
+    <string name="shooting_edit">Enter shooting details</string>
+    <plurals name="shooting_rounds_short">
+        <item quantity="one">%1$d round</item>
+        <item quantity="other">%1$d rounds</item>
+    </plurals>
+    <string name="scanner_row_pending">Waiting for a connection</string>
+    <string name="scanner_permission_title">Camera needed</string>
+    <string name="scanner_permission_body">To scan member codes the app needs access to the camera.</string>
+    <string name="scanner_permission_action">Allow camera</string>
+    <string name="scanner_no_sessions_title">No open session</string>
+    <string name="scanner_no_sessions_body">No session is running. You can start one here — the title and end time can be corrected later on the web.</string>
+    <string name="scanner_create_session">Start session</string>
+    <!-- One per event of today: the evening starts under its announced name. -->
+    <string name="scanner_start_from_event">From event: %1$s</string>
+    <string name="scanner_default_session_title">Practice session</string>
+    <string name="scanner_guest_label">Not on the list? Record a guest</string>
+    <string name="scanner_guest_placeholder">Guest\'s name</string>
+    <string name="scanner_guest_action">Record</string>
+    <string name="scanner_sessions_error_title">Sessions unavailable</string>
+    <string name="scanner_sessions_error_body">The open sessions could not be loaded.</string>
+    <string name="scanner_manual_action">Manual</string>
+    <string name="scanner_manual_title">Check in by hand</string>
+    <string name="scanner_manual_search">Find member</string>
+    <string name="scanner_manual_empty">No member found.</string>
+    <string name="scanner_manual_error">Member list unavailable.</string>
+    <string name="scanner_manual_present">Already checked in</string>
+
+    <!-- The member's own range history, including self-kept entries for other
+         clubs' ranges. Same honest language as the scanner's "Entered by
+         themselves" — a claim never dresses up as an attestation. -->
+    <string name="range_days_title">My range days</string>
+    <string name="range_days_add">Record a range day</string>
+    <string name="range_days_add_title">Record a range day</string>
+    <string name="range_days_add_hint">For a visit to another club\'s range. The entry counts as a self-kept record.</string>
+    <string name="range_days_date">Date</string>
+    <string name="range_days_pick_date">Choose date</string>
+    <string name="range_days_date_ok">Use it</string>
+    <string name="range_days_date_cancel">Cancel</string>
+    <string name="range_days_location">Range / place</string>
+    <string name="range_days_untitled">Range day</string>
+    <string name="range_days_self_kept">Self-kept</string>
+    <string name="range_days_club">Club</string>
+    <string name="range_days_created">Entry saved — marked as self-kept.</string>
+    <string name="range_days_certified">Not possible: a certificate refers to this entry.</string>
+    <string name="range_days_day_taken">There is already an entry for this day.</string>
+    <string name="range_days_failed">That did not work. Please try again.</string>
+    <string name="range_days_error_title">List unavailable</string>
+    <string name="range_days_error_body">Your range days could not be loaded.</string>
+    <string name="range_days_empty_title">No range days yet</string>
+    <string name="range_days_empty_body">Club evenings appear here on their own. Visits to other ranges you can record yourself.</string>
+</resources>

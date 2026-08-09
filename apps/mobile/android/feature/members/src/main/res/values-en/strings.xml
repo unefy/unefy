@@ -77,4 +77,14 @@
     <string name="member_form_needs_names">A first and last name are needed.</string>
     <string name="member_form_queue_hint">Saved on this device and sent as soon as there is a connection.</string>
     <string name="member_pending">Not sent</string>
+    <!-- Taking a member's check-in codes away: a lost phone, a device passed
+         on. Rare and deliberate, so it asks first. -->
+    <string name="revoke_codes_action">Revoke check-in codes</string>
+    <string name="revoke_codes_title">Revoke codes?</string>
+    <string name="revoke_codes_message">Every check-in code this member has becomes invalid at once — including the one on their own phone. It fetches a new code the next time the app is opened. For a device that was lost or passed on.</string>
+    <string name="revoke_codes_confirm">Revoke</string>
+    <string name="revoke_codes_cancel">Cancel</string>
+    <string name="revoke_codes_working">Revoking …</string>
+    <string name="revoke_codes_done">Revoked. Old codes are no longer accepted.</string>
+    <string name="revoke_codes_failed">Revoking failed — the old codes still work. Try again with a connection.</string>
 </resources>
