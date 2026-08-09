@@ -18,6 +18,14 @@ export type MemberFeeAssignment = {
   note: string | null
 }
 
+/** Club totals as returned by `/api/v1/dues/summary`. Amounts are strings. */
+export type DuesSummary = {
+  open_count: number
+  open_amount: string
+  paid_count: number
+  paid_amount: string
+}
+
 /** A due as returned by `/api/v1/dues/me`. */
 export type MyDue = {
   id: string

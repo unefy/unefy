@@ -1,6 +1,6 @@
 import { cache } from "react"
 
-import { apiCall, apiList } from "@/lib/api"
+import { apiCall, apiList, type PaginationMeta } from "@/lib/api"
 import type { ClubAccess, Member, MemberFederation } from "@/lib/types/member"
 
 /**
@@ -36,6 +36,21 @@ export async function listMembers(
       search: options.search,
     })}`
   )
+}
+
+/**
+ * Club-wide tallies per member status, for the dashboard.
+ *
+ * Asks for a single row: the counts sit in `meta` and are computed over the
+ * whole club, not over the page — fetching 100 members to count them would be
+ * both slower and wrong beyond the page cap.
+ */
+export async function getMemberStatusCounts() {
+  const { meta } = await apiList<Member>("/api/v1/members?per_page=1")
+  const withCounts = meta as PaginationMeta & {
+    status_counts?: Record<string, number>
+  }
+  return { total: withCounts.total, counts: withCounts.status_counts ?? {} }
 }
 
 /**

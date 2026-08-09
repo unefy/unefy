@@ -31,6 +31,25 @@
     "settingsFunctions": "Functions",
     "functionHolders": "Office holders"
   },
+  "dashboard": {
+    "title": "Overview",
+    "subtitle": "What is going on in the club today.",
+    "subtitleClub": "What is going on at {club} today.",
+    "stats": {
+      "members": "Members",
+      "membersActive": "{count} active",
+      "duesOpen": "Open dues",
+      "duesOpenCount": "{count, plural, one {# item} other {# items}}",
+      "openSessions": "Open sessions",
+      "openSessionsHint": "Not closed yet",
+      "myDuesOpen": "My open dues",
+      "myDuesSettled": "All settled"
+    },
+    "openSessions": {
+      "title": "Open sessions",
+      "records": "{count, plural, one {# entry} other {# entries}}"
+    }
+  },
   "auth": {
     "signIn": "Sign in",
     "signInTitle": "Sign in to unefy",

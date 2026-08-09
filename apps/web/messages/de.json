@@ -31,6 +31,25 @@
     "settingsFunctions": "Funktionen",
     "functionHolders": "Funktionsträger"
   },
+  "dashboard": {
+    "title": "Übersicht",
+    "subtitle": "Was heute im Verein ansteht.",
+    "subtitleClub": "Was heute bei {club} ansteht.",
+    "stats": {
+      "members": "Mitglieder",
+      "membersActive": "{count} aktiv",
+      "duesOpen": "Offene Beiträge",
+      "duesOpenCount": "{count, plural, one {# Posten} other {# Posten}}",
+      "openSessions": "Offene Einheiten",
+      "openSessionsHint": "Noch nicht abgeschlossen",
+      "myDuesOpen": "Meine offenen Beiträge",
+      "myDuesSettled": "Alles beglichen"
+    },
+    "openSessions": {
+      "title": "Offene Einheiten",
+      "records": "{count, plural, one {# Eintrag} other {# Einträge}}"
+    }
+  },
   "auth": {
     "signIn": "Anmelden",
     "signInTitle": "Bei unefy anmelden",
