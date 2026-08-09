@@ -487,6 +487,17 @@ class ShootingService:
             )
             missing = max(0, len(certificate.record_ids) - len(rows))
 
+        # Named on the document because the federation is usually who reads
+        # it. Only live memberships, and only those that overlap the certified
+        # period — one left years before the window says nothing about it.
+        memberships = await self.members.federation_memberships(certificate.member_id)
+        federations = tuple(
+            f"{m.federation} (Nr. {m.federation_number})" if m.federation_number else m.federation
+            for m in memberships
+            if (m.left_at is None or m.left_at >= certificate.period_start)
+            and (m.joined_at is None or m.joined_at <= certificate.period_end)
+        )
+
         return CertificateDocument(
             club_name=club,
             member_name=f"{row[0]} {row[1]}" if row else "—",
@@ -505,6 +516,7 @@ class ShootingService:
             verification_code=certificate.verification_code,
             verification_url=(f"{web_app_url.rstrip('/')}/verify/{certificate.verification_code}"),
             revoked=certificate.revoked_at is not None,
+            federations=federations,
             days=days,
             missing_days=missing,
         )

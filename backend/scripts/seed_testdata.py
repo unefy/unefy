@@ -22,7 +22,7 @@ from app.models.catalog import ClubDiscipline
 from app.models.competition import Competition, Entry, Session
 from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
-from app.models.member import Member
+from app.models.member import Member, MemberFederationMembership
 from app.models.shooting import (
     ShootingProofCertificate,
     ShootingProofRule,
@@ -1155,6 +1155,54 @@ async def _ensure_proof_rules(session: AsyncSession, tenant: Tenant, user: User)
     print("Created 2 proof rules.")
 
 
+async def _ensure_federations(
+    session: AsyncSession,
+    tenant: Tenant,
+    user: User,
+    members: list[Member],
+    rng: random.Random,
+) -> None:
+    """Federation memberships — the number the proof is matched on.
+
+    Not every member has one: a club has guests of its own, and a certificate
+    has to read sensibly without it.
+    """
+    existing = (
+        (
+            await session.execute(
+                select(MemberFederationMembership).where(
+                    MemberFederationMembership.tenant_id == tenant.id
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if existing is not None:
+        print("Federation memberships already seeded, skipping.")
+        return
+
+    created = 0
+    for member in members:
+        if member.status != "active" or rng.random() < 0.2:
+            continue
+        federation = rng.choice(("BDS", "DSB"))
+        session.add(
+            MemberFederationMembership(
+                tenant_id=tenant.id,
+                member_id=member.id,
+                federation=federation,
+                federation_number=f"{federation}-{rng.randint(100000, 999999)}",
+                joined_at=member.joined_at,
+                created_by=user.id,
+                updated_by=user.id,
+            )
+        )
+        created += 1
+    await session.flush()
+    print(f"Created {created} federation memberships.")
+
+
 async def _ensure_certificates(
     session: AsyncSession,
     tenant: Tenant,
@@ -1220,6 +1268,7 @@ async def main() -> None:
         await _ensure_self_entries(session, tenant, user, members, rng)
         await _ensure_shooting_details(session, tenant, records, rng)
         await _ensure_shot_series(session, tenant, user, members, rng)
+        await _ensure_federations(session, tenant, user, members, rng)
         await _ensure_proof_rules(session, tenant, user)
         await _ensure_certificates(session, tenant, user, members)
         await session.commit()

@@ -74,6 +74,10 @@ class CertificateDocument:
     #: Where the QR points. Built by the caller, which knows the app's URL.
     verification_url: str
     revoked: bool = False
+    #: "BDS (Nr. 12345)" per membership. The federation identifies its members
+    #: by that number, not by the club's — without it somebody has to match by
+    #: hand, and that friction is what sends a document back to paper.
+    federations: tuple[str, ...] = ()
     #: Empty unless the annex was asked for.
     days: tuple[CertificateDay, ...] = ()
     #: How many counted records the annex could no longer resolve, because the
@@ -133,6 +137,11 @@ def build_certificate_pdf(doc: CertificateDocument) -> bytes:
     y = _line(pdf, y, "Schießtage", str(doc.session_count))
     y = _line(pdf, y, "Monate mit Terminen", str(doc.months_covered))
     y = _line(pdf, y, "Zugrunde liegende Regel", doc.rule_label)
+
+    # The real recipient of this document is usually the federation, which
+    # issues the Bedürfnisbescheinigung the authority then relies on.
+    if doc.federations:
+        y = _line(pdf, y, "Verbandsmitgliedschaft", ", ".join(doc.federations))
 
     # Named rather than folded into the total: a day that rests on the member's
     # own word is not the same evidence as one a supervisor attested, and a

@@ -19,7 +19,7 @@ from app.models import Tenant
 from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.audit import TenantAuditLog
 from app.models.division import Division
-from app.models.member import Member
+from app.models.member import Member, MemberFederationMembership
 from app.models.shooting import ShootingProofRule, ShootingRecordDetail
 from app.models.sport import Sport
 from app.models.tenant_sport import TenantSport
@@ -1272,3 +1272,96 @@ async def test_a_pruned_record_is_declared_rather_than_dropped(
     )
     assert len(document.days) == 1
     assert document.missing_days == 1
+
+
+async def test_the_certificate_names_the_federation_the_period_touches(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The federation usually reads this document and matches on its own number.
+
+    Bounded by the certified period: a membership that ended years before the
+    window says nothing about it, and printing it would suggest otherwise.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add_all(
+        [
+            ShootingProofRule(
+                tenant_id=shooting_tenant.id,
+                rule_key="waffg-14",
+                label="§14 WaffG",
+                window_months=12,
+                min_total_days=1,
+            ),
+            MemberFederationMembership(
+                tenant_id=shooting_tenant.id,
+                member_id=member.id,
+                federation="BDS",
+                federation_number="12345",
+                joined_at=date(2020, 1, 1),
+            ),
+            # Left long before the window — must not appear.
+            MemberFederationMembership(
+                tenant_id=shooting_tenant.id,
+                member_id=member.id,
+                federation="DSB",
+                federation_number="99999",
+                joined_at=date(2010, 1, 1),
+                left_at=date(2012, 12, 31),
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+
+    document = await ShootingService(
+        db_session,
+        AuthContext(user_id=test_user.id, tenant_id=shooting_tenant.id, role="owner"),
+    ).certificate_document(uuid.UUID(str(certificate["id"])), web_app_url="https://app.example.com")
+    assert document.federations == ("BDS (Nr. 12345)",)
+
+
+async def test_a_membership_without_a_number_still_appears(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Half the answer beats none — the club may not have recorded the number."""
+    member = await _add_member(db_session, shooting_tenant.id)
+    await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add_all(
+        [
+            ShootingProofRule(
+                tenant_id=shooting_tenant.id,
+                rule_key="waffg-14",
+                label="§14 WaffG",
+                window_months=12,
+                min_total_days=1,
+            ),
+            MemberFederationMembership(
+                tenant_id=shooting_tenant.id,
+                member_id=member.id,
+                federation="BDS",
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+
+    document = await ShootingService(
+        db_session,
+        AuthContext(user_id=test_user.id, tenant_id=shooting_tenant.id, role="owner"),
+    ).certificate_document(uuid.UUID(str(certificate["id"])), web_app_url="https://app.example.com")
+    assert document.federations == ("BDS",)
