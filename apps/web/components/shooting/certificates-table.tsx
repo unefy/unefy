@@ -5,6 +5,12 @@ import { useLocale, useTranslations } from "next-intl"
 import { DownloadIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table"
 import { RevokeDialog } from "@/components/shooting/revoke-dialog"
 import { formatDate } from "@/lib/time"
@@ -99,17 +105,42 @@ export function CertificatesTable({
           {/* Navigation, not fetch: the browser handles the download. Offered
               for revoked ones too — a withdrawn proof still has to be
               producible, and the PDF says on its face that it was revoked. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={t("download")}
-            title={t("download")}
-            render={
-              <a href={`/api/shooting/certificate?id=${row.id}`} download>
-                <DownloadIcon className="text-muted-foreground" />
-              </a>
-            }
-          />
+          {/* Two documents, one action: whether an authority wants the single
+              appointments differs by state and association, so the club picks
+              per download instead of the code picking once. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t("download")}
+                  title={t("download")}
+                >
+                  <DownloadIcon className="text-muted-foreground" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                render={
+                  <a href={`/api/shooting/certificate?id=${row.id}`} download>
+                    {t("downloadPlain")}
+                  </a>
+                }
+              />
+              <DropdownMenuItem
+                render={
+                  <a
+                    href={`/api/shooting/certificate?id=${row.id}&details=true`}
+                    download
+                  >
+                    {t("downloadWithDays")}
+                  </a>
+                }
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
           {row.revoked_at === null ? <RevokeDialog certificate={row} /> : null}
         </span>
       ),

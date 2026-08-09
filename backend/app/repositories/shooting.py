@@ -190,6 +190,47 @@ class ShootingProofRepository:
         result = await self.session.execute(self._countable(member_id, start, end))
         return [(row[0], row[1], row[2], row[3]) for row in result.all()]
 
+    async def records_for_certificate(
+        self, record_ids: list[str]
+    ) -> list[tuple[date, str, str | None, str | None, int | None]]:
+        """(day, origin, discipline, weapon, rounds) for the frozen record ids.
+
+        Reads the ids the certificate pinned rather than re-running the
+        evaluation: the annex has to show the days the document actually rests
+        on, not what the same query would return today.
+
+        Fewer rows than ids is a normal outcome — the retention job removes
+        records years later, and the certificate deliberately keeps working
+        after that. The caller says so rather than quietly printing a shorter
+        list.
+        """
+        if not record_ids:
+            return []
+        ids = [uuid.UUID(value) for value in record_ids]
+        result = await self.session.execute(
+            select(
+                AttendanceRecord.occurred_on,
+                AttendanceRecord.origin,
+                ClubDiscipline.name,
+                ShootingRecordDetail.weapon_category,
+                ShootingRecordDetail.rounds_fired,
+            )
+            .select_from(AttendanceRecord)
+            .outerjoin(
+                ShootingRecordDetail,
+                ShootingRecordDetail.attendance_record_id == AttendanceRecord.id,
+            )
+            .outerjoin(
+                ClubDiscipline,
+                ClubDiscipline.id == ShootingRecordDetail.club_discipline_id,
+            )
+            .where(AttendanceRecord.tenant_id == self.tenant_id)
+            .where(AttendanceRecord.id.in_(ids))
+            .where(AttendanceRecord.deleted_at.is_(None))
+            .order_by(AttendanceRecord.occurred_on.asc())
+        )
+        return [(row[0], row[1], row[2], row[3], row[4]) for row in result.all()]
+
     async def days_confirming_others(
         self, user_id: uuid.UUID, member_id: uuid.UUID, start: date, end: date
     ) -> set[date]:

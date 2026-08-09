@@ -41,7 +41,7 @@ from app.schemas.shooting import (
     ShootingRecordDetailUpdate,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
-from app.services.certificate_pdf import CertificateDocument
+from app.services.certificate_pdf import CertificateDay, CertificateDocument
 from app.services.proof_chain import append_entry, canonical_hash
 
 logger = structlog.get_logger()
@@ -443,7 +443,7 @@ class ShootingService:
         return certificate
 
     async def certificate_document(
-        self, certificate_id: uuid.UUID, *, web_app_url: str
+        self, certificate_id: uuid.UUID, *, web_app_url: str, with_days: bool = False
     ) -> CertificateDocument:
         """One certificate as the printable document.
 
@@ -467,6 +467,26 @@ class ShootingService:
         ).scalar_one()
         rule = await self.rules.get_by_key(certificate.rule_key)
 
+        # The annex reads the ids the certificate froze, not today's evaluation:
+        # it has to show the days this document rests on. Fewer rows than ids
+        # means the retention job has been through — said out loud on the page
+        # rather than printed as a shorter list.
+        days: tuple[CertificateDay, ...] = ()
+        missing = 0
+        if with_days:
+            rows = await self.proof.records_for_certificate(certificate.record_ids)
+            days = tuple(
+                CertificateDay(
+                    day=day,
+                    discipline=discipline,
+                    weapon_category=weapon,
+                    rounds_fired=rounds,
+                    origin=origin,
+                )
+                for day, origin, discipline, weapon, rounds in rows
+            )
+            missing = max(0, len(certificate.record_ids) - len(rows))
+
         return CertificateDocument(
             club_name=club,
             member_name=f"{row[0]} {row[1]}" if row else "—",
@@ -485,6 +505,8 @@ class ShootingService:
             verification_code=certificate.verification_code,
             verification_url=(f"{web_app_url.rstrip('/')}/verify/{certificate.verification_code}"),
             revoked=certificate.revoked_at is not None,
+            days=days,
+            missing_days=missing,
         )
 
     async def member_name(self, member_id: uuid.UUID) -> str | None:

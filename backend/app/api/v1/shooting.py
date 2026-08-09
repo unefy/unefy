@@ -238,16 +238,25 @@ async def certificate_pdf(
     auth: AuthContext = Depends(require_board),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
+    details: bool = Query(default=False),
 ) -> Response:
-    """The printable certificate.
+    """The printable certificate, optionally with the counted days annexed.
 
     The QR on it points at the web app's public check page rather than at this
     API: whoever scans a piece of paper expects a page. Which is why the app's
     URL is configuration the backend reads, not something the PDF can guess.
+
+    `details` is off by default because whether an authority wants the single
+    appointments differs by state and association — and a summary that ships
+    the details unasked discloses more than was requested. The annex never
+    names the supervisor; that stays in the club's range book.
     """
     service = _service(session, auth)
-    document = await service.certificate_document(certificate_id, web_app_url=settings.WEB_APP_URL)
-    filename = f"schiessnachweis-{document.verification_code}.pdf"
+    document = await service.certificate_document(
+        certificate_id, web_app_url=settings.WEB_APP_URL, with_days=details
+    )
+    suffix = "-mit-terminen" if details else ""
+    filename = f"schiessnachweis-{document.verification_code}{suffix}.pdf"
     return Response(
         content=build_certificate_pdf(document),
         media_type="application/pdf",

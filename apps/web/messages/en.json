@@ -1530,7 +1530,9 @@
         "status": "Status",
         "code": "Code"
       },
-      "download": "Download as PDF"
+      "download": "Download as PDF",
+      "downloadPlain": "Certificate (PDF)",
+      "downloadWithDays": "Certificate with appointment list (PDF)"
     },
     "revoke": {
       "action": "Revoke",

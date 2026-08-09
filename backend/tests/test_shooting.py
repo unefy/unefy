@@ -1167,3 +1167,108 @@ async def test_an_unknown_certificate_is_a_404(
     ) as client:
         resp = await client.get(f"{BASE}/certificates/{uuid.uuid4()}/pdf")
         assert resp.status_code == 404
+
+
+async def test_the_annex_lists_the_frozen_days_without_the_supervisor(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The annex is opt-in, reads the pinned ids, and names no third party.
+
+    The supervisor is in the club's range book. Putting them on a document
+    handed to an authority is a different purpose and a different person's
+    data, so the annex must not carry it.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    for day in (date(2026, 5, 4), date(2026, 5, 11)):
+        record = await _add_attendance(db_session, shooting_tenant.id, member.id, day)
+        db_session.add(
+            ShootingRecordDetail(
+                tenant_id=shooting_tenant.id,
+                attendance_record_id=record.id,
+                weapon_category="kurzwaffe",
+                rounds_fired=40,
+            )
+        )
+    db_session.add(
+        ShootingProofRule(
+            tenant_id=shooting_tenant.id,
+            rule_key="waffg-14",
+            label="§14 WaffG",
+            window_months=12,
+            min_total_days=1,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+        plain = await client.get(f"{BASE}/certificates/{certificate['id']}/pdf")
+        annexed = await client.get(
+            f"{BASE}/certificates/{certificate['id']}/pdf", params={"details": "true"}
+        )
+
+    assert plain.status_code == 200
+    assert annexed.status_code == 200
+    # The annex is a whole extra page, so it cannot be the same document.
+    assert len(annexed.content) > len(plain.content)
+    assert "mit-terminen" in annexed.headers["content-disposition"]
+    assert "mit-terminen" not in plain.headers["content-disposition"]
+
+    document = await ShootingService(
+        db_session,
+        AuthContext(user_id=test_user.id, tenant_id=shooting_tenant.id, role="owner"),
+    ).certificate_document(
+        uuid.UUID(str(certificate["id"])), web_app_url="https://app.example.com", with_days=True
+    )
+    assert [entry.day for entry in document.days] == [date(2026, 5, 4), date(2026, 5, 11)]
+    assert all(entry.rounds_fired == 40 for entry in document.days)
+    assert document.missing_days == 0
+    # The type carries no supervisor at all — the strongest form of "never".
+    assert not hasattr(document.days[0], "supervisor")
+
+
+async def test_a_pruned_record_is_declared_rather_than_dropped(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Retention removes records years later; the annex says so."""
+    member = await _add_member(db_session, shooting_tenant.id)
+    kept = await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add(
+        ShootingProofRule(
+            tenant_id=shooting_tenant.id,
+            rule_key="waffg-14",
+            label="§14 WaffG",
+            window_months=12,
+            min_total_days=1,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "owner"
+    ) as client:
+        certificate = await _issue(client, member.id)
+
+    service = ShootingService(
+        db_session,
+        AuthContext(user_id=test_user.id, tenant_id=shooting_tenant.id, role="owner"),
+    )
+    row = await service.certificates.get_by_id(uuid.UUID(str(certificate["id"])))
+    assert row is not None
+    # A second id the certificate counted, whose record no longer exists.
+    row.record_ids = [str(kept.id), str(uuid.uuid4())]
+    await db_session.flush()
+
+    document = await service.certificate_document(
+        uuid.UUID(str(certificate["id"])), web_app_url="https://app.example.com", with_days=True
+    )
+    assert len(document.days) == 1
+    assert document.missing_days == 1

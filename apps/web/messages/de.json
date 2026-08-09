@@ -1530,7 +1530,9 @@
         "status": "Status",
         "code": "Prüfcode"
       },
-      "download": "Als PDF herunterladen"
+      "download": "Als PDF herunterladen",
+      "downloadPlain": "Bescheinigung (PDF)",
+      "downloadWithDays": "Bescheinigung mit Terminliste (PDF)"
     },
     "revoke": {
       "action": "Widerrufen",

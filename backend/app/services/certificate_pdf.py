@@ -30,6 +30,31 @@ SUBTITLE = "gemäß § 14 Absatz 2 und 3 Waffengesetz"
 
 
 @dataclass(frozen=True)
+class CertificateDay:
+    """One counted range day, for the optional annex.
+
+    No supervisor: the annex goes to an authority, and naming the person who
+    kept watch discloses a third party for a purpose the certificate does not
+    have. The range book — which does name them — stays the club's own record.
+    """
+
+    day: date
+    discipline: str | None
+    weapon_category: str | None
+    rounds_fired: int | None
+    #: "club" | "external" — printed, because a self-kept day reads differently.
+    origin: str
+
+
+#: The words the range book uses, so the annex and the CSV agree.
+WEAPON_LABELS = {
+    "kurzwaffe": "Kurzwaffe",
+    "langwaffe": "Langwaffe",
+    "luftdruck": "Luftdruck",
+}
+
+
+@dataclass(frozen=True)
 class CertificateDocument:
     """Everything the page prints, already resolved and formatted-agnostic."""
 
@@ -49,6 +74,11 @@ class CertificateDocument:
     #: Where the QR points. Built by the caller, which knows the app's URL.
     verification_url: str
     revoked: bool = False
+    #: Empty unless the annex was asked for.
+    days: tuple[CertificateDay, ...] = ()
+    #: How many counted records the annex could no longer resolve, because the
+    #: retention job removed them. Printed rather than hidden.
+    missing_days: int = 0
 
 
 def _de(value: date) -> str:
@@ -168,6 +198,86 @@ def build_certificate_pdf(doc: CertificateDocument) -> bytes:
         "Die Prüfseite bestätigt Gültigkeit, Zeitraum und Anzahl der Schießtage.",
     )
 
+    if doc.days:
+        _draw_annex(pdf, doc, width, height)
+
     pdf.showPage()
     pdf.save()
     return buffer.getvalue()
+
+
+def _draw_annex(pdf: canvas.Canvas, doc: CertificateDocument, width: float, height: float) -> None:
+    """The counted days, one per row, continuing onto further pages."""
+    pdf.showPage()
+    y = height - MARGIN
+
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(MARGIN, y, "Anlage: Schießtage im Zeitraum")
+    y -= 6 * mm
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillGray(0.35)
+    pdf.drawString(
+        MARGIN,
+        y,
+        f"{doc.member_name} · {_de(doc.period_start)} bis {_de(doc.period_end)}",
+    )
+    pdf.setFillGray(0)
+    y -= 10 * mm
+
+    def header(baseline: float) -> float:
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(MARGIN, baseline, "Datum")
+        pdf.drawString(MARGIN + 30 * mm, baseline, "Disziplin")
+        pdf.drawString(MARGIN + 90 * mm, baseline, "Waffenart")
+        pdf.drawString(MARGIN + 125 * mm, baseline, "Schuss")
+        pdf.drawString(MARGIN + 145 * mm, baseline, "Herkunft")
+        pdf.setStrokeGray(0.8)
+        pdf.setLineWidth(0.5)
+        pdf.line(MARGIN, baseline - 2 * mm, width - MARGIN, baseline - 2 * mm)
+        return baseline - 7 * mm
+
+    y = header(y)
+    pdf.setFont("Helvetica", 9)
+    for entry in doc.days:
+        # A page break mid-list must not swallow the header.
+        if y < MARGIN + 20 * mm:
+            pdf.showPage()
+            y = header(height - MARGIN)
+            pdf.setFont("Helvetica", 9)
+        pdf.drawString(MARGIN, y, _de(entry.day))
+        pdf.drawString(MARGIN + 30 * mm, y, (entry.discipline or "—")[:34])
+        pdf.drawString(
+            MARGIN + 90 * mm,
+            y,
+            WEAPON_LABELS.get(entry.weapon_category or "", entry.weapon_category or "—"),
+        )
+        pdf.drawString(
+            MARGIN + 125 * mm,
+            y,
+            str(entry.rounds_fired) if entry.rounds_fired is not None else "—",
+        )
+        pdf.drawString(
+            MARGIN + 145 * mm,
+            y,
+            "selbst geführt" if entry.origin == "external" else "Verein",
+        )
+        y -= 6 * mm
+
+    y -= 4 * mm
+    pdf.setFont("Helvetica", 8)
+    pdf.setFillGray(0.35)
+    if doc.missing_days:
+        pdf.drawString(
+            MARGIN,
+            y,
+            f"{doc.missing_days} gezählte Termine sind wegen der Aufbewahrungsfrist "
+            "nicht mehr im Bestand und daher hier nicht aufgeführt.",
+        )
+        y -= 5 * mm
+    pdf.drawString(
+        MARGIN,
+        y,
+        "Die Standaufsicht ist im Standbuch des Vereins verzeichnet und wird auf "
+        "Verlangen vorgelegt.",
+    )
+    pdf.setFillGray(0)

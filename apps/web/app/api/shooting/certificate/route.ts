@@ -32,10 +32,16 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Invalid certificate id", { status: 422 })
   }
 
+  // The annex is opt-in and read as a plain flag: anything other than an
+  // explicit "true" gets the summary, so a mangled link cannot widen what a
+  // document discloses.
+  const withDays = new URL(request.url).searchParams.get("details") === "true"
+
   let upstream: Response
   try {
     upstream = await fetch(
-      `${API_BASE}/api/v1/modules/shooting/certificates/${parsed.data}/pdf`,
+      `${API_BASE}/api/v1/modules/shooting/certificates/${parsed.data}/pdf` +
+        (withDays ? "?details=true" : ""),
       { headers: sessionCookieHeader(session), cache: "no-store" }
     )
   } catch {
