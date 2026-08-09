@@ -1,13 +1,10 @@
 import {
   AwardIcon,
-  CalendarIcon,
   CircleUserIcon,
   ClipboardCheckIcon,
   HouseIcon,
-  ReceiptIcon,
   SettingsIcon,
   TargetIcon,
-  TrophyIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -78,16 +75,9 @@ export const sidebarData: SidebarData = {
           url: "/attendance",
           icon: ClipboardCheckIcon,
         },
-        {
-          titleKey: "events",
-          url: "/events",
-          icon: CalendarIcon,
-        },
-        {
-          titleKey: "competitions",
-          url: "/competitions",
-          icon: TrophyIcon,
-        },
+        // Termine and Wettkämpfe are built in the backend and in the Android
+        // app, but have no web page yet — an entry here would only lead to a
+        // 404. They come back with their pages (docs/plans/roadmap.md).
         {
           titleKey: "shooting",
           url: "/shooting",
@@ -102,16 +92,8 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
-    {
-      titleKey: "groups.finance",
-      items: [
-        {
-          titleKey: "dues",
-          url: "/dues",
-          icon: ReceiptIcon,
-        },
-      ],
-    },
+    // The Finanzen group held a single entry pointing at /dues, which does not
+    // exist yet — the group returns with the page.
     {
       titleKey: "groups.other",
       items: [
