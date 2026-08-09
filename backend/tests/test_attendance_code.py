@@ -5,6 +5,9 @@ arguments, and the point of that design is that drift, expiry and forgery can
 be tested by moving an integer rather than a clock.
 """
 
+import base64
+import hashlib
+import hmac
 import uuid
 
 import pytest
@@ -172,3 +175,50 @@ def test_replay_key_is_per_member_and_window() -> None:
     # Two seeds, same window: the key has to collide, or refetching a seed
     # mid-window would buy a second check-in.
     assert replay_key(TENANT, MEMBER, counter) == replay_key(TENANT, MEMBER, counter)
+
+
+class TestSeedVersion:
+    """Revocation, at the level where it actually happens."""
+
+    def test_version_zero_hashes_as_before_the_column_existed(self) -> None:
+        """The compatibility that made this safe to deploy.
+
+        Folding the version in unconditionally would have invalidated every
+        seed already on every phone — and an app holding a seed it believes is
+        current does not refetch, so the club would have found out at the door.
+
+        The expectation is rebuilt from the pre-column message format rather
+        than from `derive_seed` itself: comparing the function to itself would
+        hold however the message is put together, which is the one thing worth
+        pinning here.
+        """
+        period = seed_period(NOW)
+        legacy_message = f"seed:{TENANT}:{MEMBER}:{period}".encode()
+        legacy = (
+            base64.b32encode(hmac.new(SECRET.encode(), legacy_message, hashlib.sha256).digest())
+            .decode("ascii")
+            .rstrip("=")
+        )
+
+        assert derive_seed(SECRET, TENANT, MEMBER, period, 0) == legacy
+        assert derive_seed(SECRET, TENANT, MEMBER, period) == legacy
+
+    def test_a_bump_produces_a_different_seed(self) -> None:
+        assert derive_seed(SECRET, TENANT, MEMBER, seed_period(NOW), 1) != derive_seed(
+            SECRET, TENANT, MEMBER, seed_period(NOW), 0
+        )
+
+    def test_a_code_from_the_old_version_stops_verifying_at_once(self) -> None:
+        """Grace window included — a revocation that waited would be the expiry
+        it exists to replace."""
+        old = derive_seed(SECRET, TENANT, MEMBER, seed_period(NOW), 0)
+        code = parse_code(build_code(old, "AAAAAAAAAAAAAAAA", TENANT, counter_for(NOW)))
+
+        with pytest.raises(InvalidCodeError):
+            verify_code(code, secret=SECRET, tenant_id=TENANT, member_id=MEMBER, now=NOW, version=1)
+
+    def test_the_new_version_verifies(self) -> None:
+        fresh = derive_seed(SECRET, TENANT, MEMBER, seed_period(NOW), 1)
+        code = parse_code(build_code(fresh, "AAAAAAAAAAAAAAAA", TENANT, counter_for(NOW)))
+
+        verify_code(code, secret=SECRET, tenant_id=TENANT, member_id=MEMBER, now=NOW, version=1)

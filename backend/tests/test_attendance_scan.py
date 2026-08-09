@@ -910,3 +910,85 @@ async def test_a_seed_handout_records_when_it_happened(
         assert member.last_seed_fetch_at >= first
     finally:
         await client.aclose()
+
+
+# --- Revocation ---
+
+
+async def test_revoking_kills_the_codes_a_lost_phone_can_still_produce(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """The point of the whole column.
+
+    A seed is a bearer credential: whoever holds it can check that member in
+    for as long as it verifies. Before this, the only answer to a lost phone
+    was to wait out the grace window — three days of somebody else walking in
+    as that member.
+    """
+    member = await _add_member(db_session, test_tenant.id)
+    created = await _create_session(auth_client)
+
+    now = int(datetime.now(UTC).timestamp())
+    stolen = await _seed_of(db_session, test_tenant.id, member, now)
+    code = build_code(stolen["seed"], stolen["member_ref"], test_tenant.id, counter_for(now))
+
+    revoked = await auth_client.post(f"/api/v1/attendance/members/{member.id}/revoke-codes")
+    assert revoked.status_code == 200, revoked.text
+    assert revoked.json()["data"]["seed_version"] == 1
+
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan", json={"code": code}
+    )
+
+    # Immediately, grace window included — a revocation that waited would be
+    # the expiry it is supposed to replace.
+    assert resp.status_code == 422, resp.text
+
+
+async def test_the_member_gets_a_working_code_again_right_away(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The cost of revoking, and why it is the right way round: the member's
+    own device is cut off too, and gets a fresh seed the moment it asks."""
+    member = await _add_member(db_session, test_tenant.id, user_id=test_user.id)
+    created = await _create_session(auth_client)
+
+    await auth_client.post(f"/api/v1/attendance/members/{member.id}/revoke-codes")
+
+    client = await _client_as(db_session, fake_redis, test_user.id, test_tenant.id)
+    try:
+        seed_resp = await client.get("/api/v1/attendance/me/seed")
+    finally:
+        await client.aclose()
+    assert seed_resp.status_code == 200, seed_resp.text
+    fresh = seed_resp.json()["data"]
+
+    now = int(datetime.now(UTC).timestamp())
+    code = build_code(fresh["seed"], fresh["member_ref"], test_tenant.id, counter_for(now))
+    resp = await auth_client.post(
+        f"/api/v1/attendance/sessions/{created['id']}/scan", json={"code": code}
+    )
+
+    assert resp.status_code == 201, resp.text
+
+
+async def test_revoking_is_board_only(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """It takes a credential away from somebody — not a self-service action."""
+    member = await _add_member(db_session, test_tenant.id)
+
+    client = await _client_as(db_session, fake_redis, test_user.id, test_tenant.id)
+    try:
+        resp = await client.post(f"/api/v1/attendance/members/{member.id}/revoke-codes")
+    finally:
+        await client.aclose()
+
+    assert resp.status_code == 403, resp.text

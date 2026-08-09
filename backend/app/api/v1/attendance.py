@@ -402,6 +402,24 @@ async def get_record_audit(
     return {"data": [_audit_payload(entry, actor) for entry, actor in entries]}
 
 
+@router.post("/members/{member_id}/revoke-codes")
+async def revoke_member_codes(
+    member_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_board),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Cut off every check-in code this member's devices can still produce.
+
+    For a phone that was lost or passed on. Board only, and audited: it takes
+    something away from a member, and the member's own app has to fetch a fresh
+    seed afterwards — which it does by itself the next time it is online.
+    """
+    service = _get_service(session, auth)
+    member = await service.revoke_member_codes(member_id, request=request)
+    return {"data": {"id": str(member.id), "seed_version": member.seed_version}}
+
+
 # --- Member self-service ---
 
 

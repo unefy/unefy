@@ -730,6 +730,45 @@ class AttendanceService:
 
     # --- Rotating code ---
 
+    async def revoke_member_codes(
+        self, member_id: uuid.UUID, *, request: Request | None = None
+    ) -> Member:
+        """Make every code this member's devices can produce stop working.
+
+        A seed is a bearer credential: whoever holds it can check that member in
+        for as long as it verifies. Until this existed the only answer to a lost
+        phone was to wait out the grace window — three days in which whoever
+        found it could walk into the range as somebody else.
+
+        Bumping the version rehashes the seed, so every device holding an old
+        one is cut off at once, the member's own included. That is the cost and
+        it is the right way round: the member reopens the app and has a working
+        code again in a second, while the lost phone has no way back.
+
+        Audited like any other act on a member's records — a revocation is a
+        deliberate decision by a board member, and a trail that did not show who
+        made it would be missing the only part that matters afterwards.
+        """
+        member = await self.members.get_by_id(member_id)
+        if member is None:
+            raise NotFoundError("Member not found")
+
+        before = member.seed_version
+        member.seed_version = before + 1
+        await self.session.flush()
+
+        await record_tenant_action(
+            self.session,
+            self.auth,
+            "member.attendance_codes_revoked",
+            target_type="member",
+            target_id=member.id,
+            request=request,
+            changes={"seed_version": {"old": before, "new": member.seed_version}},
+        )
+        await self.session.refresh(member)
+        return member
+
     async def member_seed(self, member: Member) -> AttendanceSeedResponse:
         """Hand a member the seed their app computes codes from.
 
@@ -750,7 +789,13 @@ class AttendanceService:
         period = seed_period(int(datetime.now(UTC).timestamp()))
         return AttendanceSeedResponse(
             member_ref=member.attendance_ref,
-            seed=derive_seed(settings.ATTENDANCE_SECRET, self.tenant_id, member.id, period),
+            seed=derive_seed(
+                settings.ATTENDANCE_SECRET,
+                self.tenant_id,
+                member.id,
+                period,
+                member.seed_version,
+            ),
             tenant_id=self.tenant_id,
             expires_at=seed_expires_at(period),
             interval_seconds=CODE_INTERVAL_SECONDS,
@@ -802,6 +847,7 @@ class AttendanceService:
                 tenant_id=self.tenant_id,
                 member_id=member.id,
                 now=int(occurred_at.timestamp()),
+                version=member.seed_version,
             )
         except InvalidCodeError as exc:
             raise ValidationError(INVALID_CODE_MESSAGE) from exc

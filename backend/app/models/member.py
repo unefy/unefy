@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -82,6 +83,17 @@ class Member(TenantModel, AuditMixin, SoftDeleteMixin):
     # Null until the member first asks for a seed — there is no reason to mint
     # one for a club that never turns scanning on.
     attendance_ref: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # Bumped to revoke this member's check-in codes — a lost phone, a device
+    # sold on. Every seed the previous value produced stops verifying at once,
+    # on whatever device is holding one, which is something the expiry alone
+    # could never do: it only ever waits.
+    #
+    # Zero hashes exactly as before this column existed, so introducing it
+    # invalidated nothing that was already out there.
+    seed_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
     # When this member's device last collected a seed.
     #

@@ -110,14 +110,33 @@ def seed_expires_at(period: int) -> int:
     return (period + 1) * SEED_PERIOD_SECONDS
 
 
-def derive_seed(secret: str, tenant_id: uuid.UUID, member_id: uuid.UUID, period: int) -> str:
+def derive_seed(
+    secret: str,
+    tenant_id: uuid.UUID,
+    member_id: uuid.UUID,
+    period: int,
+    version: int = 0,
+) -> str:
     """The member's seed for one 24-hour period.
 
     Derived, not stored: the server can recompute any seed it ever issued, so
     there is nothing to persist and nothing to leak at rest beyond the one
     secret that already has to be protected.
+
+    [version] is the member's `seed_version`, and bumping it is what a
+    revocation *is*: every seed the old version produced stops verifying at
+    once, on every device that holds one. Until this existed the only way to
+    take a lost phone's codes away was to wait out the grace window — three
+    days in which whoever found it could check that member in.
+
+    Version 0 is deliberately hashed exactly as before it existed. Folding it
+    in unconditionally would have invalidated every seed already on every
+    phone, and an app holding a seed it believes is current does not refetch:
+    the club would have discovered the change at the door, which is the one
+    place none of this may fail.
     """
-    message = f"seed:{tenant_id}:{member_id}:{period}".encode()
+    suffix = "" if version == 0 else f":{version}"
+    message = f"seed:{tenant_id}:{member_id}:{period}{suffix}".encode()
     digest = hmac.new(secret.encode(), message, hashlib.sha256).digest()
     return _b32(digest)
 
@@ -156,11 +175,16 @@ def verify_code(
     tenant_id: uuid.UUID,
     member_id: uuid.UUID,
     now: int,
+    version: int = 0,
 ) -> None:
     """Raise [InvalidCodeError] unless this code was produced by this member.
 
     The caller has already resolved `member_ref` to a member; this checks that
     the MAC matches and that the code is from the current window.
+
+    [version] is checked at the *current* value only, never at the old one:
+    that is what makes a bump a revocation rather than a rename. Codes from
+    before it stop verifying immediately, grace window included.
     """
     current = counter_for(now)
     if abs(parsed.counter - current) > COUNTER_TOLERANCE:
@@ -173,7 +197,7 @@ def verify_code(
     for period in range(code_period, code_period - SEED_GRACE_PERIODS - 1, -1):
         if period < 0:
             break
-        seed = derive_seed(secret, tenant_id, member_id, period)
+        seed = derive_seed(secret, tenant_id, member_id, period, version)
         expected = _mac(seed, parsed.member_ref, tenant_id, parsed.counter)
         # compare_digest, not ==: string comparison returns early on the first
         # differing character and leaks how much of a guess was right.
