@@ -18,6 +18,17 @@
       }
     }
   },
+  "commandPalette": {
+    "title": "Commands",
+    "description": "Jump to a page or find a member.",
+    "placeholder": "Search page or member …",
+    "empty": "Nothing found.",
+    "trigger": "Search",
+    "groups": {
+      "navigate": "Go to",
+      "members": "Members"
+    }
+  },
   "nav": {
     "groups": {
       "start": "Start",

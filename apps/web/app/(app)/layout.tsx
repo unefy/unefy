@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 
 import { ImpersonationBanner } from "@/components/admin/impersonation-banner"
 import { AppSidebar } from "@/components/layout/app-sidebar"
+import { CommandPalette } from "@/components/layout/command-palette"
+import { CommandTrigger } from "@/components/layout/command-trigger"
 import { LiveUpdates } from "@/components/live-updates"
 import { Header } from "@/components/layout/header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -44,6 +46,8 @@ export default async function AppLayout({
     <TooltipProvider>
       {/* One change stream for the whole shell — see the component for why here. */}
       <LiveUpdates />
+      {/* Cmd/Ctrl+K from anywhere in the app. */}
+      <CommandPalette role={session.role} modules={club?.modules ?? []} />
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar
           session={session}
@@ -63,7 +67,9 @@ export default async function AppLayout({
               userName={session.user.name ?? session.user.email}
             />
           )}
-          <Header fixed />
+          <Header fixed>
+            <CommandTrigger />
+          </Header>
           <div className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
             {children}
           </div>

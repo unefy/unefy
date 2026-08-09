@@ -18,6 +18,17 @@
       }
     }
   },
+  "commandPalette": {
+    "title": "Befehle",
+    "description": "Springe zu einer Seite oder finde ein Mitglied.",
+    "placeholder": "Seite oder Mitglied suchen …",
+    "empty": "Nichts gefunden.",
+    "trigger": "Suchen",
+    "groups": {
+      "navigate": "Gehe zu",
+      "members": "Mitglieder"
+    }
+  },
   "nav": {
     "groups": {
       "start": "Start",
