@@ -498,3 +498,56 @@ class TestManifest:
         """403, following the convention the rest of the API already uses."""
         assert (await anon_client.get("/api/v1/sync/manifest")).status_code == 403
         assert (await anon_client.get(SYNC_MEMBERS)).status_code == 403
+
+    async def test_a_plain_member_may_sync_rounds_but_not_members(
+        self,
+        db_session: AsyncSession,
+        fake_redis,  # type: ignore[no-untyped-def]
+        test_user: Any,
+        test_tenant: Tenant,
+    ) -> None:
+        """Rounds carry no personal data; the member mirror carries IBANs.
+
+        A member needs the rounds to file a series under the right one — see
+        the note on the collection in app/sync/registry.py.
+        """
+        import json as json_module
+
+        from httpx import ASGITransport
+
+        import app.redis as redis_module
+        from app.database import get_db_session
+        from app.main import app
+
+        async def override_db():  # type: ignore[no-untyped-def]
+            yield db_session
+
+        app.dependency_overrides[get_db_session] = override_db
+        redis_module._redis_client = fake_redis
+
+        token = uuid.uuid4().hex
+        await fake_redis.set(
+            f"session:{token}",
+            json_module.dumps(
+                {
+                    "user_id": str(test_user.id),
+                    "tenant_id": str(test_tenant.id),
+                    "role": "member",
+                }
+            ),
+            ex=604800,
+        )
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            cookies={"unefy_session": token},
+        ) as member_client:
+            manifest = await member_client.get("/api/v1/sync/manifest")
+            assert manifest.status_code == 200
+            collections = manifest.json()["data"]["collections"]
+            assert "competition-sessions" in collections
+            assert "competitions" in collections
+            assert "members" not in collections
+
+            assert (await member_client.get("/api/v1/sync/competition-sessions")).status_code == 200
+            assert (await member_client.get(SYNC_MEMBERS)).status_code == 403

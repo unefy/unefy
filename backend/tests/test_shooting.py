@@ -961,3 +961,101 @@ async def test_a_member_cannot_touch_club_records_or_foreign_entries(
             f"{BASE}/records/{foreign_external.id}", json={"rounds_fired": 40}
         )
         assert response.status_code == 403
+
+
+# --- Self-service read of one's own details ---
+
+
+async def test_a_member_reads_back_the_details_of_their_own_range_day(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The read side of the self-service write.
+
+    A member may fill in the discipline and round count of their own external
+    entry; without this endpoint they could write it once and never see it
+    again — `/records` is board-only and keyed by a session an external entry
+    does not have.
+    """
+    member = await _add_member(db_session, shooting_tenant.id)
+    member.user_id = test_user.id
+    await db_session.flush()
+
+    record = await _add_attendance(db_session, shooting_tenant.id, member.id, date(2026, 5, 4))
+    db_session.add(
+        ShootingRecordDetail(
+            tenant_id=shooting_tenant.id,
+            attendance_record_id=record.id,
+            weapon_category="kurzwaffe",
+            rounds_fired=40,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as client:
+        resp = await client.get(f"{BASE}/me/records")
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert [d["attendance_record_id"] for d in data] == [str(record.id)]
+        assert data[0]["rounds_fired"] == 40
+
+
+async def test_own_details_never_reach_across_members(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Somebody else's range day is not part of my history."""
+    mine = await _add_member(db_session, shooting_tenant.id)
+    mine.user_id = test_user.id
+    theirs = await _add_member(db_session, shooting_tenant.id)
+    await db_session.flush()
+
+    their_record = await _add_attendance(
+        db_session, shooting_tenant.id, theirs.id, date(2026, 5, 4)
+    )
+    db_session.add(
+        ShootingRecordDetail(
+            tenant_id=shooting_tenant.id,
+            attendance_record_id=their_record.id,
+            weapon_category="langwaffe",
+            rounds_fired=10,
+        )
+    )
+    await db_session.flush()
+
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as client:
+        assert (await client.get(f"{BASE}/me/records")).json()["data"] == []
+
+
+async def test_own_details_are_empty_for_an_unlinked_account(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    shooting_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """A treasurer with no member record has no range days — a state, not a 404."""
+    async with _client_as(
+        db_session, fake_redis, test_user.id, shooting_tenant.id, "member"
+    ) as client:
+        resp = await client.get(f"{BASE}/me/records")
+        assert resp.status_code == 200
+        assert resp.json()["data"] == []
+
+
+async def test_own_details_need_the_module(
+    db_session: AsyncSession,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """A club without the shooting module has no such endpoint at all."""
+    async with _client_as(db_session, fake_redis, test_user.id, test_tenant.id, "member") as client:
+        assert (await client.get(f"{BASE}/me/records")).status_code == 403

@@ -127,6 +127,18 @@ class ShootingService:
         """What was shot at one evening, for the list that shows it."""
         return await self.details.list_for_session(session_id)
 
+    async def own_details(self) -> list[ShootingRecordDetail]:
+        """The caller's own shooting details, newest day first.
+
+        Empty rather than an error when the account has no member record: an
+        unlinked account (treasurer, external trainer) has no range days, which
+        is a state and not a failure.
+        """
+        own = await self.members.get_by_user_id(self.auth.user_id)
+        if own is None:
+            return []
+        return await self.details.list_for_member(own.id)
+
     async def upsert_detail(
         self, attendance_record_id: uuid.UUID, data: ShootingRecordDetailUpdate
     ) -> ShootingRecordDetail:

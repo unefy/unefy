@@ -47,6 +47,29 @@ class ShootingDetailRepository(
 ):
     model_class = ShootingRecordDetail
 
+    async def list_for_member(self, member_id: uuid.UUID) -> list[ShootingRecordDetail]:
+        """Every detail belonging to one member's own attendance records.
+
+        The read side of the self-service write: `upsert_detail` lets a member
+        fill in the discipline and round count of their own external entry, and
+        without this they could write it once and never see it again.
+
+        Not filtered to `origin = 'external'`: a member may read what the club
+        recorded for them too. Editing stays narrower — that gate lives in the
+        service, where the write is.
+        """
+        result = await self.session.execute(
+            self._base_query()
+            .join(
+                AttendanceRecord,
+                ShootingRecordDetail.attendance_record_id == AttendanceRecord.id,
+            )
+            .where(AttendanceRecord.member_id == member_id)
+            .where(AttendanceRecord.deleted_at.is_(None))
+            .order_by(AttendanceRecord.occurred_on.desc())
+        )
+        return list(result.scalars().all())
+
     async def list_for_session(self, session_id: uuid.UUID) -> list[ShootingRecordDetail]:
         """Every detail belonging to one attendance session.
 

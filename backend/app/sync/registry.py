@@ -55,7 +55,12 @@ COLLECTIONS: dict[str, Collection] = {
         Collection("fee-types", FeeType, FeeTypeResponse),
         Collection("member-fees", MemberFee, MemberFeeResponse),
         Collection("competitions", Competition, CompetitionResponse, roles=ALL_ROLES),
-        Collection("competition-sessions", CompetitionSession, SessionResponse),
+        # Every role, like the competitions themselves: a round carries a name,
+        # a date, a place and a discipline and nothing about a person. A member
+        # needs it to file a series under the right round instead of under
+        # "Freies Training" — without it the scoreboard has no way to be filled
+        # from the app at all.
+        Collection("competition-sessions", CompetitionSession, SessionResponse, roles=ALL_ROLES),
         Collection("entries", Entry, EntryResponse),
     )
 }

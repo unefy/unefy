@@ -92,6 +92,26 @@ async def list_record_details(
     }
 
 
+@router.get("/me/records")
+async def list_own_record_details(
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, object]:
+    """The caller's own shooting details.
+
+    The read side of the self-service write next door. Until now a member could
+    fill in the discipline and round count of their own external range day and
+    never read it back — `/records` is board-only and keyed by a session, and an
+    external entry has none.
+    """
+    details = await _service(session, auth).own_details()
+    return {
+        "data": [
+            ShootingRecordDetailResponse.model_validate(d).model_dump(mode="json") for d in details
+        ]
+    }
+
+
 @router.patch("/records/{record_id}")
 async def update_record_detail(
     record_id: uuid.UUID,
