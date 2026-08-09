@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -121,6 +122,86 @@ class Settings(BaseSettings):
                 "Set DEBUG=true for local development or provide real secrets."
             )
         return self
+
+    @model_validator(mode="after")
+    def _require_a_cookie_domain_that_spans_both_hosts(self) -> "Settings":
+        """A session cookie the app host cannot read is an unusable login.
+
+        The magic link is redeemed on the backend host, which sets the session
+        cookie and redirects to the app host. Without a `Domain` that covers
+        both, the browser keeps the cookie for the backend alone: the app asks
+        `/auth/me` without it, sees no session, and sends the user back to the
+        login form having just proved who they are.
+
+        Refused at startup rather than logged, because the failure is otherwise
+        invisible from the outside — every request answers 200, the health
+        checks pass, and only a human trying to sign in ever finds out.
+
+        Not checked when either side is local: `WEB_APP_URL` left at its
+        default is an install that does not serve the web app at all, and a
+        mobile-only deployment must still boot.
+        """
+        if self.DEBUG:
+            return self
+
+        backend_host = _host_of(self.BACKEND_URL)
+        app_host = _host_of(self.WEB_APP_URL)
+        if not backend_host or not app_host:
+            return self
+        if _is_local(backend_host) or _is_local(app_host):
+            return self
+        if backend_host == app_host:
+            return self
+
+        domain = (self.COOKIE_DOMAIN or "").strip()
+        if not domain:
+            raise ValueError(
+                f"BACKEND_URL ({backend_host}) and WEB_APP_URL ({app_host}) are different "
+                "hosts, so COOKIE_DOMAIN must name their shared parent domain "
+                f"(e.g. .{_shared_suffix(backend_host, app_host) or 'example.com'}). "
+                "Without it the session cookie never reaches the app and no one can sign in."
+            )
+        if not (_covers(domain, backend_host) and _covers(domain, app_host)):
+            raise ValueError(
+                f"COOKIE_DOMAIN ({domain}) does not cover both BACKEND_URL "
+                f"({backend_host}) and WEB_APP_URL ({app_host}). A cookie set for a "
+                "domain the app host is not part of will never be sent back."
+            )
+        return self
+
+
+def _host_of(url: str) -> str:
+    """The hostname of a URL, without port. Empty when it is not parseable."""
+    return (urlparse(url).hostname or "").lower()
+
+
+def _is_local(host: str) -> bool:
+    return host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".localhost")
+
+
+def _covers(domain: str, host: str) -> bool:
+    """Whether a cookie `Domain` would be sent to `host`.
+
+    The leading dot is optional in RFC 6265 and ignored here. The boundary dot
+    in the suffix check is not decoration: without it `unefy.app` would appear
+    to cover `not-unefy.app`.
+    """
+    bare = domain.lstrip(".").lower()
+    return bool(bare) and (host == bare or host.endswith(f".{bare}"))
+
+
+def _shared_suffix(first: str, second: str) -> str:
+    """The longest common parent of two hosts, for the error message."""
+    a = first.split(".")
+    b = second.split(".")
+    common: list[str] = []
+    for left, right in zip(reversed(a), reversed(b), strict=False):
+        if left != right:
+            break
+        common.insert(0, left)
+    # A single label is a public suffix, not a domain anyone may set a cookie
+    # for — suggesting ".app" would be worse than suggesting nothing.
+    return ".".join(common) if len(common) >= 2 else ""
 
 
 @lru_cache

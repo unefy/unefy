@@ -33,6 +33,11 @@ services:
       # to the app. Without a shared parent domain that cookie belongs to the
       # API host alone, the app never receives it, and the user lands back on
       # the login form having just proved who they are.
+      #
+      # Since 2026-08-09 the backend refuses to start in that shape rather than
+      # serving an unusable login — see `Settings` in app/config.py. If this
+      # line is missing from your copy of the file, the value in .env never
+      # reaches the container no matter what it says.
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

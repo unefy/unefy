@@ -148,3 +148,125 @@ def test_the_migration_step_shares_the_backend_environment() -> None:
     """Alembic runs with the same settings, or it fails the same validation."""
     compose: dict[str, Any] = yaml.safe_load(COMPOSE_FILE.read_text())
     assert compose["services"]["migrate"]["environment"] == _backend_environment()
+
+
+# --- The cookie domain, which no CI run can check for a given server ---
+
+
+def _production(**overrides: str) -> dict[str, str]:
+    """A minimal environment that satisfies every other production rule."""
+    base = {
+        "DEBUG": "false",
+        "INTERNAL_API_SECRET": _DUMMY_SECRET,
+        "SESSION_SECRET": _DUMMY_SECRET,
+        "JWT_SECRET": _DUMMY_SECRET,
+        "ATTENDANCE_SECRET": _DUMMY_SECRET,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_split_hosts_without_a_cookie_domain_are_refused() -> None:
+    """The exact shape of the outage: api and app on different hosts, no domain.
+
+    Every request would answer 200 and the health checks would pass; only a
+    human trying to sign in would ever find out.
+    """
+    with pytest.raises(ValueError, match="COOKIE_DOMAIN"):
+        Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            **_production(
+                BACKEND_URL="https://api.unefy.app",
+                WEB_APP_URL="https://test.unefy.app",
+            ),
+        )
+
+
+def test_a_cookie_domain_that_spans_both_hosts_is_accepted() -> None:
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        **_production(
+            BACKEND_URL="https://api.unefy.app",
+            WEB_APP_URL="https://test.unefy.app",
+            COOKIE_DOMAIN=".unefy.app",
+        ),
+    )
+    assert settings.COOKIE_DOMAIN == ".unefy.app"
+
+
+def test_a_cookie_domain_missing_the_leading_dot_is_still_accepted() -> None:
+    """RFC 6265 ignores it, so refusing over it would be pedantry."""
+    Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        **_production(
+            BACKEND_URL="https://api.unefy.app",
+            WEB_APP_URL="https://test.unefy.app",
+            COOKIE_DOMAIN="unefy.app",
+        ),
+    )
+
+
+def test_a_cookie_domain_that_covers_only_one_host_is_refused() -> None:
+    with pytest.raises(ValueError, match="does not cover"):
+        Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            **_production(
+                BACKEND_URL="https://api.unefy.app",
+                WEB_APP_URL="https://app.example.com",
+                COOKIE_DOMAIN=".unefy.app",
+            ),
+        )
+
+
+def test_a_neighbouring_domain_does_not_count_as_covered() -> None:
+    """Suffix matching without a boundary dot would let `not-unefy.app` pass."""
+    with pytest.raises(ValueError, match="does not cover"):
+        Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            **_production(
+                BACKEND_URL="https://api.unefy.app",
+                WEB_APP_URL="https://app.not-unefy.app",
+                COOKIE_DOMAIN=".unefy.app",
+            ),
+        )
+
+
+def test_one_host_for_both_needs_no_cookie_domain() -> None:
+    """Same host, so the cookie is readable where it was set."""
+    Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        **_production(
+            BACKEND_URL="https://unefy.app/api",
+            WEB_APP_URL="https://unefy.app",
+        ),
+    )
+
+
+def test_a_mobile_only_deployment_still_boots() -> None:
+    """`WEB_APP_URL` left at its default serves no web app to lock anyone out of."""
+    Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        **_production(BACKEND_URL="https://api.unefy.app"),
+    )
+
+
+def test_development_is_left_alone() -> None:
+    """DEBUG skips it, like every other production rule in this file."""
+    Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        DEBUG="true",
+        BACKEND_URL="https://api.unefy.app",
+        WEB_APP_URL="https://test.unefy.app",
+    )
+
+
+def test_the_error_names_the_domain_to_set() -> None:
+    """A message that makes the operator guess is only half a check."""
+    with pytest.raises(ValueError, match=r"\.unefy\.app"):
+        Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            **_production(
+                BACKEND_URL="https://api.unefy.app",
+                WEB_APP_URL="https://test.unefy.app",
+            ),
+        )
