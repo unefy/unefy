@@ -50,4 +50,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          # `ignore-error` because the cache export runs *after* the image has
+          # been pushed: a blob the GitHub cache evicted mid-export failed the
+          # job while ghcr already carried the finished image. A slower next
+          # build is the honest cost of a cache miss; a red build that shipped
+          # is just misleading.
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }},ignore-error=true
