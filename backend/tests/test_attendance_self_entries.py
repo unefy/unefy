@@ -213,3 +213,49 @@ async def test_club_records_are_not_deletable_here(
 async def test_entries_require_authentication(anon_client: AsyncClient) -> None:
     resp = await anon_client.post(ENTRIES, json={"occurred_on": _yesterday(), "location": "X"})
     assert resp.status_code == 403
+
+
+async def test_an_entry_without_a_range_name_is_the_own_range_case(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """Shooting alone on one's own range: no session, no foreign range to name.
+
+    The old shape made this day unrecordable in either form — a club record
+    needs a session nobody opened, an external one needed a location that does
+    not exist. What makes it weak is the missing supervision, and that still
+    shows: method `self`, assurance `low`.
+    """
+    await _own_member(db_session, test_tenant.id, test_user.id)
+
+    resp = await auth_client.post(ENTRIES, json={"occurred_on": _yesterday()})
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    assert data["origin"] == "external"
+    assert data["method"] == "self"
+    assert data["assurance"] == "low"
+    assert data["external_location"] is None
+
+
+async def test_a_blank_range_name_is_stored_as_none_not_as_empty(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """An empty box and an absent one mean the same thing."""
+    await _own_member(db_session, test_tenant.id, test_user.id)
+
+    resp = await auth_client.post(ENTRIES, json={"occurred_on": _yesterday(), "location": ""})
+    assert resp.status_code == 201
+    assert resp.json()["data"]["external_location"] is None
+
+
+async def test_one_entry_per_day_still_holds_without_a_range_name(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant, test_user: User
+) -> None:
+    """Two unsupervised visits on one day are still one §14 day."""
+    await _own_member(db_session, test_tenant.id, test_user.id)
+
+    first = await auth_client.post(ENTRIES, json={"occurred_on": _yesterday()})
+    assert first.status_code == 201
+
+    second = await auth_client.post(ENTRIES, json={"occurred_on": _yesterday()})
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "SELF_ENTRY_EXISTS"

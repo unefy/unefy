@@ -76,4 +76,5 @@
     <string name="detail_delete_confirm">Delete</string>
     <string name="detail_delete_cancel">Cancel</string>
     <string name="detail_delete_failed">Could not delete — this needs a connection.</string>
+    <string name="record_missing_attendance">No attendance record for today — this series does not count as a range day until somebody checks you in.</string>
 </resources>

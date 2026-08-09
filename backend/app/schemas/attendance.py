@@ -162,15 +162,19 @@ class AttendanceRecordUpdate(BaseSchema):
 
 
 class SelfEntryCreate(BaseSchema):
-    """A member's own entry about a visit to some other range.
+    """A member's own entry about a range day the club did not run.
 
-    Only the claim itself: which day, which range. Method and assurance are
-    derived server-side, like everywhere else — a self-entry that could name
-    its own credibility would not have any.
+    Only the claim itself: which day, and which range if it was somebody
+    else's. Method and assurance are derived server-side, like everywhere else
+    — a self-entry that could name its own credibility would not have any.
+
+    `location` is optional: shooting alone on one's own club range is the same
+    kind of day, unsupervised and self-kept, and there is no foreign range to
+    name. Requiring one only meant that day could not be recorded at all.
     """
 
     occurred_on: date
-    location: str = Field(min_length=1, max_length=255)
+    location: str | None = Field(default=None, max_length=255)
     note: str | None = Field(default=None, max_length=1000)
 
 

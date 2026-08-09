@@ -246,6 +246,92 @@ class RecordShotsViewModelTest {
         pending = false,
     )
 
+    @Test
+    fun `a shooter with no attendance today is told so`() = runTest(dispatcher) {
+        val repository = FakeRepository(targets = CompletableDeferred(emptyList()))
+        repository.attendanceOnDay = false
+        val viewModel = viewModel(repository)
+
+        viewModel.start(
+            sessionId = null,
+            discipline = null,
+            memberId = "m1",
+            canPickMember = false,
+            expectedShots = null,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as RecordShotsUiState.Content
+        assertTrue("the hint should be shown", state.missingAttendance)
+        // A hint, never a gate.
+        assertTrue("saving must stay possible", state.member != null)
+    }
+
+    @Test
+    fun `a shooter who is checked in is not nagged`() = runTest(dispatcher) {
+        val repository = FakeRepository(targets = CompletableDeferred(emptyList()))
+        repository.attendanceOnDay = true
+        val viewModel = viewModel(repository)
+
+        viewModel.start(
+            sessionId = null,
+            discipline = null,
+            memberId = "m1",
+            canPickMember = false,
+            expectedShots = null,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as RecordShotsUiState.Content
+        assertTrue("no hint when present", !state.missingAttendance)
+    }
+
+    /** No signal, no member record, no attendance in use — all the same answer. */
+    @Test
+    fun `an unanswerable question shows no hint`() = runTest(dispatcher) {
+        val repository = FakeRepository(targets = CompletableDeferred(emptyList()))
+        repository.attendanceOnDay = null
+        val viewModel = viewModel(repository)
+
+        viewModel.start(
+            sessionId = null,
+            discipline = null,
+            memberId = "m1",
+            canPickMember = false,
+            expectedShots = null,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as RecordShotsUiState.Content
+        assertTrue("silence beats a guess", !state.missingAttendance)
+    }
+
+    /**
+     * The board records for other people, and nobody may read somebody else's
+     * attendance — so the question is not even asked.
+     */
+    @Test
+    fun `recording for someone else shows no hint`() = runTest(dispatcher) {
+        val repository = FakeRepository(
+            targets = CompletableDeferred(emptyList()),
+            members = listOf(MemberOption("m2", "Erika Musterfrau")),
+        )
+        repository.attendanceOnDay = false
+        val viewModel = viewModel(repository)
+
+        viewModel.start(
+            sessionId = null,
+            discipline = null,
+            memberId = null,
+            canPickMember = true,
+            expectedShots = null,
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as RecordShotsUiState.Content
+        assertTrue("the hint is only ever about oneself", !state.missingAttendance)
+    }
+
     private fun viewModel(repository: ScoringRepository) =
         RecordShotsViewModel(repository, NoScans)
 }
@@ -261,6 +347,11 @@ private class FakeRepository(
     override suspend fun selectableMembers(): List<MemberOption> = members
 
     override suspend fun ownMember(): MemberOption? = MemberOption("m1", "Max Test")
+
+    /** Null unless a test says otherwise: "unknown" shows no hint. */
+    var attendanceOnDay: Boolean? = null
+
+    override suspend fun hasAttendanceOn(day: String): Boolean? = attendanceOnDay
 
     override suspend fun record(
         draft: ShotSeriesDraft,

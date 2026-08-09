@@ -43,6 +43,14 @@ sealed interface RecordShotsUiState {
         val occurredOn: String,
         /** A rectified photo of the real sheet, drawn under the rings. */
         val photo: android.graphics.Bitmap? = null,
+        /**
+         * True when the shooter has no attendance record for this day.
+         *
+         * A hint, never a gate: a result is not a proof of presence, and the
+         * series saves either way. Only set for one's own series — nobody may
+         * read anybody else's attendance.
+         */
+        val missingAttendance: Boolean = false,
         val saving: Boolean = false,
         val savedPending: Boolean = false,
         val error: ApiError? = null,
@@ -158,6 +166,17 @@ class RecordShotsViewModel @Inject constructor(
                 else -> repository.ownMember()
             }
             update { it.copy(member = member, selectableMembers = members) }
+
+            // Only for one's own series, and only when the answer is certain:
+            // a member may not read anybody else's attendance, and a hint that
+            // might be wrong is worse than none. Correcting an old series says
+            // nothing about today, so it is skipped there too.
+            if (seriesId == null && !canPickMember) {
+                val day = (_uiState.value as? RecordShotsUiState.Content)?.occurredOn
+                if (day != null && repository.hasAttendanceOn(day) == false) {
+                    update { it.copy(missingAttendance = true) }
+                }
+            }
         }
 
         // The server catalog can correct a ring diameter without an app update,

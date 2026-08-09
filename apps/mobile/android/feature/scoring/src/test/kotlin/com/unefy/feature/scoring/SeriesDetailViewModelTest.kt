@@ -135,6 +135,8 @@ private class FakeDetailRepository(
 
     override suspend fun ownMember(): MemberOption? = null
 
+    override suspend fun hasAttendanceOn(day: String): Boolean? = null
+
     override suspend fun record(
         draft: ShotSeriesDraft,
         memberId: String,

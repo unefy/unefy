@@ -328,6 +328,22 @@ private fun ScoreHeader(state: RecordShotsUiState.Content) {
             }
         }
 
+        // Said once, quietly, and never in the way: the series saves either
+        // way. A result is not a proof of presence, and a shooter who has not
+        // been checked in should hear that while they can still fix it.
+        if (state.missingAttendance) {
+            Text(
+                text = stringResource(R.string.record_missing_attendance),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    start = UnefySpacing.md,
+                    end = UnefySpacing.md,
+                    bottom = UnefySpacing.sm,
+                ),
+            )
+        }
+
         // The rings in the order they were shot. They used to be printed inside
         // the markers, which only worked while those were drawn too large; a
         // 9 mm hole at true scale has no room for a digit.

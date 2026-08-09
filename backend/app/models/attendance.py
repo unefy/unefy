@@ -141,14 +141,19 @@ class AttendanceRecord(TenantModel, AuditMixin, SoftDeleteMixin):
             "(member_id IS NOT NULL) <> (guest_name IS NOT NULL)",
             name="ck_attendance_records_member_xor_guest",
         ),
-        # A club record hangs off a session; an external one names the range
-        # instead and always belongs to a member — a guest has no proof to
-        # keep, and nobody keeps one for them. Enforced by the database, so no
-        # write path can produce a record that is neither.
+        # A club record hangs off a session; a self-kept one has no session and
+        # always belongs to a member — a guest has no proof to keep, and nobody
+        # keeps one for them. Enforced by the database, so no write path can
+        # produce a record that is neither.
+        #
+        # `external_location` is optional since 2026-08-09: a member shooting
+        # alone on their own club's range has no foreign range to name, and
+        # requiring one made that day unrecordable in either shape. The place
+        # was never what made the entry weak — the absence of supervision is,
+        # and that is carried by `assurance`, not by this column.
         CheckConstraint(
             "(origin = 'club' AND session_id IS NOT NULL AND external_location IS NULL)"
-            " OR (origin = 'external' AND session_id IS NULL"
-            " AND member_id IS NOT NULL AND external_location IS NOT NULL)",
+            " OR (origin = 'external' AND session_id IS NULL AND member_id IS NOT NULL)",
             name="ck_attendance_records_origin_shape",
         ),
         # One external entry per member and day. Two ranges on one day are

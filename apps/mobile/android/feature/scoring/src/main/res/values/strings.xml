@@ -78,4 +78,5 @@
     <string name="detail_delete_confirm">Löschen</string>
     <string name="detail_delete_cancel">Abbrechen</string>
     <string name="detail_delete_failed">Löschen fehlgeschlagen — ohne Verbindung nicht möglich.</string>
+    <string name="record_missing_attendance">Für heute ist kein Anwesenheitseintrag da — die Serie zählt nicht als Schießtag, solange dich niemand einträgt.</string>
 </resources>

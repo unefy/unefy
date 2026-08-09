@@ -223,6 +223,21 @@ interface ScoringRepository {
     /** The caller's own member record, when their account is linked to one. */
     suspend fun ownMember(): MemberOption?
 
+    /**
+     * Whether the caller already has an attendance record for a given day.
+     *
+     * Read here rather than through feature:attendance — features do not
+     * import each other, and this is one call to an endpoint every role may
+     * ask (`/attendance/me/records`). Deliberately about the caller only: a
+     * member may not read anybody else's attendance, so the hint this feeds
+     * can only ever be about oneself.
+     *
+     * Null when the question could not be answered — no signal, no member
+     * record, no attendance in use. A hint is worth showing only when it is
+     * certainly true.
+     */
+    suspend fun hasAttendanceOn(day: String): Boolean?
+
     /** Queue a series. Always succeeds locally; sending happens later. */
     suspend fun record(
         draft: ShotSeriesDraft,
@@ -281,6 +296,12 @@ interface ScoringRepository {
 }
 
 @Singleton
+/** Only the day is read — this answers one yes/no question. */
+@Serializable
+internal data class OwnAttendanceDto(
+    @SerialName("occurred_on") val occurredOn: String = "",
+)
+
 internal class DefaultScoringRepository @Inject constructor(
     private val apiClient: ApiClient,
     private val pendingDao: PendingShotEntryDao,
@@ -301,6 +322,14 @@ internal class DefaultScoringRepository @Inject constructor(
 
     override suspend fun selectableMembers(): List<MemberOption> =
         memberDao.search("").first().map { MemberOption(it.id, "${it.firstName} ${it.lastName}") }
+
+    override suspend fun hasAttendanceOn(day: String): Boolean? =
+        when (val result = apiClient.get<List<OwnAttendanceDto>>(
+            ApiEndpoints.ATTENDANCE_ME_RECORDS,
+        )) {
+            is ApiResult.Success -> result.data.any { it.occurredOn == day }
+            is ApiResult.Failure -> null
+        }
 
     override suspend fun ownMember(): MemberOption? =
         when (val result = apiClient.get<MemberMeDto>(ApiEndpoints.MEMBERS_ME)) {

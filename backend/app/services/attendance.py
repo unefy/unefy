@@ -670,7 +670,7 @@ class AttendanceService:
             tenant_id=self.tenant_id,
             session_id=None,
             origin="external",
-            external_location=data.location,
+            external_location=data.location or None,
             member_id=member.id,
             occurred_on=data.occurred_on,
             checked_in_at=datetime.now(UTC),
