@@ -4,7 +4,19 @@
     "switchClub": "Verein wechseln",
     "german": "Deutsch",
     "english": "English",
-    "adminArea": "Administration"
+    "adminArea": "Administration",
+    "confirm": {
+      "cancel": "Abbrechen",
+      "working": "Einen Moment …",
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist voll oder die Person steht schon auf der Liste.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    }
   },
   "nav": {
     "groups": {
@@ -813,6 +825,169 @@
       },
       "errors": {
         "conflict": "Nicht möglich — der Termin ist abgeschlossen oder die Person ist bereits erfasst.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    }
+  },
+  "events": {
+    "title": "Termine",
+    "description": "{count, plural, one {# Termin} other {# Termine}} im Vereinskalender.",
+    "empty": "Noch keine Termine angelegt.",
+    "allDay": "Ganztägig",
+    "searchPlaceholder": "Titel, Ort oder Wettkampf suchen",
+    "columns": {
+      "date": "Datum",
+      "time": "Zeit",
+      "title": "Titel",
+      "type": "Art",
+      "location": "Ort",
+      "registrations": "Anmeldungen",
+      "self": "Ich"
+    },
+    "types": {
+      "training": "Training",
+      "meeting": "Versammlung",
+      "celebration": "Feier",
+      "competition": "Wettkampf",
+      "other": "Sonstiges"
+    },
+    "status": {
+      "scheduled": "Geplant",
+      "cancelled": "Abgesagt"
+    },
+    "filters": {
+      "allTimeframes": "Alle Zeiträume",
+      "upcoming": "Bevorstehend",
+      "past": "Vergangen",
+      "allTypes": "Alle Arten"
+    },
+    "fields": {
+      "registration": "Anmeldung",
+      "deadline": "Anmeldeschluss",
+      "description": "Beschreibung"
+    },
+    "detail": {
+      "back": "Zurück zu den Terminen",
+      "cancel": "Absagen",
+      "delete": "Termin löschen",
+      "seats": "{count} von {max} Plätzen belegt",
+      "registeredCount": "{count, plural, one {# Anmeldung} other {# Anmeldungen}}",
+      "noRegistration": "Keine Anmeldung nötig"
+    },
+    "cancelledAlert": {
+      "title": "Dieser Termin ist abgesagt.",
+      "description": "Die Anmeldungen bleiben erhalten — so ist nachvollziehbar, wer zugesagt hatte."
+    },
+    "cancelDialog": {
+      "title": "Termin absagen?",
+      "description": "Der Termin bleibt im Kalender und ist als abgesagt gekennzeichnet. Die Anmeldungen bleiben erhalten.",
+      "confirm": "Absagen"
+    },
+    "deleteDialog": {
+      "title": "Termin löschen?",
+      "description": "Der Termin wird mit {count, plural, one {# Anmeldung} other {# Anmeldungen}} entfernt. Zum Absagen gibt es den Knopf daneben.",
+      "confirm": "Löschen"
+    },
+    "toasts": {
+      "cancelled": "Termin abgesagt.",
+      "deleted": "Termin gelöscht."
+    },
+    "registration": {
+      "register": "Anmelden",
+      "cancel": "Abmelden",
+      "registeredToast": "Angemeldet.",
+      "cancelledToast": "Abgemeldet.",
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist voll oder die Person steht schon auf der Liste.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    },
+    "registrations": {
+      "title": "Angemeldet ({count})",
+      "empty": "Noch niemand angemeldet.",
+      "searchPlaceholder": "Name suchen",
+      "add": "Anmelden",
+      "remove": "Anmeldung entfernen",
+      "alreadyRegistered": "Bereits angemeldet",
+      "addedToast": "Anmeldung eingetragen.",
+      "removedToast": "Anmeldung entfernt.",
+      "columns": {
+        "member": "Mitglied",
+        "status": "Status",
+        "registeredAt": "Angemeldet am"
+      },
+      "status": {
+        "registered": "Angemeldet",
+        "waitlisted": "Warteliste"
+      },
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist voll oder die Person steht schon auf der Liste.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    },
+    "attendance": {
+      "title": "Anwesenheit",
+      "none": "Zu diesem Termin gibt es noch keine Einheit.",
+      "records": "{count, plural, one {# Eintrag} other {# Einträge}}",
+      "closed": "Abgeschlossen",
+      "start": "Einheit starten",
+      "starting": "Wird geöffnet …",
+      "startedToast": "Einheit geöffnet.",
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist voll oder die Person steht schon auf der Liste.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
+      }
+    },
+    "form": {
+      "create": "Termin anlegen",
+      "edit": "Bearbeiten",
+      "createTitle": "Neuer Termin",
+      "editTitle": "Termin bearbeiten",
+      "description": "Titel und Zeit reichen — alles andere ist optional.",
+      "fields": {
+        "title": "Titel",
+        "type": "Art",
+        "location": "Ort",
+        "startsAt": "Beginn",
+        "endsAt": "Ende",
+        "allDay": "Ganztägig",
+        "description": "Beschreibung",
+        "registrationRequired": "Anmeldung erforderlich",
+        "maxParticipants": "Teilnehmerzahl",
+        "deadline": "Anmeldeschluss"
+      },
+      "placeholders": {
+        "title": "Übungsabend",
+        "location": "Schützenhaus"
+      },
+      "hints": {
+        "endsAt": "Optional.",
+        "maxParticipants": "Leer lassen für unbegrenzt. Darüber hinaus entsteht eine Warteliste.",
+        "deadline": "Der Vorstand kann auch danach noch anmelden."
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern …",
+      "createdToast": "Termin angelegt.",
+      "savedToast": "Termin gespeichert.",
+      "errors": {
+        "conflict": "Nicht möglich — der Termin ist voll oder die Person steht schon auf der Liste.",
         "forbidden": "Dafür fehlt dir die Berechtigung.",
         "notFound": "Nicht gefunden.",
         "validation": "Bitte die Eingaben prüfen.",

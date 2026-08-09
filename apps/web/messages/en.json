@@ -4,7 +4,19 @@
     "switchClub": "Switch club",
     "german": "Deutsch",
     "english": "English",
-    "adminArea": "Administration"
+    "adminArea": "Administration",
+    "confirm": {
+      "cancel": "Cancel",
+      "working": "One moment …",
+      "errors": {
+        "conflict": "Not possible — the event is full or the person is already on the list.",
+        "forbidden": "You do not have permission for this.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    }
   },
   "nav": {
     "groups": {
@@ -814,6 +826,169 @@
       "errors": {
         "conflict": "Not possible — the session is closed or the person is already recorded.",
         "forbidden": "You do not have permission for that.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    }
+  },
+  "events": {
+    "title": "Events",
+    "description": "{count, plural, one {# event} other {# events}} in the club calendar.",
+    "empty": "No events yet.",
+    "allDay": "All day",
+    "searchPlaceholder": "Search title, location or competition",
+    "columns": {
+      "date": "Date",
+      "time": "Time",
+      "title": "Title",
+      "type": "Type",
+      "location": "Location",
+      "registrations": "Registrations",
+      "self": "Me"
+    },
+    "types": {
+      "training": "Training",
+      "meeting": "Meeting",
+      "celebration": "Celebration",
+      "competition": "Competition",
+      "other": "Other"
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "cancelled": "Cancelled"
+    },
+    "filters": {
+      "allTimeframes": "All timeframes",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "allTypes": "All types"
+    },
+    "fields": {
+      "registration": "Registration",
+      "deadline": "Registration deadline",
+      "description": "Description"
+    },
+    "detail": {
+      "back": "Back to events",
+      "cancel": "Cancel event",
+      "delete": "Delete event",
+      "seats": "{count} of {max} seats taken",
+      "registeredCount": "{count, plural, one {# registration} other {# registrations}}",
+      "noRegistration": "No registration needed"
+    },
+    "cancelledAlert": {
+      "title": "This event is cancelled.",
+      "description": "Registrations are kept, so it stays visible who had signed up."
+    },
+    "cancelDialog": {
+      "title": "Cancel this event?",
+      "description": "The event stays in the calendar, marked as cancelled. Registrations are kept.",
+      "confirm": "Cancel event"
+    },
+    "deleteDialog": {
+      "title": "Delete this event?",
+      "description": "The event and its {count, plural, one {# registration} other {# registrations}} are removed. To call it off instead, use the button next to this one.",
+      "confirm": "Delete"
+    },
+    "toasts": {
+      "cancelled": "Event cancelled.",
+      "deleted": "Event deleted."
+    },
+    "registration": {
+      "register": "Register",
+      "cancel": "Cancel registration",
+      "registeredToast": "Registered.",
+      "cancelledToast": "Registration cancelled.",
+      "errors": {
+        "conflict": "Not possible — the event is full or the person is already on the list.",
+        "forbidden": "You do not have permission for this.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    },
+    "registrations": {
+      "title": "Registered ({count})",
+      "empty": "Nobody registered yet.",
+      "searchPlaceholder": "Search name",
+      "add": "Register",
+      "remove": "Remove registration",
+      "alreadyRegistered": "Already registered",
+      "addedToast": "Registration added.",
+      "removedToast": "Registration removed.",
+      "columns": {
+        "member": "Member",
+        "status": "Status",
+        "registeredAt": "Registered on"
+      },
+      "status": {
+        "registered": "Registered",
+        "waitlisted": "Waitlisted"
+      },
+      "errors": {
+        "conflict": "Not possible — the event is full or the person is already on the list.",
+        "forbidden": "You do not have permission for this.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    },
+    "attendance": {
+      "title": "Attendance",
+      "none": "No attendance session for this event yet.",
+      "records": "{count, plural, one {# entry} other {# entries}}",
+      "closed": "Closed",
+      "start": "Start attendance",
+      "starting": "Opening …",
+      "startedToast": "Session opened.",
+      "errors": {
+        "conflict": "Not possible — the event is full or the person is already on the list.",
+        "forbidden": "You do not have permission for this.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
+      }
+    },
+    "form": {
+      "create": "Add event",
+      "edit": "Edit",
+      "createTitle": "New event",
+      "editTitle": "Edit event",
+      "description": "Title and time are enough — everything else is optional.",
+      "fields": {
+        "title": "Title",
+        "type": "Type",
+        "location": "Location",
+        "startsAt": "Starts",
+        "endsAt": "Ends",
+        "allDay": "All day",
+        "description": "Description",
+        "registrationRequired": "Registration required",
+        "maxParticipants": "Participant limit",
+        "deadline": "Registration deadline"
+      },
+      "placeholders": {
+        "title": "Training evening",
+        "location": "Clubhouse"
+      },
+      "hints": {
+        "endsAt": "Optional.",
+        "maxParticipants": "Leave empty for no limit. Beyond it, a waiting list forms.",
+        "deadline": "The board can still register people afterwards."
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …",
+      "createdToast": "Event created.",
+      "savedToast": "Event saved.",
+      "errors": {
+        "conflict": "Not possible — the event is full or the person is already on the list.",
+        "forbidden": "You do not have permission for this.",
         "notFound": "Not found.",
         "validation": "Please check your input.",
         "unknown": "Something went wrong.",

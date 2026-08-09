@@ -1,5 +1,6 @@
 import {
   AwardIcon,
+  CalendarIcon,
   CircleUserIcon,
   ClipboardCheckIcon,
   HouseIcon,
@@ -75,9 +76,14 @@ export const sidebarData: SidebarData = {
           url: "/attendance",
           icon: ClipboardCheckIcon,
         },
-        // Termine and Wettkämpfe are built in the backend and in the Android
-        // app, but have no web page yet — an entry here would only lead to a
-        // 404. They come back with their pages (docs/plans/roadmap.md).
+        {
+          titleKey: "events",
+          url: "/events",
+          icon: CalendarIcon,
+        },
+        // Wettkämpfe are built in the backend and in the Android app, but have
+        // no web page yet — an entry here would only lead to a 404. It comes
+        // back with its page (docs/plans/roadmap.md).
         {
           titleKey: "shooting",
           url: "/shooting",
