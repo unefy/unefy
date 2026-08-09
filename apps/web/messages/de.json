@@ -566,7 +566,9 @@
         "iban": "IBAN",
         "bic": "BIC",
         "accountHolder": "Kontoinhaber",
-        "gender": "Geschlecht"
+        "gender": "Geschlecht",
+        "sepaMandateReference": "SEPA-Mandatsreferenz",
+        "sepaMandateDate": "Mandat unterschrieben am"
       },
       "blockAccess": "Zugang gleichzeitig sperren",
       "blockAccessHint": "Dieses Mitglied hat einen aktiven Zugang. Beim Austritt sollte er in der Regel gesperrt werden.",
@@ -583,6 +585,9 @@
         "notFound": "Das Mitglied wurde nicht gefunden.",
         "unreachable": "Der Server ist nicht erreichbar.",
         "unknown": "Es ist ein Fehler aufgetreten."
+      },
+      "hints": {
+        "sepaMandate": "Ohne Mandat wird das Mitglied beim Lastschrift-Export übersprungen."
       }
     },
     "functionsTab": {
@@ -1010,7 +1015,8 @@
       "regional": "Regionales",
       "contact": "Kontakt",
       "address": "Anschrift",
-      "legal": "Rechtliches"
+      "legal": "Rechtliches",
+      "sepa": "Bankverbindung & SEPA"
     },
     "fields": {
       "name": "Name",
@@ -1031,13 +1037,18 @@
       "taxNumber": "Steuernummer",
       "taxOffice": "Finanzamt",
       "isNonprofit": "Gemeinnützig",
-      "nonprofitSince": "Gemeinnützig seit"
+      "nonprofitSince": "Gemeinnützig seit",
+      "sepaCreditorId": "Gläubiger-Identifikationsnummer",
+      "iban": "IBAN",
+      "bic": "BIC"
     },
     "hints": {
       "shortName": "Für enge Stellen wie die Seitenleiste.",
       "slug": "Wird bei der Anlage vergeben und ist nicht änderbar.",
       "regional": "Die Zeitzone bestimmt, welcher Kalendertag ein Termin ist. Ein Übungsabend, der um 00:30 Uhr beginnt, zählt sonst zum Vortag — und genau auf dieses Datum stützt sich der Anwesenheitsnachweis.",
-      "legal": "Angaben aus Vereinsregister und Freistellungsbescheid."
+      "legal": "Angaben aus Vereinsregister und Freistellungsbescheid.",
+      "sepa": "Die Seite des Vereins beim Lastschrifteinzug. Ohne Gläubiger-ID und IBAN lässt sich keine Lastschrift erzeugen.",
+      "sepaCreditorId": "Wird von der Bundesbank vergeben."
     },
     "errors": {
       "forbidden": "Dafür fehlt dir die Berechtigung.",

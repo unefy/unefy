@@ -109,4 +109,35 @@ describe("parseMemberForm", () => {
       parseMemberForm(form({ ...REQUIRED, status: "resigned" })).success
     ).toBe(true)
   })
+
+  it("carries the SEPA mandate through, blank or set", () => {
+    const blank = parseMemberForm(
+      form({ ...REQUIRED, sepa_mandate_reference: "", sepa_mandate_date: "" })
+    )
+    expect(blank.success).toBe(true)
+    if (blank.success) {
+      expect(blank.data.sepa_mandate_reference).toBeNull()
+      expect(blank.data.sepa_mandate_date).toBeNull()
+    }
+
+    const set = parseMemberForm(
+      form({
+        ...REQUIRED,
+        sepa_mandate_reference: "M-2026-0042",
+        sepa_mandate_date: "2026-01-15",
+      })
+    )
+    expect(set.success).toBe(true)
+    if (set.success) {
+      expect(set.data.sepa_mandate_reference).toBe("M-2026-0042")
+      expect(set.data.sepa_mandate_date).toBe("2026-01-15")
+    }
+  })
+
+  it("rejects a mandate date that is not a date", () => {
+    expect(
+      parseMemberForm(form({ ...REQUIRED, sepa_mandate_date: "15.01.2026" }))
+        .success
+    ).toBe(false)
+  })
 })

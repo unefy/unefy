@@ -58,16 +58,19 @@ type MemberDialogProps = {
 function Field({
   id,
   label,
+  hint,
   children,
 }: {
   id: string
   label: string
+  hint?: string
   children: React.ReactNode
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
       {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -355,6 +358,37 @@ export function MemberDialog({
                   id="account_holder"
                   name="account_holder"
                   defaultValue={member?.account_holder ?? ""}
+                />
+              </Field>
+            </div>
+
+            {/*
+              Bank details alone do not authorise anything — the direct debit
+              file needs the mandate the member signed, by reference and date.
+              A member without both is skipped by the SEPA export.
+            */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                id="sepa_mandate_reference"
+                label={t("fields.sepaMandateReference")}
+                hint={t("hints.sepaMandate")}
+              >
+                <Input
+                  id="sepa_mandate_reference"
+                  name="sepa_mandate_reference"
+                  maxLength={35}
+                  defaultValue={member?.sepa_mandate_reference ?? ""}
+                />
+              </Field>
+              <Field
+                id="sepa_mandate_date"
+                label={t("fields.sepaMandateDate")}
+              >
+                <Input
+                  id="sepa_mandate_date"
+                  name="sepa_mandate_date"
+                  type="date"
+                  defaultValue={member?.sepa_mandate_date ?? ""}
                 />
               </Field>
             </div>

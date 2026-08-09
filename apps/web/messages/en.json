@@ -566,7 +566,9 @@
         "iban": "IBAN",
         "bic": "BIC",
         "accountHolder": "Account holder",
-        "gender": "Gender"
+        "gender": "Gender",
+        "sepaMandateReference": "SEPA mandate reference",
+        "sepaMandateDate": "Mandate signed on"
       },
       "blockAccess": "Block the account as well",
       "blockAccessHint": "This member has an active account. On leaving it should normally be blocked.",
@@ -583,6 +585,9 @@
         "notFound": "The member was not found.",
         "unreachable": "The server is unreachable.",
         "unknown": "Something went wrong."
+      },
+      "hints": {
+        "sepaMandate": "Without a mandate the member is skipped by the direct debit export."
       }
     },
     "functionsTab": {
@@ -1010,7 +1015,8 @@
       "regional": "Regional",
       "contact": "Contact",
       "address": "Address",
-      "legal": "Legal"
+      "legal": "Legal",
+      "sepa": "Bank details & SEPA"
     },
     "fields": {
       "name": "Name",
@@ -1031,13 +1037,18 @@
       "taxNumber": "Tax number",
       "taxOffice": "Tax office",
       "isNonprofit": "Non-profit",
-      "nonprofitSince": "Non-profit since"
+      "nonprofitSince": "Non-profit since",
+      "sepaCreditorId": "Creditor identifier",
+      "iban": "IBAN",
+      "bic": "BIC"
     },
     "hints": {
       "shortName": "For tight spots such as the sidebar.",
       "slug": "Assigned at creation and not editable.",
       "regional": "The time zone decides which calendar day a session belongs to. A practice evening starting at 00:30 would otherwise count towards the previous day — and the attendance proof rests on exactly that date.",
-      "legal": "Details from the register of associations and the tax exemption notice."
+      "legal": "Details from the register of associations and the tax exemption notice.",
+      "sepa": "The club's side of a direct debit. Without a creditor identifier and IBAN no direct debit file can be produced.",
+      "sepaCreditorId": "Issued by the national central bank."
     },
     "errors": {
       "forbidden": "You do not have permission for that.",

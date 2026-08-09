@@ -28,6 +28,12 @@ export type Club = {
   is_nonprofit: boolean
   nonprofit_since: string | null
 
+  // SEPA creditor identity. Without the creditor id and IBAN the club cannot
+  // produce a direct debit file at all — the backend refuses the export.
+  sepa_creditor_id: string | null
+  iban: string | null
+  bic: string | null
+
   /** IANA name, e.g. "Europe/Berlin". The club's calendar day. */
   timezone: string
 

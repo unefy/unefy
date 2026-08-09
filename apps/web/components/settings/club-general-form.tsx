@@ -357,6 +357,38 @@ export function ClubGeneralForm({
             </Field>
           )}
         </Section>
+
+        <Section title={t("sections.sepa")} description={t("hints.sepa")}>
+          <Field
+            id="sepa_creditor_id"
+            label={t("fields.sepaCreditorId")}
+            hint={t("hints.sepaCreditorId")}
+          >
+            <Input
+              id="sepa_creditor_id"
+              name="sepa_creditor_id"
+              maxLength={35}
+              defaultValue={club.sepa_creditor_id ?? ""}
+              placeholder="DE98ZZZ09999999999"
+            />
+          </Field>
+          <Field id="club_iban" label={t("fields.iban")}>
+            <Input
+              id="club_iban"
+              name="iban"
+              maxLength={34}
+              defaultValue={club.iban ?? ""}
+            />
+          </Field>
+          <Field id="club_bic" label={t("fields.bic")}>
+            <Input
+              id="club_bic"
+              name="bic"
+              maxLength={11}
+              defaultValue={club.bic ?? ""}
+            />
+          </Field>
+        </Section>
       </fieldset>
 
       {canEdit ? (

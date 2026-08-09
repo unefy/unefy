@@ -48,6 +48,10 @@ const memberSchema = z.object({
   iban: optionalText,
   bic: optionalText,
   account_holder: optionalText,
+  // The signed mandate behind the bank details. The SEPA export skips a member
+  // who has an IBAN but no mandate — collecting without one is not allowed.
+  sepa_mandate_reference: optionalText,
+  sepa_mandate_date: optionalDate,
 })
 
 /**

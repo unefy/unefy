@@ -61,6 +61,11 @@ const clubSchema = z.object({
   // locked every non-charitable club out of saving this page at all.
   nonprofit_since: optionalDate.optional(),
 
+  // SEPA creditor identity — the club's side of a direct debit.
+  sepa_creditor_id: optionalText,
+  iban: optionalText,
+  bic: optionalText,
+
   // The zone the club's calendar day is resolved against. Validated properly
   // in the backend against the actual zone database — a typo here would shift
   // every attendance date by a day.
