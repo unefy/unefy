@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Boolean, Date, Integer, String, Text, Uuid
+from sqlalchemy import Boolean, Date, Integer, String, Text, Uuid, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -65,6 +65,14 @@ class Tenant(Base, TimestampMixin):
     # Whether the club is organised in divisions (Sparten). Divisions always
     # exist in the data model; this only controls whether the UI shows them.
     has_divisions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Whether the public join form accepts applications for this club. Off by
+    # default, and deliberately so: this is the one endpoint an unauthenticated
+    # stranger can write through, and switching it on for every existing club
+    # at migration time would be a decision the clubs never made.
+    applications_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     # The club's own time zone. Everything the club sees as "the evening of the
     # 7th" is resolved against this: the server runs in UTC, and a session that

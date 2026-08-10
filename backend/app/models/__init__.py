@@ -1,3 +1,4 @@
+from app.models.application import MembershipApplication
 from app.models.attendance import (
     AttendanceCheckinContext,
     AttendanceRecord,
@@ -60,6 +61,7 @@ __all__ = [
     "MemberFederationMembership",
     "MemberFee",
     "MemberFunction",
+    "MembershipApplication",
     "ProofChainAnchor",
     "ProofChainEntry",
     "PushDevice",

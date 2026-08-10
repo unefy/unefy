@@ -70,6 +70,10 @@ class ClubResponse(BaseSchema):
     # division picker in the UI.
     has_divisions: bool = False
 
+    # Whether the public join form is open. Off until somebody turns it on:
+    # it is the only way an unauthenticated stranger writes to the club.
+    applications_enabled: bool = False
+
 
 class ClubUpdate(BaseSchema):
     name: str | None = Field(default=None, min_length=2, max_length=255)
@@ -112,6 +116,9 @@ class ClubUpdate(BaseSchema):
 
     # IANA name, e.g. "Europe/Berlin".
     timezone: str | None = Field(default=None, max_length=64)
+
+    # Opening or closing the public join form.
+    applications_enabled: bool | None = None
 
     _check_timezone = field_validator("timezone")(_validate_timezone)
 
