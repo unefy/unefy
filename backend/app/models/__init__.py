@@ -18,6 +18,7 @@ from app.models.competition import Competition, Entry, Session
 from app.models.consent import CONSENT_KINDS, CONSENT_SOURCES, MemberConsent
 from app.models.discipline import Discipline
 from app.models.division import Division
+from app.models.document import DocumentTemplate, IssuedDocument
 from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
 from app.models.function import CatalogFunction, Function, MemberFunction
@@ -52,6 +53,7 @@ __all__ = [
     "Competition",
     "Discipline",
     "Division",
+    "DocumentTemplate",
     "Due",
     "Entry",
     "Event",
@@ -59,6 +61,7 @@ __all__ = [
     "FeeType",
     "Function",
     "Invitation",
+    "IssuedDocument",
     "MeasurementUnit",
     "Member",
     "MemberConsent",

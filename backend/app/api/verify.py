@@ -11,6 +11,7 @@ a person was where — the certificate says that, this page must not.
 """
 
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from app.core.exceptions import NotFoundError
 from app.core.rate_limit import RateLimit
 from app.database import get_db_session
 from app.repositories.shooting import certificate_by_verification_code
+from app.services.document import document_by_verification_code
 
 router = APIRouter(tags=["verify"])
 
@@ -33,23 +35,53 @@ async def verify_certificate(
     verification_code: str,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> dict[str, Any]:
-    found = await certificate_by_verification_code(session, verification_code)
-    if found is None:
-        # The same 404 for "never existed" and for malformed input — this
-        # endpoint answers questions about one code, never about the space.
-        raise NotFoundError("Unknown verification code")
+    """Check one code, whatever kind of document it belongs to.
 
-    certificate, club_name, member_name = found
-    return {
-        "data": {
-            "valid": certificate.revoked_at is None,
-            "revoked": certificate.revoked_at is not None,
-            "result": certificate.result,
-            "period_start": certificate.period_start.isoformat(),
-            "period_end": certificate.period_end.isoformat(),
-            "session_count": certificate.session_count,
-            "issued_at": certificate.issued_at.date().isoformat(),
-            "club_name": club_name,
-            "member_name": member_name,
+    Two kinds share this path: the §14 proof and the club's own certificates.
+    One page for both, because the person scanning the QR is holding a piece
+    of paper and does not know — or care — which of our tables it came from.
+    The codes come from the same alphabet and the same length, so a collision
+    is a lottery win rather than a design problem.
+    """
+    found = await certificate_by_verification_code(session, verification_code)
+    if found is not None:
+        certificate, club_name, member_name = found
+        return {
+            "data": {
+                "kind": "shooting_proof",
+                "valid": certificate.revoked_at is None,
+                "revoked": certificate.revoked_at is not None,
+                "result": certificate.result,
+                "period_start": certificate.period_start.isoformat(),
+                "period_end": certificate.period_end.isoformat(),
+                "session_count": certificate.session_count,
+                "issued_at": certificate.issued_at.date().isoformat(),
+                "club_name": club_name,
+                "member_name": member_name,
+            }
         }
-    }
+
+    issued = await document_by_verification_code(session, verification_code)
+    if issued is not None:
+        document, club_name, member_name, timezone = issued
+        return {
+            "data": {
+                "kind": "document",
+                "valid": document.revoked_at is None,
+                "revoked": document.revoked_at is not None,
+                # The title, never the text. Whoever holds the paper can read
+                # it; whoever merely found a code should learn that the
+                # document is genuine and nothing further.
+                "title": document.title,
+                # The club's day, not the server's: a document issued at
+                # 00:30 in Berlin is dated the 11th on the paper and must not
+                # read as the 10th here.
+                "issued_at": document.issued_at.astimezone(ZoneInfo(timezone)).date().isoformat(),
+                "club_name": club_name,
+                "member_name": member_name,
+            }
+        }
+
+    # The same 404 for "never existed" and for malformed input — this
+    # endpoint answers questions about one code, never about the space.
+    raise NotFoundError("Unknown verification code")
