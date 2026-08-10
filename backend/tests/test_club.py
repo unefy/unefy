@@ -337,9 +337,7 @@ async def test_a_division_can_be_added_renamed_and_removed(
     auth_client: AsyncClient,
 ) -> None:
     """Until now they existed only from onboarding, with no way back in."""
-    created = await auth_client.post(
-        "/api/v1/club/divisions", json={"name": "Bogen"}
-    )
+    created = await auth_client.post("/api/v1/club/divisions", json={"name": "Bogen"})
     assert created.status_code == 201, created.text
     division = created.json()["data"]
     assert division["is_primary"] is False
@@ -434,6 +432,4 @@ async def test_divisions_are_board_free_to_read_but_admin_to_change(
 ) -> None:
     """Reading is every member's; changing the club's structure is not."""
     assert (await anon_client.get("/api/v1/club/divisions")).status_code == 403
-    assert (
-        await anon_client.post("/api/v1/club/divisions", json={"name": "X"})
-    ).status_code == 403
+    assert (await anon_client.post("/api/v1/club/divisions", json={"name": "X"})).status_code == 403
