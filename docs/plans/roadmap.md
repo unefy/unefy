@@ -207,17 +207,23 @@ Zwei Sorten Dokument, und der Unterschied entscheidet die Bauform:
 - **Vorgeschriebene Formen** (Zuwendungsbestätigung nach amtlichem Muster, die
   §14-Bescheinigung) bleiben fest gebaut. Ein Editor wäre dort eine Einladung,
   ein ungültiges Dokument zu erzeugen.
-- **Freie Formen** (Mitgliedsbescheinigung) bekommen einen **Editor mit
-  Layout** — so entschieden am 2026-08-10. Meine Empfehlung war die engere
-  Variante (Textvorlage mit festem Platzhaltersatz); die Entscheidung fiel
-  bewusst für mehr Freiheit.
+- **Freie Formen** (Mitgliedsbescheinigung) laufen über **Textvorlagen mit
+  Variablen** — kein Layout-Editor, entschieden am 2026-08-10.
 
-  Damit der Editor kein zweites Word wird, gehört er beschnitten: eine feste
-  Seitenstruktur mit Blöcken (Briefkopf, Anschriftfeld, Betreff, Fließtext,
-  Unterschrift), Platzhalter aus einem dokumentierten Satz, kein freies
-  Positionieren. Der Briefkopf kommt einmal aus den Einstellungen — Logo,
-  Anschrift, Registernummer und Gemeinnützigkeit stehen am Vereinsdatensatz,
-  `logo_url` ist da und wird bislang nirgends benutzt.
+  Der Verein schreibt den Wortlaut und setzt Platzhalter aus einem festen,
+  dokumentierten Satz: `{{mitglied.name}}`, `{{mitglied.nummer}}`,
+  `{{mitglied.eintritt}}`, `{{verein.name}}`, `{{datum}}`. Gerendert wird in
+  das vorhandene Ein-Seiten-Layout. Das ist sicher (keine beliebige
+  Auswertung, keine Injection), vorhersagbar im Druckbild und übersetzbar —
+  und der Verein ändert den Text, ohne auf ein Release zu warten.
+
+  Ein unbekannter Platzhalter muss beim Speichern auffallen, nicht erst im
+  fertigen PDF: eine Vorlage mit `{{mitglied.vorname}}` soll die Bearbeitung
+  ablehnen, statt später eine Lücke zu drucken.
+
+  Der Briefkopf kommt einmal aus den Einstellungen und nicht in jede Vorlage —
+  Logo, Anschrift, Registernummer und Gemeinnützigkeit stehen am
+  Vereinsdatensatz, `logo_url` ist da und wird bislang nirgends benutzt.
 
 - **Prüfbar mit QR und Prüfcode**, wie der §14-Nachweis. Die `/verify`-Seite
   steht bereits; eine Bescheinigung, deren Echtheit ein Arbeitgeber nachsehen
