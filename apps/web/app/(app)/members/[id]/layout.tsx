@@ -50,6 +50,7 @@ export default async function MemberDetailLayout({
     { segment: "functions", label: t("detail.tabs.functions") },
     { segment: "dues", label: t("detail.tabs.dues") },
     { segment: "attendance", label: t("detail.tabs.attendance") },
+    { segment: "consents", label: t("detail.tabs.consents") },
     ...(club?.modules.includes("shooting")
       ? [{ segment: "shooting", label: t("detail.tabs.shooting") }]
       : []),

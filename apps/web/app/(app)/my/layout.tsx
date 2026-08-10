@@ -37,6 +37,7 @@ export default async function MyLayout({
     { segment: "attendance", label: t("tabs.attendance") },
     { segment: "functions", label: t("tabs.functions") },
     { segment: "events", label: t("tabs.events") },
+    { segment: "data", label: t("tabs.data") },
   ]
 
   return (

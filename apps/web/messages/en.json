@@ -497,7 +497,8 @@
         "dues": "Dues",
         "attendance": "Attendance",
         "shooting": "Range book",
-        "functions": "Functions"
+        "functions": "Functions",
+        "consents": "Privacy"
       },
       "duesTab": {
         "assignments": "Fee assignment",
@@ -1731,7 +1732,8 @@
       "dues": "Dues",
       "attendance": "Attendance",
       "functions": "Offices",
-      "events": "Events"
+      "events": "Events",
+      "data": "My data"
     },
     "subtitleFor": "{name} · {club}",
     "attendance": {
@@ -1953,6 +1955,64 @@
       "notFound": "No club is accepting applications at this address.",
       "unknown": "That did not work. Please try again.",
       "unreachable": "The server cannot be reached. Please try again."
+    }
+  },
+  "consents": {
+    "current": "Consents",
+    "intro": "Optional and revocable at any time. A withdrawal takes effect immediately and is recorded with its timestamp.",
+    "myTitle": "My data",
+    "myDescription": "What the club may do with your data, and a copy of what it holds about you.",
+    "noMemberRecord": "No member record is linked to this account.",
+    "yes": "Yes",
+    "no": "No",
+    "neverAsked": "Not asked yet",
+    "granted": "Consent given.",
+    "withdrawn": "Consent withdrawn.",
+    "history": "History",
+    "noHistory": "Nothing has been recorded yet.",
+    "ledgerNote": "The history is only ever appended to, never edited or deleted — otherwise it would prove nothing.",
+    "recordedAt": "Date of the declaration",
+    "note": "Note",
+    "notePlaceholder": "e.g. paper form",
+    "backdateHint": "For declarations that arrived outside the system: date and note apply to the next change.",
+    "columns": {
+      "kind": "Concerns",
+      "answer": "Answer",
+      "when": "When",
+      "source": "Source",
+      "note": "Note"
+    },
+    "sources": {
+      "application": "Join form",
+      "self": "Declared by the member",
+      "board": "Recorded by the club"
+    },
+    "kinds": {
+      "photos": {
+        "label": "Photos",
+        "description": "Photos may be published on the club website and in club media."
+      },
+      "newsletter": {
+        "label": "Newsletter",
+        "description": "The club newsletter may be sent."
+      },
+      "directory": {
+        "label": "Directory",
+        "description": "The name may appear in the internal member directory. Without consent the member does not appear there."
+      }
+    },
+    "export": {
+      "title": "Access request (Art. 15 GDPR)",
+      "description": "Everything the club holds about this member as a JSON file — for a request that arrived on paper or by e-mail.",
+      "ownDescription": "Everything the club holds about you, as a JSON file to download.",
+      "action": "Download data"
+    },
+    "errors": {
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "Not found.",
+      "validation": "The input is invalid.",
+      "unknown": "That did not work.",
+      "unreachable": "The server cannot be reached."
     }
   }
 }

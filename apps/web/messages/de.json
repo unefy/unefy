@@ -497,7 +497,8 @@
         "dues": "Beiträge",
         "attendance": "Anwesenheit",
         "shooting": "Schießbuch",
-        "functions": "Funktionen"
+        "functions": "Funktionen",
+        "consents": "Datenschutz"
       },
       "duesTab": {
         "assignments": "Beitragszuordnung",
@@ -1731,7 +1732,8 @@
       "dues": "Beiträge",
       "attendance": "Anwesenheit",
       "functions": "Ämter",
-      "events": "Termine"
+      "events": "Termine",
+      "data": "Meine Daten"
     },
     "subtitleFor": "{name} · {club}",
     "attendance": {
@@ -1953,6 +1955,64 @@
       "notFound": "Unter dieser Adresse nimmt derzeit kein Verein Anträge entgegen.",
       "unknown": "Das hat nicht geklappt. Bitte versuchen Sie es erneut.",
       "unreachable": "Der Server ist nicht erreichbar. Bitte versuchen Sie es erneut."
+    }
+  },
+  "consents": {
+    "current": "Einwilligungen",
+    "intro": "Freiwillig und jederzeit widerrufbar. Ein Widerruf gilt ab sofort und wird mit Zeitpunkt festgehalten.",
+    "myTitle": "Meine Daten",
+    "myDescription": "Was der Verein mit Ihren Daten tun darf, und eine Kopie dessen, was er über Sie gespeichert hat.",
+    "noMemberRecord": "Zu diesem Konto gehört kein Mitgliedsdatensatz.",
+    "yes": "Ja",
+    "no": "Nein",
+    "neverAsked": "Noch nicht gefragt",
+    "granted": "Einwilligung erteilt.",
+    "withdrawn": "Einwilligung widerrufen.",
+    "history": "Verlauf",
+    "noHistory": "Es wurde noch nichts festgehalten.",
+    "ledgerNote": "Der Verlauf wird nur ergänzt, nie geändert oder gelöscht — sonst wäre er als Nachweis wertlos.",
+    "recordedAt": "Datum der Erklärung",
+    "note": "Notiz",
+    "notePlaceholder": "z. B. Papierformular",
+    "backdateHint": "Für Erklärungen, die außerhalb des Systems eingegangen sind: Datum und Notiz gelten für die nächste Änderung.",
+    "columns": {
+      "kind": "Betrifft",
+      "answer": "Antwort",
+      "when": "Zeitpunkt",
+      "source": "Quelle",
+      "note": "Notiz"
+    },
+    "sources": {
+      "application": "Beitrittsformular",
+      "self": "Selbst erklärt",
+      "board": "Vom Verein erfasst"
+    },
+    "kinds": {
+      "photos": {
+        "label": "Fotos",
+        "description": "Fotos dürfen auf der Vereinsseite und in Vereinsmedien veröffentlicht werden."
+      },
+      "newsletter": {
+        "label": "Rundmail",
+        "description": "Rundmails des Vereins dürfen zugeschickt werden."
+      },
+      "directory": {
+        "label": "Verzeichnis",
+        "description": "Der Name darf im internen Mitgliederverzeichnis stehen. Ohne Einwilligung erscheint das Mitglied dort nicht."
+      }
+    },
+    "export": {
+      "title": "Auskunft nach Art. 15 DSGVO",
+      "description": "Alles, was der Verein über dieses Mitglied gespeichert hat, als JSON-Datei — für eine Anfrage, die auf Papier oder per Mail eingegangen ist.",
+      "ownDescription": "Alles, was der Verein über Sie gespeichert hat, als JSON-Datei zum Herunterladen.",
+      "action": "Daten herunterladen"
+    },
+    "errors": {
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Die Eingabe ist ungültig.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
     }
   }
 }
