@@ -1043,6 +1043,16 @@
         "unknown": "Something went wrong.",
         "unreachable": "Server unreachable."
       }
+    },
+    "mirror": {
+      "title": "Promised and present",
+      "kept": "{count, plural, one {# came as promised} other {# came as promised}}",
+      "noShows": "{count, plural, one {# did not appear} other {# did not appear}}",
+      "walkIns": "{count, plural, one {# came unregistered} other {# came unregistered}}",
+      "guests": "{count, plural, one {# guest} other {# guests}}",
+      "noShowsTitle": "Registered, not recorded",
+      "walkInsTitle": "Present, not registered",
+      "hint": "Only a comparison of two lists — a registration is a promise, attendance is evidence. Nothing is changed here; somebody ticked off on paper is still missing from this."
     }
   },
   "dues": {

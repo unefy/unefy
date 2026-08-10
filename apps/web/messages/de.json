@@ -1043,6 +1043,16 @@
         "unknown": "Da ist etwas schiefgelaufen.",
         "unreachable": "Server nicht erreichbar."
       }
+    },
+    "mirror": {
+      "title": "Zugesagt und erschienen",
+      "kept": "{count, plural, one {# gekommen wie zugesagt} other {# gekommen wie zugesagt}}",
+      "noShows": "{count, plural, one {# nicht erschienen} other {# nicht erschienen}}",
+      "walkIns": "{count, plural, one {# ohne Anmeldung da} other {# ohne Anmeldung da}}",
+      "guests": "{count, plural, one {# Gast} other {# Gäste}}",
+      "noShowsTitle": "Angemeldet, nicht erfasst",
+      "walkInsTitle": "Da, aber nicht angemeldet",
+      "hint": "Nur ein Abgleich zweier Listen — die Anmeldung ist eine Zusage, die Anwesenheit ein Beleg. Hier wird nichts verändert; wer auf Papier abgehakt wurde, fehlt hier trotzdem."
     }
   },
   "dues": {

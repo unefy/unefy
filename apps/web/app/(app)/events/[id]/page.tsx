@@ -6,13 +6,14 @@ import { cancelEventAction, deleteEventAction } from "@/actions/events"
 import { AttendancePanel } from "@/components/events/attendance-panel"
 import { EventDialog } from "@/components/events/event-dialog"
 import { RegistrationsPanel } from "@/components/events/registrations-panel"
+import { RsvpMirror } from "@/components/events/rsvp-mirror"
 import { SelfRegistration } from "@/components/events/self-registration"
 import { ConfirmAction } from "@/components/ui/confirm-action"
 import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getClubTimeZone } from "@/lib/attendance"
+import { getAttendanceSession, getClubTimeZone } from "@/lib/attendance"
 import { getSession } from "@/lib/auth"
 import { getEvent } from "@/lib/events"
 import { formatDate, formatDateTime, formatTime } from "@/lib/time"
@@ -59,6 +60,23 @@ export default async function EventPage({
   if (!event) notFound()
 
   const canManage = BOARD_ROLES.includes(session?.role ?? "")
+
+  // The mirror compares two lists that already exist, so it needs the records
+  // of the sessions hung off this event. Null while there is nothing to
+  // compare — no session means no evening happened yet, and "everybody who
+  // promised is missing" would be a false accusation.
+  const sessions = canManage ? event.attendance_sessions : []
+  const records = sessions.length
+    ? (
+        await Promise.all(
+          sessions.map((attendanceSession) =>
+            getAttendanceSession(attendanceSession.id)
+              .then((detail) => detail.records)
+              .catch(() => [])
+          )
+        )
+      ).flat()
+    : null
   const cancelled = event.status === "cancelled"
   const past =
     new Date(event.ends_at ?? event.starts_at).getTime() <
@@ -209,6 +227,15 @@ export default async function EventPage({
       )}
 
       {/* Board only — the backend sends no sessions to anyone else. */}
+      {canManage && event.registration_required && records !== null && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t("mirror.title")}
+          </h2>
+          <RsvpMirror registrations={event.registrations} records={records} />
+        </section>
+      )}
+
       {canManage && (
         <section className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">
