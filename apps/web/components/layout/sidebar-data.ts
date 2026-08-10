@@ -140,6 +140,7 @@ export const sidebarData: SidebarData = {
             { titleKey: "settingsSports", url: "/settings/sports" },
             { titleKey: "settingsDivisions", url: "/settings/divisions" },
             { titleKey: "settingsFunctions", url: "/settings/functions" },
+            { titleKey: "settingsDocuments", url: "/settings/documents" },
             { titleKey: "settingsAccess", url: "/settings/access" },
           ],
         },

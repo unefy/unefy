@@ -50,7 +50,8 @@
       "period": "Zeitraum",
       "days": "Schießtage",
       "issuedAt": "Ausgestellt am",
-      "result": "Ergebnis"
+      "result": "Ergebnis",
+      "document": "Dokument"
     },
     "result": {
       "passed": "Erfüllt",
@@ -84,7 +85,8 @@
     "functionHolders": "Funktionsträger",
     "feeTypes": "Beitragsarten",
     "settingsDivisions": "Sparten",
-    "applications": "Aufnahmeanträge"
+    "applications": "Aufnahmeanträge",
+    "settingsDocuments": "Bescheinigungen"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -498,7 +500,8 @@
         "attendance": "Anwesenheit",
         "shooting": "Schießbuch",
         "functions": "Funktionen",
-        "consents": "Datenschutz"
+        "consents": "Datenschutz",
+        "documents": "Dokumente"
       },
       "duesTab": {
         "assignments": "Beitragszuordnung",
@@ -2011,6 +2014,110 @@
       "forbidden": "Dafür fehlt die Berechtigung.",
       "notFound": "Nicht gefunden.",
       "validation": "Die Eingabe ist ungültig.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
+    }
+  },
+  "documents": {
+    "title": "Bescheinigungen",
+    "description": "Vorlagen für die Dokumente, die der Verein ausstellt. Der Verein schreibt den Wortlaut, Platzhalter setzen die Daten ein.",
+    "new": "Neue Vorlage",
+    "editorHint": "Schreiben Sie den Text frei. Mit '{{' öffnet sich die Liste der Platzhalter; sie werden beim Ausstellen ersetzt.",
+    "search": "Name oder Überschrift …",
+    "empty": "Es gibt noch keine Vorlage.",
+    "noMatch": "Keine Vorlage passt zur Suche.",
+    "yes": "Ja",
+    "no": "Nein",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "save": "Speichern",
+    "saving": "Wird gespeichert …",
+    "saved": "Vorlage gespeichert.",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "deleted": "Vorlage gelöscht.",
+    "columns": {
+      "name": "Name",
+      "title": "Überschrift",
+      "verifiable": "Prüfbar",
+      "status": "Status",
+      "document": "Dokument",
+      "issuedAt": "Ausgestellt",
+      "code": "Prüfcode"
+    },
+    "fields": {
+      "name": "Name der Vorlage",
+      "title": "Überschrift im Dokument",
+      "body": "Text",
+      "include_letterhead": "Briefkopf",
+      "include_footer": "Fußzeile",
+      "verifiable": "Prüfbar",
+      "is_active": "Aktiv",
+      "template": "Vorlage"
+    },
+    "hints": {
+      "name": "Nur intern — so heißt die Vorlage in der Liste.",
+      "title": "Steht als Überschrift auf dem Dokument.",
+      "body": "Leerzeilen trennen Absätze. Sonst ist nichts an diesem Text Auszeichnung.",
+      "include_letterhead": "Vereinsname und Anschrift aus den Einstellungen.",
+      "include_footer": "Registernummer, Steuernummer, Gemeinnützigkeit.",
+      "verifiable": "Mit QR-Code und Prüfcode. Wer das Dokument bekommt, kann die Echtheit nachsehen.",
+      "is_active": "Nur aktive Vorlagen können ausgestellt werden."
+    },
+    "variablesTitle": "Platzhalter",
+    "variablesHint": "Anklicken fügt an der Schreibmarke ein. Im Text öffnet '{{' dieselbe Liste.",
+    "unknownPlaceholders": "Diese Platzhalter gibt es nicht:",
+    "previewTitle": "Vorschau",
+    "previewHint": "Mit erfundenen Beispieldaten — nicht mit denen eines echten Mitglieds.",
+    "previewEmpty": "Noch kein Text.",
+    "confirmDelete": {
+      "title": "Vorlage löschen?",
+      "description": "„{name}“ kann danach nicht mehr ausgestellt werden. Bereits ausgestellte Dokumente bleiben unverändert erhalten."
+    },
+    "issueTitle": "Bescheinigung ausstellen",
+    "issueHint": "Der Text wird mit den Daten dieses Mitglieds gefüllt und so festgehalten, wie er ausgestellt wurde. Spätere Änderungen an der Vorlage ändern das Dokument nicht.",
+    "issue": "Ausstellen",
+    "issuing": "Wird ausgestellt …",
+    "issued": "Bescheinigung ausgestellt.",
+    "noTemplates": "Es ist keine aktive Vorlage vorhanden. Vorlagen werden in den Einstellungen angelegt.",
+    "historyTitle": "Ausgestellte Dokumente",
+    "historyNote": "Ausgestellte Dokumente werden nicht geändert. Ein Fehler wird widerrufen und neu ausgestellt.",
+    "noDocuments": "Für dieses Mitglied wurde noch nichts ausgestellt.",
+    "valid": "Gültig",
+    "revoked": "Widerrufen",
+    "revoke": "Widerrufen",
+    "revokedToast": "Dokument widerrufen.",
+    "download": "PDF herunterladen",
+    "confirmRevoke": {
+      "title": "Dokument widerrufen?",
+      "description": "Das Dokument bleibt mit seinem Text erhalten und wird als ungültig gekennzeichnet — auch auf der öffentlichen Prüfseite."
+    },
+    "variables": {
+      "mitglied": {
+        "name": "Vor- und Nachname",
+        "vorname": "Vorname",
+        "nachname": "Nachname",
+        "nummer": "Mitgliedsnummer",
+        "geburtstag": "Geburtstag",
+        "eintritt": "Eintrittsdatum",
+        "austritt": "Austrittsdatum, falls vorhanden",
+        "status": "Status der Mitgliedschaft",
+        "anschrift": "Anschrift in einer Zeile"
+      },
+      "verein": {
+        "name": "Name des Vereins",
+        "anschrift": "Anschrift des Vereins",
+        "registernummer": "Registernummer",
+        "registergericht": "Registergericht"
+      },
+      "datum": "Heutiges Datum",
+      "jahr": "Aktuelles Jahr"
+    },
+    "errors": {
+      "conflict": "Eine Vorlage mit diesem Namen gibt es bereits.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen.",
       "unknown": "Das hat nicht geklappt.",
       "unreachable": "Der Server ist nicht erreichbar."
     }

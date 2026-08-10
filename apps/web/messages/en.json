@@ -50,7 +50,8 @@
       "period": "Period",
       "days": "Range days",
       "issuedAt": "Issued on",
-      "result": "Result"
+      "result": "Result",
+      "document": "Document"
     },
     "result": {
       "passed": "Met",
@@ -84,7 +85,8 @@
     "functionHolders": "Office holders",
     "feeTypes": "Fee types",
     "settingsDivisions": "Divisions",
-    "applications": "Applications"
+    "applications": "Applications",
+    "settingsDocuments": "Certificates"
   },
   "dashboard": {
     "title": "Overview",
@@ -498,7 +500,8 @@
         "attendance": "Attendance",
         "shooting": "Range book",
         "functions": "Functions",
-        "consents": "Privacy"
+        "consents": "Privacy",
+        "documents": "Documents"
       },
       "duesTab": {
         "assignments": "Fee assignment",
@@ -2011,6 +2014,110 @@
       "forbidden": "You are not allowed to do that.",
       "notFound": "Not found.",
       "validation": "The input is invalid.",
+      "unknown": "That did not work.",
+      "unreachable": "The server cannot be reached."
+    }
+  },
+  "documents": {
+    "title": "Certificates",
+    "description": "Templates for the documents the club issues. The club writes the wording; placeholders fill in the data.",
+    "new": "New template",
+    "editorHint": "Write the text freely. Typing '{{' opens the placeholder list; they are replaced when the document is issued.",
+    "search": "Name or heading …",
+    "empty": "There are no templates yet.",
+    "noMatch": "No template matches the search.",
+    "yes": "Yes",
+    "no": "No",
+    "active": "Active",
+    "inactive": "Inactive",
+    "save": "Save",
+    "saving": "Saving …",
+    "saved": "Template saved.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleted": "Template deleted.",
+    "columns": {
+      "name": "Name",
+      "title": "Heading",
+      "verifiable": "Verifiable",
+      "status": "Status",
+      "document": "Document",
+      "issuedAt": "Issued",
+      "code": "Check code"
+    },
+    "fields": {
+      "name": "Template name",
+      "title": "Heading on the document",
+      "body": "Text",
+      "include_letterhead": "Letterhead",
+      "include_footer": "Footer",
+      "verifiable": "Verifiable",
+      "is_active": "Active",
+      "template": "Template"
+    },
+    "hints": {
+      "name": "Internal only — how the template appears in the list.",
+      "title": "Printed as the heading on the document.",
+      "body": "Blank lines separate paragraphs. Nothing else in this text is markup.",
+      "include_letterhead": "Club name and address from the settings.",
+      "include_footer": "Register number, tax number, charitable status.",
+      "verifiable": "With a QR and a check code, so the recipient can verify it.",
+      "is_active": "Only active templates can be issued."
+    },
+    "variablesTitle": "Placeholders",
+    "variablesHint": "Clicking inserts at the caret. In the text, '{{' opens the same list.",
+    "unknownPlaceholders": "These placeholders do not exist:",
+    "previewTitle": "Preview",
+    "previewHint": "With made-up sample data — not with a real member's.",
+    "previewEmpty": "No text yet.",
+    "confirmDelete": {
+      "title": "Delete the template?",
+      "description": "\"{name}\" can no longer be issued afterwards. Documents already issued are unaffected."
+    },
+    "issueTitle": "Issue a certificate",
+    "issueHint": "The text is filled in with this member's data and kept exactly as it was issued. Later changes to the template do not change the document.",
+    "issue": "Issue",
+    "issuing": "Issuing …",
+    "issued": "Certificate issued.",
+    "noTemplates": "There is no active template. Templates are created in the settings.",
+    "historyTitle": "Issued documents",
+    "historyNote": "Issued documents are never edited. A mistake is revoked and re-issued.",
+    "noDocuments": "Nothing has been issued for this member yet.",
+    "valid": "Valid",
+    "revoked": "Revoked",
+    "revoke": "Revoke",
+    "revokedToast": "Document revoked.",
+    "download": "Download PDF",
+    "confirmRevoke": {
+      "title": "Revoke the document?",
+      "description": "The document keeps its text and is marked invalid — including on the public check page."
+    },
+    "variables": {
+      "mitglied": {
+        "name": "First and last name",
+        "vorname": "First name",
+        "nachname": "Last name",
+        "nummer": "Member number",
+        "geburtstag": "Date of birth",
+        "eintritt": "Date of joining",
+        "austritt": "Date of leaving, if any",
+        "status": "Membership status",
+        "anschrift": "Address on one line"
+      },
+      "verein": {
+        "name": "Club name",
+        "anschrift": "Club address",
+        "registernummer": "Register number",
+        "registergericht": "Registering court"
+      },
+      "datum": "Today's date",
+      "jahr": "Current year"
+    },
+    "errors": {
+      "conflict": "A template with this name already exists.",
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "Not found.",
+      "validation": "Please check the input.",
       "unknown": "That did not work.",
       "unreachable": "The server cannot be reached."
     }

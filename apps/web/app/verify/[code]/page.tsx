@@ -19,17 +19,35 @@ import { BadgeCheckIcon, ShieldXIcon, XCircleIcon } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
-type VerifiedCertificate = {
+/** What every checked document has in common. */
+type VerifiedBase = {
   valid: boolean
   revoked: boolean
-  result: string
-  period_start: string
-  period_end: string
-  session_count: number
   issued_at: string
   club_name: string
   member_name: string
 }
+
+/** The §14 proof: a period and a count, because that is what it asserts. */
+type VerifiedProof = VerifiedBase & {
+  kind: "shooting_proof"
+  result: string
+  period_start: string
+  period_end: string
+  session_count: number
+}
+
+/**
+ * A club's own certificate. The title, never the text: whoever holds the
+ * paper can read it, and whoever merely found a code should learn that the
+ * document is genuine and nothing further.
+ */
+type VerifiedDocument = VerifiedBase & {
+  kind: "document"
+  title: string
+}
+
+type Verified = VerifiedProof | VerifiedDocument
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("verify")
@@ -41,16 +59,14 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-async function fetchCertificate(
-  code: string
-): Promise<VerifiedCertificate | null> {
+async function fetchCertificate(code: string): Promise<Verified | null> {
   try {
     const response = await fetch(
       `${API_BASE}/verify/${encodeURIComponent(code)}`,
       { cache: "no-store" }
     )
     if (!response.ok) return null
-    const body = (await response.json()) as { data?: VerifiedCertificate }
+    const body = (await response.json()) as { data?: Verified }
     return body.data ?? null
   } catch {
     // An unreachable backend is not a forged certificate. The page says it
@@ -120,32 +136,46 @@ export default async function VerifyPage({
           <dl className="grid gap-4 sm:grid-cols-2">
             <Fact label={t("fields.club")} value={certificate.club_name} />
             <Fact label={t("fields.member")} value={certificate.member_name} />
-            <Fact
-              label={t("fields.period")}
-              value={`${date(certificate.period_start)} – ${date(certificate.period_end)}`}
-            />
-            <Fact
-              label={t("fields.days")}
-              value={String(certificate.session_count)}
-            />
-            <Fact
-              label={t("fields.issuedAt")}
-              value={date(certificate.issued_at)}
-            />
-            <div className="space-y-1">
-              <dt className="text-xs text-muted-foreground">
-                {t("fields.result")}
-              </dt>
-              <dd>
-                <Badge
-                  variant={
-                    certificate.result === "passed" ? "secondary" : "destructive"
-                  }
-                >
-                  {t(`result.${certificate.result}`)}
-                </Badge>
-              </dd>
-            </div>
+            {certificate.kind === "shooting_proof" ? (
+              <>
+                <Fact
+                  label={t("fields.period")}
+                  value={`${date(certificate.period_start)} – ${date(certificate.period_end)}`}
+                />
+                <Fact
+                  label={t("fields.days")}
+                  value={String(certificate.session_count)}
+                />
+                <Fact
+                  label={t("fields.issuedAt")}
+                  value={date(certificate.issued_at)}
+                />
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground">
+                    {t("fields.result")}
+                  </dt>
+                  <dd>
+                    <Badge
+                      variant={
+                        certificate.result === "passed"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                    >
+                      {t(`result.${certificate.result}`)}
+                    </Badge>
+                  </dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <Fact label={t("fields.document")} value={certificate.title} />
+                <Fact
+                  label={t("fields.issuedAt")}
+                  value={date(certificate.issued_at)}
+                />
+              </>
+            )}
           </dl>
 
           <p className="text-xs text-muted-foreground">
