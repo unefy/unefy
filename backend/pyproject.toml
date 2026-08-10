@@ -74,6 +74,12 @@ plugins = ["pydantic.mypy"]
 module = ["authlib.*"]
 ignore_missing_imports = true
 
+# reportlab ships no type information either, and types-reportlab covers only
+# part of the API we draw with. Same reasoning as above: scoped, not global.
+[[tool.mypy.overrides]]
+module = ["reportlab.*"]
+ignore_missing_imports = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 

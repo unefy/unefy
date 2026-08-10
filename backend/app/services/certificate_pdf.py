@@ -97,7 +97,7 @@ def _line(pdf: canvas.Canvas, y: float, label: str, value: str) -> float:
     pdf.setFont("Helvetica-Bold", 11)
     pdf.setFillGray(0)
     pdf.drawString(MARGIN + 62 * mm, y, value)
-    return y - 8 * mm
+    return float(y - 8 * mm)
 
 
 def build_certificate_pdf(doc: CertificateDocument) -> bytes:
@@ -243,7 +243,7 @@ def _draw_annex(pdf: canvas.Canvas, doc: CertificateDocument, width: float, heig
         pdf.setStrokeGray(0.8)
         pdf.setLineWidth(0.5)
         pdf.line(MARGIN, baseline - 2 * mm, width - MARGIN, baseline - 2 * mm)
-        return baseline - 7 * mm
+        return float(baseline - 7 * mm)
 
     y = header(y)
     pdf.setFont("Helvetica", 9)

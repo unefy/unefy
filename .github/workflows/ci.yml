@@ -41,19 +41,12 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
-      # mypy --strict is the stated bar (backend/CLAUDE.md), but the repo-wide
-      # baseline predates it and does not pass. Until that debt is paid, strict
-      # checking covers the modules known to be clean, so new code in them
-      # cannot regress.
-      - name: Type-check (clean modules)
-        run: >
-          uv run mypy --strict
-          app/integrations/push.py
-          app/events/push_fanout.py
-          app/api/v1/push.py
-          app/repositories/push_device.py
-          app/models/push_device.py
-          app/schemas/push.py
+      # The whole application package passes strict now (2026-08-10), so the
+      # bar moved from a hand-kept list of clean modules to all of `app/`.
+      # `tests/` and the scripts still carry the old debt and stay out until
+      # it is paid — checking them would only re-freeze the list problem.
+      - name: Type-check
+        run: uv run mypy --strict app/
 
       # One process, deliberately: the suite shares one database, and parallel
       # runs produce phantom failures.
