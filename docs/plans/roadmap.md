@@ -217,6 +217,17 @@ Zwei Sorten Dokument, und der Unterschied entscheidet die Bauform:
   Auswertung, keine Injection), vorhersagbar im Druckbild und übersetzbar —
   und der Verein ändert den Text, ohne auf ein Release zu warten.
 
+  Die Vorlage ist **fließender Text, den der Verein selbst zusammenstellt** —
+  eigene Absätze an beliebiger Stelle, Platzhalter mitten im Satz. Kein
+  Formular mit zwei vorgegebenen Feldern: fest ist nur der Rahmen (Briefkopf
+  oben, Fuß unten), und beides ist je Vorlage abschaltbar. „Beliebige Stelle"
+  heißt dabei im Textfluss, nicht frei auf der Seite — das Druckbild bleibt
+  unseres, der Inhalt gehört dem Verein.
+
+  **Autovervollständigung** im Editor: `{{` öffnet die Liste der Variablen mit
+  einer Erklärung je Eintrag. Wer den Satz nicht auswendig kennt, soll ihn
+  nicht suchen müssen — und dieselbe bekannte Liste trägt die Prüfung.
+
   Ein unbekannter Platzhalter muss beim Speichern auffallen, nicht erst im
   fertigen PDF: eine Vorlage mit `{{mitglied.vorname}}` soll die Bearbeitung
   ablehnen, statt später eine Lücke zu drucken.
