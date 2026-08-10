@@ -154,84 +154,111 @@ dessen Vorgabe lässt sich das PDF danach bauen. Das qualifizierte Siegel nach
 eIDAS (`seal` ist im Modell reserviert) ist der Schritt, der das letzte
 technische Argument dagegen ausräumt.
 
-## Phase 6 — was ein Verein wöchentlich braucht
+## Phase 6 — Eintritt, Einwilligung, Bescheinigung
 
-Phase 5 hat die Client-Parität hergestellt: Alles, was das Backend kann, ist
-bedienbar. Phase 6 fragt deshalb nicht mehr „was fehlt der Oberfläche", sondern
-**„was tut ein Vorstand, das unefy heute nicht kann"** — sortiert danach, wie
-oft er es tut.
+Priorisiert am 2026-08-10 vom Nutzer, gegen die vorherige Sortierung nach
+Häufigkeit. Der rote Faden ist ein anderer und ein besserer: **wie ein Mensch
+Mitglied wird, was er dabei einwilligt, und was er darüber in der Hand hält.**
 
-Die Reihenfolge ist bewusst nicht die alte („Plattform & Ausbau"). Public API,
-Webhooks und Passkeys standen dort vorne, weil sie in `CLAUDE.md` stehen — für
-einen Verein, der morgen eine Rundmail schreiben will, sind sie irrelevant.
+Kommunikation, Auswertungen, Dokumentenablage und Mannschaften bleiben in der
+Liste, rücken aber dahinter (6.4 bis 6.7).
 
-### 6.1 Kommunikation — der größte fehlende Alltag
+### 6.1 Digitaler Mitgliedsantrag
 
-Ein Verein schreibt seine Mitglieder an: Einladung zur Jahreshauptversammlung,
-Absage eines Trainings, Beitragserinnerung. Heute geht das nirgends, und die
-Vereine tun es über private Mailverteiler, die niemand pflegt.
+Heute legt ein Vorstandsmitglied neue Mitglieder von Hand an — der Beitritt
+selbst findet außerhalb des Systems statt, auf Papier oder per Mail.
 
-Vorhanden ist nur `integrations/email.py` mit einem Ein-Empfänger-Versand für
-Magic Links. Es gibt kein `communications.py`, keine Empfängerauswahl, keine
-Historie.
+- Öffentliches Formular, ohne Anmeldung erreichbar, je Verein.
+- Es erzeugt einen **Antrag**, kein Mitglied. Aufnahme ist ein Beschluss, und
+  ein Formular fasst keine Beschlüsse: der Vorstand nimmt an oder lehnt ab,
+  und erst die Annahme legt den Mitgliedsdatensatz an.
+- Beitragsart und Sparte wählbar, soweit der Verein sie anbietet.
+- SEPA-Mandat gleich mit erteilen — die Felder gibt es am Mitglied bereits.
+- Missbrauchsschutz: Rate-Limit wie bei den Auth-Endpunkten, und ein Antrag
+  darf keine Auskunft darüber geben, wer schon Mitglied ist.
+- Abgelehnte und offene Anträge unterliegen einer eigenen Frist — sie sind
+  Bewerberdaten, keine Mitgliederdaten.
 
-- Empfängerkreis aus dem, was schon da ist: alle aktiven Mitglieder, eine
-  Sparte, ein Amt, die Angemeldeten eines Termins, die Schuldner eines Jahres.
-- Versand asynchron und in Paketen — ein Rundschreiben an 240 Adressen darf
-  keinen Request blockieren und keinen Mailserver reizen.
-- Historie: was wurde wann an wen geschickt. Ohne sie ist jede Rückfrage
-  („habe ich die Einladung bekommen?") unbeantwortbar.
-- **Entscheidungen vorab:** Versandweg (eigener SMTP vs. Dienst wie Postmark —
-  Zustellbarkeit ist bei Vereinsmails das eigentliche Problem), und ob
-  Mitglieder abbestellen können. Vereinsrechtlich sind Pflichtmitteilungen
-  (Einladung zur JHV) etwas anderes als Werbung; das gehört getrennt.
+### 6.2 Einwilligungen und Auskunft (DSGVO)
 
-### 6.2 Auswertungen — die Zahlen für die Jahreshauptversammlung
+Gehört unmittelbar zu 6.1: Der Antrag ist der Moment, in dem eingewilligt
+wird, und der einzige, in dem es unaufwendig ist.
 
-Alle Daten liegen vor, niemand kann sie zusammenfassen. Einmal im Jahr braucht
-jeder Vorstand genau dieselben Zahlen, und heute baut er sie in Excel nach.
+Baubar und deshalb hier:
 
-- Mitgliederentwicklung: Zu- und Abgänge je Jahr, Altersstruktur, Verteilung
-  nach Status und Sparte.
-- Beiträge: Soll/Ist je Jahr, offene Posten, Zahlungsquote.
-- Anwesenheit: Abende je Monat, Teilnahme je Mitglied, Auslastung.
-- Export als CSV, damit die Zahlen in den Rechenschaftsbericht wandern können.
+- **Einwilligungen je Mitglied** mit Zeitpunkt und Widerruf — Foto/Bild,
+  Rundmail, Nennung im Verzeichnis. Heute existiert dafür kein einziges Feld.
+  Sie sind **Voraussetzung für die Rundmail** aus 6.4: Wer ohne sie Serienmails
+  verschickt, baut sich ein Problem ein, das später teuer wird.
+- **Auskunft nach Art. 15** als Export der eigenen Daten. Die `/me`-Endpunkte
+  liefern schon alles; es fehlt das Bündel.
+- **Löschung nach Art. 17** im Verhältnis zu den Aufbewahrungsfristen, die pro
+  Verein bereits konfigurierbar sind. Heute ist Löschen ein Soft-Delete — für
+  ein Löschersuchen zu wenig.
 
-Rein lesende Aggregation über vorhandene Tabellen — verglichen mit dem Nutzen
-die billigste Position dieser Phase.
+Nicht baubar, und das gehört im Produkt auch so benannt: Datenschutzerklärung,
+Verarbeitungsverzeichnis und Auftragsverarbeitungsverträge sind Vereinstext.
+Ein Gerüst mit Platzhaltern können wir liefern, Rechtsberatung nicht.
 
-### 6.3 Selbstbedienung, damit der Vorstand weniger tippt
+### 6.3 Mitgliedsbescheinigungen
 
-Jede Adressänderung geht heute über ein Vorstandsmitglied.
+Zwei Sorten Dokument, und der Unterschied entscheidet die Bauform:
 
-- Eigene Stammdaten ändern (Anschrift, Telefon, Bankverbindung), auditiert —
-  Mitgliedsnummer, Status und Eintrittsdatum bleiben Vereinssache.
-- Mitgliederverzeichnis im Web (`/members/directory`); in der App gibt es das
-  längst.
-- Aufnahmeantrag: ein öffentliches Formular, das einen Antrag erzeugt, den der
-  Vorstand annimmt oder ablehnt. Der Weg, auf dem neue Mitglieder überhaupt
-  hereinkommen — heute legt sie jemand von Hand an.
+- **Vorgeschriebene Formen** (Zuwendungsbestätigung nach amtlichem Muster, die
+  §14-Bescheinigung) bleiben fest gebaut. Ein Editor wäre dort eine Einladung,
+  ein ungültiges Dokument zu erzeugen.
+- **Freie Formen** (Mitgliedsbescheinigung) bekommen einen **Editor mit
+  Layout** — so entschieden am 2026-08-10. Meine Empfehlung war die engere
+  Variante (Textvorlage mit festem Platzhaltersatz); die Entscheidung fiel
+  bewusst für mehr Freiheit.
 
-### 6.4 Dokumente — Satzung, Protokolle, Formulare
+  Damit der Editor kein zweites Word wird, gehört er beschnitten: eine feste
+  Seitenstruktur mit Blöcken (Briefkopf, Anschriftfeld, Betreff, Fließtext,
+  Unterschrift), Platzhalter aus einem dokumentierten Satz, kein freies
+  Positionieren. Der Briefkopf kommt einmal aus den Einstellungen — Logo,
+  Anschrift, Registernummer und Gemeinnützigkeit stehen am Vereinsdatensatz,
+  `logo_url` ist da und wird bislang nirgends benutzt.
 
-Braucht als Einziges neue Infrastruktur: Dateiablage (S3-kompatibel oder ein
-Volume beim Self-Hosting), Größen- und Typprüfung, Zugriff je Rolle.
+- **Prüfbar mit QR und Prüfcode**, wie der §14-Nachweis. Die `/verify`-Seite
+  steht bereits; eine Bescheinigung, deren Echtheit ein Arbeitgeber nachsehen
+  kann, ist mehr wert als ein PDF, das jeder in Word nachbaut. Das bedingt
+  eine Ausstellungshistorie samt Widerruf — was ausgestellt wurde, muss
+  festgehalten werden, sonst prüft die Seite gegen nichts.
 
-Deshalb hier und nicht weiter oben — der Nutzen ist hoch, aber die Entscheidung
-über den Speicher ist eine Betriebsentscheidung, keine Feature-Entscheidung.
+### 6.4 Kommunikation
 
-### 6.5 Mannschaften
+Rundmail an Mitglieder, Sparte, Amt, Angemeldete eines Termins, Schuldner
+eines Jahres. Vorhanden ist nur ein Ein-Empfänger-Versand für Magic Links.
+Versand asynchron und in Paketen, mit Historie.
+
+**Setzt 6.2 voraus** (Einwilligungen). Offene Entscheidungen: Versandweg
+(eigener SMTP vs. Dienst — Zustellbarkeit ist bei Vereinsmails das eigentliche
+Problem) und die Trennung von Pflichtmitteilung und Werbung.
+
+### 6.5 Auswertungen
+
+Mitgliederentwicklung, Beitrags-Soll/Ist, Anwesenheitsstatistik, CSV-Export
+für den Rechenschaftsbericht. Rein lesende Aggregation über vorhandene
+Tabellen — verglichen mit dem Nutzen die billigste Position der Phase.
+
+### 6.6 Dokumentenablage
+
+Satzung, Protokolle, Formulare. Braucht als Einziges neue Infrastruktur:
+Dateiablage (S3-kompatibel oder ein Volume beim Self-Hosting), Größen- und
+Typprüfung, Zugriff je Rolle. Die Entscheidung über den Speicher ist eine
+Betriebs-, keine Feature-Entscheidung.
+
+### 6.7 Mannschaften
 
 Wettkämpfe kennen heute nur Einzelpersonen. Ein Rundenwettkampf wird als
-Mannschaft geschossen, und die Wertung ist die Summe der besten Ergebnisse
-einer Mannschaft. Sportartneutral zu bauen: eine Mannschaft ist eine benannte
+Mannschaft geschossen. Sportartneutral: eine Mannschaft ist eine benannte
 Gruppe von Mitgliedern in einem Wettkampf, die Wertung bleibt `score_value`.
 
-### 6.6 Plattform — zuletzt, bewusst
+### 6.8 Plattform — zuletzt, bewusst
 
 - Admin-Bereich: Vereine und Benutzer verwalten (heute nur lesend),
   `DELETE /club`-UI.
-- Benutzerprofil-/Kontoseite (Name, E-Mail, Abmelden überall).
+- Benutzerprofil-/Kontoseite.
 - Geparkte Einstellungsseiten (Kontakt, Vorgaben, Gebühren, Zahlung).
 - Public API + API-Keys, Webhooks, Passkeys/Apple OAuth/MFA.
 
