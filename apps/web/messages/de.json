@@ -83,7 +83,8 @@
     "settingsFunctions": "Funktionen",
     "functionHolders": "Funktionsträger",
     "feeTypes": "Beitragsarten",
-    "settingsDivisions": "Sparten"
+    "settingsDivisions": "Sparten",
+    "applications": "Aufnahmeanträge"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -1394,7 +1395,8 @@
       "contact": "Kontakt",
       "address": "Anschrift",
       "legal": "Rechtliches",
-      "sepa": "Bankverbindung & SEPA"
+      "sepa": "Bankverbindung & SEPA",
+      "applications": "Beitritt"
     },
     "fields": {
       "name": "Name",
@@ -1418,7 +1420,8 @@
       "nonprofitSince": "Gemeinnützig seit",
       "sepaCreditorId": "Gläubiger-Identifikationsnummer",
       "iban": "IBAN",
-      "bic": "BIC"
+      "bic": "BIC",
+      "applicationsEnabled": "Öffentliches Beitrittsformular"
     },
     "hints": {
       "shortName": "Für enge Stellen wie die Seitenleiste.",
@@ -1426,7 +1429,9 @@
       "regional": "Die Zeitzone bestimmt, welcher Kalendertag ein Termin ist. Ein Übungsabend, der um 00:30 Uhr beginnt, zählt sonst zum Vortag — und genau auf dieses Datum stützt sich der Anwesenheitsnachweis.",
       "legal": "Angaben aus Vereinsregister und Freistellungsbescheid.",
       "sepa": "Die Seite des Vereins beim Lastschrifteinzug. Ohne Gläubiger-ID und IBAN lässt sich keine Lastschrift erzeugen.",
-      "sepaCreditorId": "Wird von der Bundesbank vergeben."
+      "sepaCreditorId": "Wird von der Bundesbank vergeben.",
+      "applications": "Ob Interessierte über ein öffentliches Formular einen Aufnahmeantrag stellen können. Der Antrag legt kein Mitglied an — darüber entscheidet der Vorstand.",
+      "joinUrl": "Erreichbar unter"
     },
     "errors": {
       "forbidden": "Dafür fehlt dir die Berechtigung.",
@@ -1786,6 +1791,168 @@
       "since": "Seit",
       "until": "Bis",
       "note": "Notiz"
+    }
+  },
+  "applications": {
+    "title": "Aufnahmeanträge",
+    "description": "Wer über das Beitrittsformular Mitglied werden möchte. Erst die Annahme legt den Mitgliedsdatensatz an.",
+    "search": "Name, E-Mail oder Ort …",
+    "empty": "Es liegt kein Antrag vor.",
+    "noMatch": "Kein Antrag passt zur Suche.",
+    "columns": {
+      "name": "Name",
+      "contact": "Kontakt",
+      "received": "Eingegangen",
+      "status": "Status"
+    },
+    "filters": {
+      "allStatuses": "Alle Status"
+    },
+    "status": {
+      "pending": "Offen",
+      "accepted": "Angenommen",
+      "rejected": "Abgelehnt"
+    },
+    "closed": {
+      "description": "Das öffentliche Beitrittsformular ist ausgeschaltet. Anträge können derzeit nur außerhalb des Systems eingehen.",
+      "action": "In den Einstellungen einschalten"
+    },
+    "open": {
+      "description": "Das Beitrittsformular ist erreichbar unter"
+    },
+    "receivedOn": "Eingegangen am",
+    "message": "Nachricht",
+    "accept": "Aufnehmen",
+    "reject": "Ablehnen",
+    "cancel": "Abbrechen",
+    "accepted": "Antrag angenommen. Das Mitglied ist angelegt.",
+    "rejected": "Antrag abgelehnt.",
+    "toMember": "Zum Mitglied",
+    "noteLabel": "Notiz (bleibt intern)",
+    "mandateGranted": "Erteilt",
+    "noConsents": "Keine",
+    "confirmAccept": {
+      "title": "Antrag annehmen?",
+      "description": "{name} wird als Mitglied angelegt und erhält eine Mitgliedsnummer. Das lässt sich nicht per Klick zurücknehmen."
+    },
+    "confirmReject": {
+      "title": "Antrag ablehnen?",
+      "description": "Es wird nichts verschickt. Die Notiz bleibt im Verein und ist nur für den Vorstand sichtbar."
+    },
+    "sections": {
+      "person": "Person",
+      "contact": "Kontakt",
+      "membership": "Mitgliedschaft",
+      "payment": "Zahlung",
+      "privacy": "Datenschutz",
+      "decision": "Entscheidung"
+    },
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "birthday": "Geburtstag",
+      "gender": "Geschlecht",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "mobile": "Mobil",
+      "address": "Anschrift",
+      "feeType": "Beitragsart",
+      "division": "Sparte",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "accountHolder": "Kontoinhaber",
+      "mandate": "SEPA-Mandat",
+      "privacyAccepted": "Datenschutzhinweis bestätigt",
+      "consents": "Einwilligungen",
+      "decidedAt": "Entschieden am",
+      "decisionNote": "Notiz"
+    },
+    "consents": {
+      "photos": "Fotos",
+      "newsletter": "Rundmail",
+      "directory": "Verzeichnis"
+    },
+    "errors": {
+      "conflict": "Über diesen Antrag wurde bereits entschieden.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Der Antrag wurde nicht gefunden.",
+      "validation": "Die Angaben sind unvollständig.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
+    }
+  },
+  "join": {
+    "title": "Mitglied werden",
+    "metaTitle": "Mitglied werden bei {club}",
+    "description": "Dieses Formular ist ein Antrag. Über die Aufnahme entscheidet der Vorstand von {club} und meldet sich danach bei Ihnen.",
+    "sections": {
+      "person": "Zur Person",
+      "contact": "Kontakt",
+      "membership": "Mitgliedschaft",
+      "payment": "Beitragszahlung",
+      "message": "Ihre Nachricht",
+      "privacy": "Datenschutz"
+    },
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "birthday": "Geburtstag",
+      "gender": "Geschlecht",
+      "email": "E-Mail",
+      "mobile": "Telefon",
+      "street": "Straße und Nr.",
+      "zipCode": "PLZ",
+      "city": "Ort",
+      "feeType": "Beitragsart",
+      "division": "Sparte",
+      "iban": "IBAN",
+      "bic": "BIC",
+      "accountHolder": "Kontoinhaber"
+    },
+    "gender": {
+      "female": "Weiblich",
+      "male": "Männlich",
+      "diverse": "Divers"
+    },
+    "interval": {
+      "yearly": "jährlich",
+      "half_yearly": "halbjährlich",
+      "quarterly": "vierteljährlich",
+      "monthly": "monatlich",
+      "one_time": "einmalig"
+    },
+    "noAnswer": "Keine Angabe",
+    "chooseLater": "Der Verein entscheidet",
+    "mandate": {
+      "label": "Ich ermächtige {club}, den Mitgliedsbeitrag von meinem Konto einzuziehen (SEPA-Lastschriftmandat)."
+    },
+    "privacy": {
+      "label": "Ich habe den Datenschutzhinweis gelesen und bin damit einverstanden, dass meine Angaben zur Bearbeitung dieses Antrags gespeichert werden.",
+      "required": "Bitte bestätigen Sie den Datenschutzhinweis, sonst kann der Antrag nicht gespeichert werden."
+    },
+    "consents": {
+      "intro": "Freiwillig, jederzeit widerrufbar, und ohne Einfluss auf die Aufnahme:",
+      "photos": "Fotos von mir dürfen auf der Vereinsseite und in Vereinsmedien veröffentlicht werden.",
+      "newsletter": "Ich möchte Rundmails des Vereins erhalten.",
+      "directory": "Mein Name darf im internen Mitgliederverzeichnis stehen."
+    },
+    "submit": "Antrag absenden",
+    "submitting": "Wird gesendet …",
+    "footnote": "Mit * gekennzeichnete Felder sind erforderlich.",
+    "done": {
+      "title": "Antrag eingegangen",
+      "description": "Danke. Der Vorstand von {club} sieht sich den Antrag an und meldet sich bei Ihnen."
+    },
+    "closed": {
+      "title": "Formular nicht verfügbar",
+      "description": "Unter dieser Adresse nimmt derzeit kein Verein Anträge entgegen."
+    },
+    "errors": {
+      "validation": "Bitte prüfen Sie die markierten Angaben.",
+      "rateLimited": "Es wurden zu viele Anträge gesendet. Bitte versuchen Sie es später erneut.",
+      "notFound": "Unter dieser Adresse nimmt derzeit kein Verein Anträge entgegen.",
+      "unknown": "Das hat nicht geklappt. Bitte versuchen Sie es erneut.",
+      "unreachable": "Der Server ist nicht erreichbar. Bitte versuchen Sie es erneut."
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   SettingsIcon,
   TargetIcon,
   TrophyIcon,
+  UserPlusIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -67,6 +68,14 @@ export const sidebarData: SidebarData = {
           titleKey: "functionHolders",
           url: "/functions",
           icon: AwardIcon,
+        },
+        {
+          titleKey: "applications",
+          url: "/applications",
+          icon: UserPlusIcon,
+          // Deciding on an application is board work, and the applications
+          // themselves are applicant data — not for the whole club to read.
+          roles: ["owner", "admin", "board"],
         },
       ],
     },

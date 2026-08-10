@@ -97,6 +97,9 @@ export function ClubGeneralForm({
 
   const [timezone, setTimezone] = useState(club.timezone)
   const [isNonprofit, setIsNonprofit] = useState(club.is_nonprofit)
+  const [applicationsEnabled, setApplicationsEnabled] = useState(
+    club.applications_enabled
+  )
 
   // Ask the runtime for the zone list rather than shipping one: it is already
   // there, it stays current, and hard-coding a region would contradict a
@@ -388,6 +391,45 @@ export function ClubGeneralForm({
               defaultValue={club.bic ?? ""}
             />
           </Field>
+        </Section>
+
+        <Section
+          title={t("sections.applications")}
+          description={t("hints.applications")}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="applications_enabled">
+              {t("fields.applicationsEnabled")}
+            </Label>
+            <div className="flex h-9 items-center gap-3">
+              <Switch
+                id="applications_enabled"
+                checked={applicationsEnabled}
+                onCheckedChange={(checked) =>
+                  setApplicationsEnabled(checked === true)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                {applicationsEnabled ? t("yes") : t("no")}
+              </span>
+            </div>
+            <input
+              type="hidden"
+              name="applications_enabled"
+              value={applicationsEnabled ? "on" : ""}
+            />
+            {applicationsEnabled ? (
+              <p className="text-sm text-muted-foreground">
+                {t("hints.joinUrl")}{" "}
+                <a
+                  className="underline underline-offset-4"
+                  href={`/join/${club.slug}`}
+                >
+                  /join/{club.slug}
+                </a>
+              </p>
+            ) : null}
+          </div>
         </Section>
       </fieldset>
 

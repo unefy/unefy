@@ -7,15 +7,16 @@ import { APP_HOME, LOGIN_NEXT_COOKIE, safeNextPath } from "@/lib/next-path"
  * Routes reachable without a session. Everything else is protected by
  * default, so a newly added route is gated unless it is listed here.
  */
-const PUBLIC_ROUTES = ["/login", "/verify"]
+const PUBLIC_ROUTES = ["/login", "/verify", "/join"]
 
 /**
  * Public routes that a *signed-in* visitor must still reach.
  *
- * Only the login page bounces someone who already has a session — the
- * certificate check does not. A board member scanning the QR on a printout is
- * the likeliest reader of that page, and sending them to the dashboard instead
- * would answer a question they did not ask.
+ * Only the login page bounces someone who already has a session — neither the
+ * certificate check nor the join form does. A board member scanning the QR on
+ * a printout is the likeliest reader of the first, and somebody checking what
+ * their club's join form looks like is a plausible reader of the second;
+ * sending either to the dashboard would answer a question they did not ask.
  */
 const SIGNED_OUT_ONLY = ["/login"]
 

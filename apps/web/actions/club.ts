@@ -82,6 +82,7 @@ export async function updateClubAction(
 
   // An unchecked checkbox is absent from FormData rather than "false".
   const isNonprofit = formData.get("is_nonprofit") === "on"
+  const applicationsEnabled = formData.get("applications_enabled") === "on"
 
   try {
     const club = await apiCall<Club>("/api/v1/club", {
@@ -89,6 +90,7 @@ export async function updateClubAction(
       body: JSON.stringify({
         ...parsed.data,
         is_nonprofit: isNonprofit,
+        applications_enabled: applicationsEnabled,
         // Meaningless without the flag, and leaving it behind would suggest a
         // status the club no longer claims.
         nonprofit_since: isNonprofit

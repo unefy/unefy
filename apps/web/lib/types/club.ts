@@ -40,6 +40,8 @@ export type Club = {
   /** Whether the club is organised in divisions (Sparten). Gates every
    * division picker in the UI. */
   has_divisions: boolean
+  /** Whether the public join form accepts applications for this club. */
+  applications_enabled: boolean
 
   /**
    * Modules activated by the club's sports (union over `sports.modules`),
