@@ -247,47 +247,60 @@ Nicht baubar, und das gehört im Produkt auch so benannt: Datenschutzerklärung,
 Verarbeitungsverzeichnis und Auftragsverarbeitungsverträge sind Vereinstext.
 Ein Gerüst mit Platzhaltern können wir liefern, Rechtsberatung nicht.
 
-### 6.3 Mitgliedsbescheinigungen
+### 6.3 Mitgliedsbescheinigungen ✓ (2026-08-11)
 
-Zwei Sorten Dokument, und der Unterschied entscheidet die Bauform:
+Zwei Sorten Dokument, und der Unterschied entschied die Bauform:
 
 - **Vorgeschriebene Formen** (Zuwendungsbestätigung nach amtlichem Muster, die
   §14-Bescheinigung) bleiben fest gebaut. Ein Editor wäre dort eine Einladung,
   ein ungültiges Dokument zu erzeugen.
-- **Freie Formen** (Mitgliedsbescheinigung) laufen über **Textvorlagen mit
-  Variablen** — kein Layout-Editor, entschieden am 2026-08-10.
+- **Freie Formen** laufen über **Textvorlagen mit Variablen** — kein
+  Layout-Editor, entschieden am 2026-08-10.
 
-  Der Verein schreibt den Wortlaut und setzt Platzhalter aus einem festen,
-  dokumentierten Satz: `{{mitglied.name}}`, `{{mitglied.nummer}}`,
-  `{{mitglied.eintritt}}`, `{{verein.name}}`, `{{datum}}`. Gerendert wird in
-  das vorhandene Ein-Seiten-Layout. Das ist sicher (keine beliebige
-  Auswertung, keine Injection), vorhersagbar im Druckbild und übersetzbar —
-  und der Verein ändert den Text, ohne auf ein Release zu warten.
+**Gebaut:**
 
-  Die Vorlage ist **fließender Text, den der Verein selbst zusammenstellt** —
-  eigene Absätze an beliebiger Stelle, Platzhalter mitten im Satz. Kein
-  Formular mit zwei vorgegebenen Feldern: fest ist nur der Rahmen (Briefkopf
-  oben, Fuß unten), und beides ist je Vorlage abschaltbar. „Beliebige Stelle"
-  heißt dabei im Textfluss, nicht frei auf der Seite — das Druckbild bleibt
-  unseres, der Inhalt gehört dem Verein.
+- Vorlagen unter *Einstellungen ▸ Bescheinigungen*: Name, Überschrift und
+  fließender Text, den der Verein selbst zusammenstellt. Leerzeilen trennen
+  Absätze, sonst ist nichts an dem Text Auszeichnung.
+- **Ein Satz Platzhalter, an einer Stelle definiert** (`app/services/
+  document_variables.py`). Er speist die Vervollständigung, die Prüfung beim
+  Speichern und das Einsetzen beim Ausstellen. Eine zweite Liste wäre eine
+  zweite Gelegenheit, der ersten zu widersprechen. Fünfzehn Namen von
+  `{{mitglied.name}}` bis `{{jahr}}`; das Muster ist eng gefasst, damit eine
+  geschweifte Klammer im Fließtext nicht halb erkannt wird.
+- **Autovervollständigung**: `{{` öffnet die gefilterte Liste, Pfeiltasten und
+  Enter fügen ein, die Schreibmarke landet hinter dem Eingefügten. Daneben
+  steht der ganze Satz zum Anklicken.
+- **Ein unbekannter Platzhalter wird beim Speichern abgelehnt**, und alle auf
+  einmal genannt — jemandem einen Tippfehler nach dem anderen zu melden ist
+  keine Art, einen Brief zu bearbeiten. Die Vorschau rendert gegen
+  offensichtlich erfundene Beispieldaten, nie gegen ein echtes Mitglied.
+- **Das Ausstellen friert den gerenderten Text ein.** Eine Vorlage ändert sich
+  — dafür ist sie da — und ein Nachdruck oder eine Prüfung Monate später muss
+  zeigen, was der Empfänger bekommen hat, nicht was die Vorlage heute sagt.
+  Wird eine Vorlage gelöscht, bleiben die daraus ausgestellten Dokumente
+  vollständig bestehen.
+- **Widerruf statt Korrektur**: ein Fehler wird widerrufen und neu
+  ausgestellt. Der Empfänger hält das falsche Papier weiterhin in der Hand,
+  und die Spur muss zeigen, dass es das gab. Das PDF eines widerrufenen
+  Dokuments sagt das auf seiner Vorderseite, nicht nur auf der Prüfseite.
+- **Prüfbar mit QR und Prüfcode**, je Vorlage abschaltbar. Die `/verify`-Seite
+  trägt jetzt beides — §14-Nachweis und Vereinsbescheinigung; wer den QR
+  scannt, hält ein Blatt Papier und weiß nicht, aus welcher Tabelle es kommt.
+  Sie nennt Titel, Verein, abgekürzten Namen und Datum, **nie den Text**: wer
+  bloß einen Code gefunden hat, soll erfahren, dass das Dokument echt ist, und
+  sonst nichts.
+- Briefkopf und Fußzeile kommen aus den Vereinseinstellungen, je Vorlage
+  abschaltbar.
 
-  **Autovervollständigung** im Editor: `{{` öffnet die Liste der Variablen mit
-  einer Erklärung je Eintrag. Wer den Satz nicht auswendig kennt, soll ihn
-  nicht suchen müssen — und dieselbe bekannte Liste trägt die Prüfung.
+**Offen:**
 
-  Ein unbekannter Platzhalter muss beim Speichern auffallen, nicht erst im
-  fertigen PDF: eine Vorlage mit `{{mitglied.vorname}}` soll die Bearbeitung
-  ablehnen, statt später eine Lücke zu drucken.
-
-  Der Briefkopf kommt einmal aus den Einstellungen und nicht in jede Vorlage —
-  Logo, Anschrift, Registernummer und Gemeinnützigkeit stehen am
-  Vereinsdatensatz, `logo_url` ist da und wird bislang nirgends benutzt.
-
-- **Prüfbar mit QR und Prüfcode**, wie der §14-Nachweis. Die `/verify`-Seite
-  steht bereits; eine Bescheinigung, deren Echtheit ein Arbeitgeber nachsehen
-  kann, ist mehr wert als ein PDF, das jeder in Word nachbaut. Das bedingt
-  eine Ausstellungshistorie samt Widerruf — was ausgestellt wurde, muss
-  festgehalten werden, sonst prüft die Seite gegen nichts.
+- Das Logo bleibt draußen. `logo_url` zeigt irgendwohin, und es beim Rendern zu
+  holen hieße eine blockierende Anfrage an eine URL, die der Verein bestimmt —
+  im besten Fall langsam, im schlechtesten eine SSRF. Braucht erst die
+  Dateiablage aus 6.6.
+- Zuwendungsbestätigung nach amtlichem Muster: eigenes, fest gebautes
+  Dokument, noch nicht gebaut.
 
 ### 6.4 Kommunikation
 
