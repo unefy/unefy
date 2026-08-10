@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import MembershipApplication
+from app.models.consent import MemberConsent
 from app.models.division import Division
 from app.models.due import FeeType, MemberFee
 from app.models.member import Member
@@ -466,3 +467,38 @@ async def test_the_club_opens_its_own_form(
     assert opened.json()["data"]["applications_enabled"] is True
 
     assert (await anon_client.get(f"/join/{test_tenant.slug}")).status_code == 200
+
+
+async def test_accepting_carries_the_consents_to_the_member(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """The applicant answered on the form; the answers travel with them.
+
+    Stamped with the moment the form was submitted, not the moment the board
+    decided — a consent is dated when it was given.
+    """
+    application = await an_application(
+        db_session, test_tenant, consent_photos=True, consent_newsletter=False
+    )
+
+    response = await auth_client.post(f"/api/v1/applications/{application.id}/accept")
+    member_id = uuid.UUID(response.json()["data"]["id"])
+
+    consents = (
+        (
+            await db_session.execute(
+                select(MemberConsent).where(MemberConsent.member_id == member_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_kind = {c.kind: c for c in consents}
+
+    # All three, refusals included: asked-and-said-no is not the same state as
+    # never-asked, and writing only the yesses would erase the difference.
+    assert set(by_kind) == {"photos", "newsletter", "directory"}
+    assert by_kind["photos"].granted is True
+    assert by_kind["newsletter"].granted is False
+    assert by_kind["photos"].source == "application"
+    assert by_kind["photos"].recorded_at == application.privacy_accepted_at

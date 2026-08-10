@@ -1,3 +1,4 @@
+import json
 import math
 import uuid
 from datetime import date
@@ -11,6 +12,7 @@ from app.core.preconditions import require_if_match, set_etag
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.repositories.member import MemberRepository
+from app.schemas.consent import ConsentEntry, ConsentRecord
 from app.schemas.function import MemberFunctionCreate, MemberFunctionUpdate
 from app.schemas.member import (
     FederationMembershipResponse,
@@ -20,6 +22,8 @@ from app.schemas.member import (
     MemberResponse,
     MemberUpdate,
 )
+from app.services.consent import ConsentService
+from app.services.data_export import DataExportService
 from app.services.member import MemberService
 
 router = APIRouter()
@@ -348,3 +352,147 @@ async def delete_member_function(
 
     service = FunctionService(session, auth.tenant)
     await service.delete_assignment(member_id, assignment_id)
+
+
+# --- Consents (GDPR) ---
+#
+# `/me/...` before `/{member_id}/...` throughout this file: the parameterised
+# route parses its segment as a UUID and would reject "me" before the
+# self-service handler ever ran.
+
+
+async def _own_member_id(session: AsyncSession, auth: AuthContext) -> uuid.UUID:
+    member = await MemberRepository(session, auth.tenant).get_by_user_id(auth.user_id)
+    if member is None:
+        raise NotFoundError("No member record is linked to this account")
+    return member.id
+
+
+@router.get("/me/consents")
+async def get_own_consents(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """What the caller has allowed, and how that came about.
+
+    The history is shown to the member as well as the board. Somebody who
+    asks what a club holds about them is entitled to see when they were asked
+    and what they answered — that is the record's purpose, not the club's.
+    """
+    member_id = await _own_member_id(session, auth)
+    overview = await ConsentService(session, auth.tenant).overview(member_id)
+    return {"data": overview.model_dump(mode="json")}
+
+
+@router.post("/me/consents", status_code=201)
+async def record_own_consent(
+    data: ConsentRecord,
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Give or withdraw a consent. Same call for both directions.
+
+    A withdrawal that is harder to perform than the consent was is not a valid
+    withdrawal, and two endpoints would invite exactly that asymmetry.
+
+    `recorded_at` from the body is ignored here: a member answering in their
+    own account answers now, and letting the client choose the timestamp would
+    make the ledger a place to write history rather than record it.
+    """
+    member_id = await _own_member_id(session, auth)
+    service = ConsentService(session, auth.tenant)
+    entry = await service.record(
+        member_id,
+        ConsentRecord(kind=data.kind, granted=data.granted, note=data.note),
+        source="self",
+        recorded_by=auth.user_id,
+    )
+    return {"data": ConsentEntry.model_validate(entry).model_dump(mode="json")}
+
+
+@router.get("/{member_id}/consents")
+async def get_member_consents(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """One member's consents, current state and full trail."""
+    if await MemberRepository(session, auth.tenant).get_by_id(member_id) is None:
+        raise NotFoundError("Member not found")
+    overview = await ConsentService(session, auth.tenant).overview(member_id)
+    return {"data": overview.model_dump(mode="json")}
+
+
+@router.post("/{member_id}/consents", status_code=201)
+async def record_member_consent(
+    member_id: uuid.UUID,
+    data: ConsentRecord,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Record an answer the club received outside the system.
+
+    Here `recorded_at` is honoured: a paper form that arrives three weeks late
+    was signed on the day it was signed, and backdating it is the accurate
+    entry rather than a convenience.
+    """
+    if await MemberRepository(session, auth.tenant).get_by_id(member_id) is None:
+        raise NotFoundError("Member not found")
+    entry = await ConsentService(session, auth.tenant).record(
+        member_id, data, source="board", recorded_by=auth.user_id
+    )
+    return {"data": ConsentEntry.model_validate(entry).model_dump(mode="json")}
+
+
+# --- Data export (Art. 15 / Art. 20 GDPR) ---
+
+
+@router.get("/me/export")
+async def export_own_data(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> Response:
+    """Everything the club holds about the caller, as a JSON download.
+
+    Self-service and unconditional: Art. 15 is the member's right, and making
+    them ask the board for it would put the club between a person and their
+    own data for no reason the law recognises.
+
+    Returned as a file rather than in the usual envelope — the recipient wants
+    something they can keep, forward, or hand to an authority, not a response
+    body they would have to copy out of a browser tab.
+    """
+    member_id = await _own_member_id(session, auth)
+    payload = await DataExportService(session, auth.tenant).export_member(member_id)
+    return _export_response(payload, member_id)
+
+
+@router.get("/{member_id}/export")
+async def export_member_data(
+    member_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> Response:
+    """The same bundle, for a board answering a request that arrived on paper.
+
+    Not every member has an account, and a right that only works for people
+    who signed in is not the right the law describes.
+    """
+    payload = await DataExportService(session, auth.tenant).export_member(member_id)
+    return _export_response(payload, member_id)
+
+
+def _export_response(payload: dict[str, Any], member_id: uuid.UUID) -> Response:
+    body = json.dumps(payload, ensure_ascii=False, indent=2)
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={
+            # The member number would be friendlier, but it is also the one
+            # thing on this file that identifies a person to anyone who sees
+            # the filename in a downloads folder.
+            "Content-Disposition": f'attachment; filename="unefy-export-{member_id}.json"',
+            # A copy of personal data has no business in any cache.
+            "Cache-Control": "no-store",
+        },
+    )

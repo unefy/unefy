@@ -4,6 +4,7 @@ from sqlalchemy import func, or_, select
 
 from app.models.member import Member, MemberFederationMembership
 from app.repositories.base import BaseRepository
+from app.repositories.consent import members_who_refused
 from app.schemas.member import MemberCreate, MemberUpdate
 
 # Allowlist of columns safe to sort by. Keys are the public sort names
@@ -79,8 +80,17 @@ class MemberRepository(
         address belongs to the club. This searches names only, and returns only
         active members — a directory of former members answers no question a
         member has.
+
+        Members who refused the directory consent are left out. Members who
+        were never asked stay in: the club's internal list does not rest on
+        consent alone, and treating an unanswered question as a no would empty
+        the directory for every club that has one today.
         """
-        query = self._base_query().where(Member.status == "active")
+        query = (
+            self._base_query()
+            .where(Member.status == "active")
+            .where(Member.id.not_in(members_who_refused(self.tenant_id, "directory")))
+        )
         if search:
             term = f"%{search}%"
             query = query.where(or_(Member.first_name.ilike(term), Member.last_name.ilike(term)))
@@ -100,6 +110,9 @@ class MemberRepository(
                 Member.tenant_id == self.tenant_id,
                 Member.deleted_at.is_(None),
                 Member.status == "active",
+                # Same exclusion as `directory`, or the count would promise a
+                # page that the list does not deliver.
+                Member.id.not_in(members_who_refused(self.tenant_id, "directory")),
             )
         )
         if search:

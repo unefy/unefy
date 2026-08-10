@@ -15,6 +15,7 @@ from app.models.base import (
 )
 from app.models.catalog import ClubDiscipline, MeasurementUnit
 from app.models.competition import Competition, Entry, Session
+from app.models.consent import CONSENT_KINDS, CONSENT_SOURCES, MemberConsent
 from app.models.discipline import Discipline
 from app.models.division import Division
 from app.models.due import Due, FeeType, MemberFee
@@ -36,6 +37,8 @@ from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership, User
 
 __all__ = [
+    "CONSENT_KINDS",
+    "CONSENT_SOURCES",
     "AdminAuditLog",
     "AttendanceCheckinContext",
     "AttendanceRecord",
@@ -58,6 +61,7 @@ __all__ = [
     "Invitation",
     "MeasurementUnit",
     "Member",
+    "MemberConsent",
     "MemberFederationMembership",
     "MemberFee",
     "MemberFunction",

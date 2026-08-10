@@ -26,6 +26,7 @@ from app.models.tenant import Tenant
 from app.repositories.member import MemberRepository
 from app.schemas.application import ApplicationSubmit
 from app.schemas.member import MemberCreate
+from app.services.consent import ConsentService
 from app.services.member import MemberService
 
 logger = structlog.get_logger()
@@ -156,6 +157,24 @@ class ApplicationService:
         # to carry it to: members are not linked to divisions today (only
         # attendance and offices are). It stays on the application as what the
         # applicant asked for, and the board reads it there.
+
+        # The consents move with the person, stamped with the moment they were
+        # actually given — the form, not this decision. Refusals are written
+        # too: somebody who was asked and said no is a different case from
+        # somebody who was never asked.
+        await ConsentService(self.session, self.tenant_id).record_many(
+            member.id,
+            {
+                "photos": application.consent_photos,
+                "newsletter": application.consent_newsletter,
+                "directory": application.consent_directory,
+            },
+            source="application",
+            recorded_at=application.privacy_accepted_at,
+            # Nobody in the club entered these; the applicant did, before they
+            # had an account to be named by.
+            recorded_by=None,
+        )
 
         if application.fee_type_id is not None:
             self.session.add(
