@@ -202,22 +202,46 @@ Offen und bewusst so:
 - Der Antragsteller wird nicht automatisch benachrichtigt. Eine Absage, die
   als Serienmail ankommt, ist schlechter als ein Anruf.
 
-### 6.2 Einwilligungen und Auskunft (DSGVO)
+### 6.2 Einwilligungen und Auskunft (DSGVO) — teilweise (2026-08-11)
 
 Gehört unmittelbar zu 6.1: Der Antrag ist der Moment, in dem eingewilligt
 wird, und der einzige, in dem es unaufwendig ist.
 
-Baubar und deshalb hier:
+**Gebaut:**
 
-- **Einwilligungen je Mitglied** mit Zeitpunkt und Widerruf — Foto/Bild,
-  Rundmail, Nennung im Verzeichnis. Heute existiert dafür kein einziges Feld.
-  Sie sind **Voraussetzung für die Rundmail** aus 6.4: Wer ohne sie Serienmails
-  verschickt, baut sich ein Problem ein, das später teuer wird.
-- **Auskunft nach Art. 15** als Export der eigenen Daten. Die `/me`-Endpunkte
-  liefern schon alles; es fehlt das Bündel.
+- **Einwilligungen je Mitglied** — Foto, Rundmail, Verzeichnis — als
+  **fortgeschriebenes Verzeichnis, nicht als drei Häkchen am Mitglied.** Eine
+  Einwilligung muss beweisbar sein und ein Widerruf so leicht wie die
+  Erteilung; beides überlebt keine Spalte, die überschrieben wird. Es wird nur
+  angehängt, nie geändert oder gelöscht.
+- **Drei Zustände, nicht zwei**: erteilt, verweigert, und *nie gefragt*. Das
+  Fehlen einer Antwort ist keine Ablehnung, und die beiden zusammenfallen zu
+  lassen würde genau die Unterscheidung löschen, auf die es ankommt.
+- **Die Einwilligung wirkt.** Wer die Nennung im Verzeichnis verweigert,
+  erscheint dort nicht mehr — sonst wäre sie Dekoration: erfragt, gespeichert,
+  ignoriert. Wer nie gefragt wurde, bleibt drin; die Vereinsliste steht nicht
+  allein auf Einwilligung, und ein unbeantwortetes Feld darf kein Verzeichnis
+  leeren.
+- **Übernahme aus dem Antrag** bei der Aufnahme, gestempelt mit dem Zeitpunkt
+  des Formulars statt dem der Entscheidung. Verweigerungen wandern mit.
+- **Selbstbedienung** unter „Mein Bereich ▸ Meine Daten": erteilen und
+  widerrufen mit demselben Aufruf. Das Mitglied kann nicht rückdatieren, der
+  Vorstand schon — ein Papierformular wurde unterschrieben, als es
+  unterschrieben wurde.
+- **Auskunft nach Art. 15** als JSON-Bündel: Stammdaten, Einwilligungen,
+  Verbände, Ämter, Beiträge, Sollstellungen, Anwesenheit, Anmeldungen.
+  Selbstbedienung ohne Umweg über den Vorstand, und für Anfragen auf Papier
+  zusätzlich am Mitglied.
+
+**Offen:**
+
 - **Löschung nach Art. 17** im Verhältnis zu den Aufbewahrungsfristen, die pro
   Verein bereits konfigurierbar sind. Heute ist Löschen ein Soft-Delete — für
-  ein Löschersuchen zu wenig.
+  ein Löschersuchen zu wenig. Das ist der aufwendige Teil: Was gelöscht werden
+  muss, was anonymisiert werden darf und was zehn Jahre bleiben *muss*
+  (Steuer- und Handelsrecht), lässt sich nicht in einem Rutsch entscheiden.
+- **Eigene Frist für Bewerberdaten** aus 6.1 — abgelehnte und offene Anträge
+  sind keine Mitgliederdaten.
 
 Nicht baubar, und das gehört im Produkt auch so benannt: Datenschutzerklärung,
 Verarbeitungsverzeichnis und Auftragsverarbeitungsverträge sind Vereinstext.
