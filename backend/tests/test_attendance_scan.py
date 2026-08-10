@@ -10,6 +10,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -59,6 +60,20 @@ async def _add_member(
     session.add(member)
     await session.flush()
     return member
+
+
+def _just_ended_today(timezone: str) -> tuple[datetime, datetime]:
+    """A session that opened and closed a moment ago, on the club's own day.
+
+    Without the clamp this is flaky for the first minutes after local
+    midnight: "two minutes ago" is then yesterday to the club, and the guard
+    under test would correctly refuse the check-in.
+    """
+    zone = ZoneInfo(timezone)
+    now = datetime.now(UTC)
+    midnight = now.astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0)
+    earliest = midnight.astimezone(UTC) + timedelta(seconds=1)
+    return max(now - timedelta(minutes=2), earliest), max(now - timedelta(minutes=1), earliest)
 
 
 async def _create_session(client: AsyncClient, **overrides: object) -> dict:
@@ -838,14 +853,16 @@ async def test_an_evening_that_runs_late_still_takes_check_ins(
 
     Minutes rather than hours between the session and now: the day is the
     club's, not UTC's, so "three hours ago" lands on yesterday's evening for
-    the three hours after local midnight and this test would be red twice a
-    night. Small offsets keep it honest at any hour.
+    the three hours after local midnight. Small offsets shrink that window but
+    do not close it — two minutes past local midnight, "two minutes ago" is
+    still yesterday — so the offsets are clamped to the club's own day.
     """
     member = await _add_member(db_session, test_tenant.id)
+    opens_at, closes_at = _just_ended_today(test_tenant.timezone)
     ran_out = await _create_session(
         auth_client,
-        opens_at=(datetime.now(UTC) - timedelta(minutes=2)).isoformat(),
-        closes_at=(datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
+        opens_at=opens_at.isoformat(),
+        closes_at=closes_at.isoformat(),
     )
 
     resp = await auth_client.post(
