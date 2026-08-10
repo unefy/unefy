@@ -163,21 +163,44 @@ Mitglied wird, was er dabei einwilligt, und was er darüber in der Hand hält.**
 Kommunikation, Auswertungen, Dokumentenablage und Mannschaften bleiben in der
 Liste, rücken aber dahinter (6.4 bis 6.7).
 
-### 6.1 Digitaler Mitgliedsantrag
+### 6.1 Digitaler Mitgliedsantrag ✓ (2026-08-10)
 
-Heute legt ein Vorstandsmitglied neue Mitglieder von Hand an — der Beitritt
-selbst findet außerhalb des Systems statt, auf Papier oder per Mail.
+Vorher legte ein Vorstandsmitglied neue Mitglieder von Hand an — der Beitritt
+selbst fand außerhalb des Systems statt, auf Papier oder per Mail.
 
-- Öffentliches Formular, ohne Anmeldung erreichbar, je Verein.
+Gebaut:
+
+- Öffentliches Formular unter `/join/{slug}`, ohne Anmeldung erreichbar.
 - Es erzeugt einen **Antrag**, kein Mitglied. Aufnahme ist ein Beschluss, und
   ein Formular fasst keine Beschlüsse: der Vorstand nimmt an oder lehnt ab,
-  und erst die Annahme legt den Mitgliedsdatensatz an.
-- Beitragsart und Sparte wählbar, soweit der Verein sie anbietet.
-- SEPA-Mandat gleich mit erteilen — die Felder gibt es am Mitglied bereits.
-- Missbrauchsschutz: Rate-Limit wie bei den Auth-Endpunkten, und ein Antrag
-  darf keine Auskunft darüber geben, wer schon Mitglied ist.
+  und erst die Annahme legt den Mitgliedsdatensatz an — samt Mitgliedsnummer,
+  Beitragszuordnung und Mandatsreferenz.
+- Beitragsart und Sparte wählbar, soweit der Verein sie anbietet. Was der
+  Verein nicht anbietet, wird abgewiesen statt als unerfüllbarer Wunsch
+  gespeichert.
+- SEPA-Mandat gleich mit erteilen. Die Referenz entsteht erst bei der Annahme
+  — vorher gibt es keine Mitgliedschaft, die sie benennen könnte.
+- **Pro Verein abschaltbar, und aus by default.** Das ist der einzige
+  Endpunkt, durch den ein Unangemeldeter schreibt; ihn per Migration für alle
+  bestehenden Vereine zu öffnen wäre eine Entscheidung gewesen, die kein
+  Verein getroffen hat. Schalter in den Vereinseinstellungen.
+- Missbrauchsschutz: Rate-Limit wie bei den Auth-Endpunkten (5 Anträge pro
+  5 Minuten), und die Antwort ist für Mitglieder und Fremde identisch — sonst
+  wäre das Formular eine Mitgliederauskunft mit Zwischenschritt.
+- Einwilligungen (Foto, Rundmail, Verzeichnis) werden im selben Formular
+  erhoben, getrennt vom Datenschutzhinweis: eine Einwilligung, die an eine
+  Voraussetzung gekoppelt ist, ist nicht freiwillig. Sie liegen am Antrag und
+  wandern in 6.2 an das Mitglied.
+
+Offen und bewusst so:
+
+- Die gewünschte Sparte wird bei der Annahme **nicht** übernommen — Mitglieder
+  sind heute nicht mit Sparten verknüpft (nur Anwesenheit und Ämter). Sie
+  bleibt am Antrag stehen, der Vorstand liest sie dort.
 - Abgelehnte und offene Anträge unterliegen einer eigenen Frist — sie sind
-  Bewerberdaten, keine Mitgliederdaten.
+  Bewerberdaten, keine Mitgliederdaten. Gehört zu 6.2.
+- Der Antragsteller wird nicht automatisch benachrichtigt. Eine Absage, die
+  als Serienmail ankommt, ist schlechter als ein Anruf.
 
 ### 6.2 Einwilligungen und Auskunft (DSGVO)
 
