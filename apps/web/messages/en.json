@@ -1662,6 +1662,57 @@
       "open": "Open",
       "paid": "Paid",
       "cancelled": "Cancelled"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "dues": "Dues",
+      "attendance": "Attendance",
+      "functions": "Offices",
+      "events": "Events"
+    },
+    "subtitleFor": "{name} · {club}",
+    "attendance": {
+      "heading": "{count, plural, one {# range day} other {# range days}}",
+      "truncated": "Showing {shown} entries — there are more.",
+      "searchPlaceholder": "Search session or place",
+      "empty": "No attendance recorded yet.",
+      "ownRange": "Own range",
+      "columns": {
+        "date": "Date",
+        "where": "Where",
+        "origin": "Origin",
+        "discipline": "Discipline",
+        "weapon": "Weapon",
+        "rounds": "Rounds"
+      },
+      "origin": {
+        "club": "Club",
+        "self": "Self-kept"
+      },
+      "weapon": {
+        "kurzwaffe": "Handgun",
+        "langwaffe": "Long gun",
+        "luftdruck": "Air"
+      },
+      "filters": {
+        "allOrigins": "All origins",
+        "allYears": "All years"
+      }
+    },
+    "functions": {
+      "heading": "My offices",
+      "empty": "You currently hold no office.",
+      "current": "Current",
+      "openEnded": "open-ended",
+      "columns": {
+        "function": "Office",
+        "division": "Division",
+        "from": "Since",
+        "to": "Until"
+      }
+    },
+    "events": {
+      "heading": "{count, plural, one {# registration} other {# registrations}}"
     }
   },
   "functionHolders": {

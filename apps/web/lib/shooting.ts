@@ -46,6 +46,13 @@ export async function getProofChainStatus() {
  * rather than folded into the attendance response: `AttendanceRecord` belongs to
  * the core that every club has, a discipline to a module most clubs do not.
  */
+/** The caller's own shooting details, keyed by attendance record. */
+export async function listOwnShootingDetails() {
+  return apiCall<ShootingRecordDetail[]>(
+    "/api/v1/modules/shooting/me/records"
+  )
+}
+
 export async function listSessionShootingDetails(sessionId: string) {
   return apiCall<ShootingRecordDetail[]>(
     `/api/v1/modules/shooting/records?session_id=${sessionId}`

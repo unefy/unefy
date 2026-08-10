@@ -21,7 +21,12 @@ export type AttendanceSession = {
 /** One member's attendance at one session. */
 export type AttendanceRecord = {
   id: string
-  session_id: string
+  /** Null for a self-kept entry, which hangs off no session. */
+  session_id: string | null
+  /** "club" | "external" — where this record's credibility comes from. */
+  origin: string
+  /** The foreign range's name, when the member named one. Only for external. */
+  external_location: string | null
   member_id: string
   member_name: string | null
   member_number: string | null

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db_session
 from app.models.discipline import Discipline
 from app.models.tenant import Tenant
+from app.models.user import User
 
 
 async def _create_unit(
@@ -284,3 +285,52 @@ async def test_catalog_is_tenant_scoped(
         assert resp.status_code == 404
     finally:
         await other_client.aclose()
+
+
+async def test_a_member_may_read_the_discipline_catalogue(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_user: User,
+    test_tenant: Tenant,
+) -> None:
+    """A discipline name is configuration, not anybody's data.
+
+    Board-only meant the discipline column of a member's own range days was
+    silently empty — the read fell to 403 and the page showed dashes.
+    """
+    import json as json_module
+
+    from httpx import ASGITransport
+
+    import app.redis as redis_module
+    from app.database import get_db_session
+    from app.main import app
+
+    async def override_db():  # type: ignore[no-untyped-def]
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_db
+    redis_module._redis_client = fake_redis
+
+    token = uuid.uuid4().hex
+    await fake_redis.set(
+        f"session:{token}",
+        json_module.dumps(
+            {
+                "user_id": str(test_user.id),
+                "tenant_id": str(test_tenant.id),
+                "role": "member",
+            }
+        ),
+        ex=604800,
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"unefy_session": token},
+    ) as client:
+        assert (await client.get("/api/v1/club-disciplines")).status_code == 200
+        # Writing stays board work.
+        assert (
+            await client.post("/api/v1/club-disciplines", json={"name": "Neu"})
+        ).status_code == 403

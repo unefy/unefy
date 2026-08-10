@@ -266,6 +266,29 @@ async def list_member_attendance(
     return await member_records_payload(attendance, member_id, page, per_page, from_date, to_date)
 
 
+@router.get("/me/functions")
+async def list_own_functions(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """The caller's own terms of office.
+
+    Declared before `/{member_id}/functions`, which would otherwise swallow
+    "me" as a malformed UUID. Empty for an account with no member record —
+    an unlinked treasurer holds no office, which is a state and not an error.
+    """
+    from app.services.function import FunctionService
+
+    member_repo = MemberRepository(session, auth.tenant)
+    member = await member_repo.get_by_user_id(auth.user_id)
+    if member is None:
+        return {"data": []}
+
+    service = FunctionService(session, auth.tenant)
+    assignments = await service.list_member_functions(member.id)
+    return {"data": [a.model_dump(mode="json") for a in assignments]}
+
+
 @router.get("/{member_id}/functions")
 async def list_member_functions(
     member_id: uuid.UUID,

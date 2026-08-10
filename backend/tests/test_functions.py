@@ -615,3 +615,49 @@ async def test_list_club_divisions(
     data = response.json()["data"]
     # Primary first, then alphabetical.
     assert [d["name"] for d in data] == ["Pistole", "Bogen"]
+
+
+# --- Self-service: one's own terms of office ---
+
+
+async def test_a_member_reads_their_own_terms_of_office(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """`/members/{id}/functions` is board-only, so a member had no way in."""
+    member = Member(
+        tenant_id=test_tenant.id,
+        member_number=f"M-{uuid.uuid4().hex[:8]}",
+        first_name="Erika",
+        last_name="Musterfrau",
+        user_id=test_user.id,
+    )
+    db_session.add(member)
+    await db_session.flush()
+
+    created = await auth_client.post(
+        "/api/v1/functions", json={"name": "Kassenwart", "level": "club"}
+    )
+    assert created.status_code == 201
+    function_id = created.json()["data"]["id"]
+
+    assigned = await auth_client.post(
+        f"/api/v1/members/{member.id}/functions",
+        json={"function_id": function_id, "valid_from": "2026-01-01"},
+    )
+    assert assigned.status_code == 201
+
+    resp = await auth_client.get("/api/v1/members/me/functions")
+    assert resp.status_code == 200
+    assert [row["function_id"] for row in resp.json()["data"]] == [function_id]
+
+
+async def test_own_functions_are_empty_for_an_unlinked_account(
+    auth_client: AsyncClient,
+) -> None:
+    """A treasurer without a member record holds no office — a state, not a 404."""
+    resp = await auth_client.get("/api/v1/members/me/functions")
+    assert resp.status_code == 200
+    assert resp.json()["data"] == []

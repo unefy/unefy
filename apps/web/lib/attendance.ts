@@ -83,6 +83,20 @@ export async function listMemberAttendance(memberId: string, page = 1) {
   )
 }
 
+/**
+ * The caller's own attendance, club evenings and self-kept days alike.
+ *
+ * Collected across pages: a member with two years of range days has more than
+ * one page of them, and a history that silently stops is worse than none.
+ */
+export async function listOwnAttendance() {
+  return collectPages<MemberAttendanceRecord>((page) =>
+    apiList<MemberAttendanceRecord>(
+      `/api/v1/attendance/me/records?page=${page}&per_page=100`
+    )
+  )
+}
+
 export async function getClubTimeZone(): Promise<string> {
   const club = await getClub().catch(() => null)
   return club?.timezone || FALLBACK_TIME_ZONE

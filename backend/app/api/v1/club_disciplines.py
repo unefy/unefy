@@ -20,7 +20,11 @@ router = APIRouter()
 
 @router.get("")
 async def list_club_disciplines(
-    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    # Every role reads it: a discipline name is club configuration, not
+    # anybody's data, and a member needs it to read their own range days —
+    # board-only meant that column was silently empty for them. Writing stays
+    # board work, below.
+    auth: AuthContext = Depends(require_role("owner", "admin", "board", "member")),  # noqa: B008
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
     include_inactive: bool = Query(default=False),
 ) -> dict[str, Any]:

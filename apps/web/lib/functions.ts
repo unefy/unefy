@@ -23,6 +23,11 @@ export async function listMemberFunctions(memberId: string) {
 }
 
 /** Who holds which office at the given date (default: today). */
+/** The caller's own terms of office — self-service, any role. */
+export async function listOwnFunctions() {
+  return apiCall<MemberFunction[]>("/api/v1/members/me/functions")
+}
+
 export async function listFunctionHolders(at?: string) {
   const query = at ? `?at=${encodeURIComponent(at)}` : ""
   return apiCall<FunctionHolder[]>(`/api/v1/functions/holders${query}`)
