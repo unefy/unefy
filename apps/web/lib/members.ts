@@ -1,6 +1,6 @@
 import { cache } from "react"
 
-import { apiCall, apiList, type PaginationMeta } from "@/lib/api"
+import { apiCall, apiList, collectPages, type PaginationMeta } from "@/lib/api"
 import type { ClubAccess, Member, MemberFederation } from "@/lib/types/member"
 
 /**
@@ -25,6 +25,20 @@ function query(params: Record<string, string | number | undefined>): string {
  * members page about what happens beyond that.
  */
 export const MEMBER_PAGE_SIZE = 100
+
+/**
+ * Every member, across as many pages as the API caps at 100.
+ *
+ * The list sorts and filters in the table, so it has to hold the whole club:
+ * a table that sorts the first hundred rows looks sorted and is not.
+ */
+export async function listAllMembers(search?: string) {
+  return collectPages<Member>((page) =>
+    apiList<Member>(
+      `/api/v1/members${query({ page, per_page: MEMBER_PAGE_SIZE, search })}`
+    )
+  )
+}
 
 export async function listMembers(
   options: { page?: number; perPage?: number; search?: string } = {}

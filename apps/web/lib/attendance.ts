@@ -1,4 +1,4 @@
-import { apiCall, apiList } from "@/lib/api"
+import { apiCall, apiList, collectPages } from "@/lib/api"
 import { getClub } from "@/lib/club"
 import { FALLBACK_TIME_ZONE } from "@/lib/time"
 import type {
@@ -36,6 +36,23 @@ export async function listAttendanceSessions(
       per_page: options.perPage ?? SESSION_PAGE_SIZE,
       status: options.status,
     })}`
+  )
+}
+
+/**
+ * Every session, across pages. Same reason as the member list: the table
+ * filters over what it was handed, and an evening from March must not fall out
+ * of the list because eighty were held since.
+ */
+export async function listAllAttendanceSessions(status?: string) {
+  return collectPages<AttendanceSession>((page) =>
+    apiList<AttendanceSession>(
+      `/api/v1/attendance/sessions${query({
+        page,
+        per_page: SESSION_PAGE_SIZE,
+        status,
+      })}`
+    )
   )
 }
 

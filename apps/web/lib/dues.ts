@@ -1,4 +1,4 @@
-import { apiCall, apiList } from "@/lib/api"
+import { apiCall, apiList, collectPages } from "@/lib/api"
 import type {
   DuesSummary,
   FeeType,
@@ -32,6 +32,19 @@ export async function listDues(
   if (options.status) params.set("status", options.status)
   if (options.year) params.set("year", String(options.year))
   return apiList<MyDue>(`/api/v1/dues?${params}`)
+}
+
+/** The whole ledger, across pages — the table filters over all of it. */
+export async function listAllDues(options: { status?: string; year?: number } = {}) {
+  return collectPages<MyDue>((page) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(DUES_PAGE_SIZE),
+    })
+    if (options.status) params.set("status", options.status)
+    if (options.year) params.set("year", String(options.year))
+    return apiList<MyDue>(`/api/v1/dues?${params}`)
+  })
 }
 
 /** One member's dues, board view. */

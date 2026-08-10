@@ -673,7 +673,8 @@
         "save": "End term",
         "saving": "Saving …"
       }
-    }
+    },
+    "truncated": "Showing {shown} entries — there are more. Please narrow it down with the search."
   },
   "clubAccess": {
     "nav": "Accounts",
@@ -877,7 +878,8 @@
         "unknown": "Something went wrong.",
         "unreachable": "Server unreachable."
       }
-    }
+    },
+    "truncated": "Showing {shown} entries — there are more. Please narrow it down with the search."
   },
   "events": {
     "title": "Events",
@@ -1211,7 +1213,8 @@
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving …"
-    }
+    },
+    "truncated": "Showing {shown} entries — there are more. Please narrow it down with the search."
   },
   "competitions": {
     "title": "Competitions",

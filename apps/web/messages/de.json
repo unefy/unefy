@@ -673,7 +673,8 @@
         "save": "Beenden",
         "saving": "Wird gespeichert …"
       }
-    }
+    },
+    "truncated": "Es werden {shown} Einträge angezeigt — der Bestand ist größer. Bitte über die Suche eingrenzen."
   },
   "clubAccess": {
     "nav": "Zugänge",
@@ -877,7 +878,8 @@
         "unknown": "Da ist etwas schiefgelaufen.",
         "unreachable": "Server nicht erreichbar."
       }
-    }
+    },
+    "truncated": "Es werden {shown} Einträge angezeigt — der Bestand ist größer. Bitte über die Suche eingrenzen."
   },
   "events": {
     "title": "Termine",
@@ -1211,7 +1213,8 @@
       "cancel": "Abbrechen",
       "save": "Speichern",
       "saving": "Speichern …"
-    }
+    },
+    "truncated": "Es werden {shown} Einträge angezeigt — der Bestand ist größer. Bitte über die Suche eingrenzen."
   },
   "competitions": {
     "title": "Wettkämpfe",

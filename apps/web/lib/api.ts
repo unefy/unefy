@@ -71,6 +71,41 @@ export async function apiList<T>(
   }
 }
 
+/**
+ * The API caps a page at 100, so a club with more members than that had its
+ * list silently end at member 100 — sorting and filtering happen in the table,
+ * over whatever it was given.
+ *
+ * Collecting the pages rather than paging the screen is the deliberate choice:
+ * a page-by-page table can only sort the page it holds, which reads like a
+ * sorted list and is not one. The bound exists so a runaway club or a broken
+ * `meta` cannot turn one screen into a thousand requests; callers are told when
+ * it bites instead of quietly showing a prefix.
+ */
+export const MAX_COLLECTED_PAGES = 25
+
+export async function collectPages<T>(
+  fetchPage: (page: number) => Promise<{ data: T[]; meta: PaginationMeta }>
+): Promise<{ data: T[]; total: number; truncated: boolean }> {
+  const first = await fetchPage(1)
+  const data = [...first.data]
+  const pages = Math.min(first.meta.total_pages, MAX_COLLECTED_PAGES)
+
+  for (let page = 2; page <= pages; page += 1) {
+    const next = await fetchPage(page)
+    // An empty page means the server ran out earlier than `meta` promised —
+    // keep what arrived rather than looping to the bound for nothing.
+    if (next.data.length === 0) break
+    data.push(...next.data)
+  }
+
+  return {
+    data,
+    total: first.meta.total,
+    truncated: first.meta.total_pages > MAX_COLLECTED_PAGES,
+  }
+}
+
 async function apiRequest<T>(
   path: string,
   init: RequestInit = {}

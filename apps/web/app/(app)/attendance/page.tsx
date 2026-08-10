@@ -3,12 +3,12 @@ import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 
 import { SessionDialog } from "@/components/attendance/session-dialog"
 import { SessionsTable } from "@/components/attendance/sessions-table"
-import { getClubTimeZone, listAttendanceSessions } from "@/lib/attendance"
+import { getClubTimeZone, listAllAttendanceSessions } from "@/lib/attendance"
 
 export default async function AttendancePage() {
-  const [t, { data, meta }, timeZone] = await Promise.all([
+  const [t, { data, total, truncated }, timeZone] = await Promise.all([
     getTranslations("attendance"),
-    listAttendanceSessions(),
+    listAllAttendanceSessions(),
     getClubTimeZone(),
   ])
 
@@ -21,11 +21,14 @@ export default async function AttendancePage() {
             {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {t("description", { count: meta.total })}
+            {t("description", { count: total })}
           </p>
         </div>
         <SessionDialog />
       </div>
+      {truncated && (
+        <p className="text-sm text-destructive">{t("truncated", { shown: data.length })}</p>
+      )}
       <SessionsTable sessions={data} timeZone={timeZone} />
     </>
   )

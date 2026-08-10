@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card"
 import { getClubTimeZone } from "@/lib/attendance"
 import { getClub } from "@/lib/club"
-import { getDuesSummary, listDues } from "@/lib/dues"
+import { getDuesSummary, listAllDues } from "@/lib/dues"
 import { ReceiptIcon } from "lucide-react"
 
 function euro(amount: string, locale: string): string {
@@ -38,7 +38,7 @@ export default async function DuesPage() {
   // Each read fails soft: the book must still render when the summary or the
   // club record hiccups.
   const [dues, summary, club] = await Promise.all([
-    listDues().catch(() => ({ data: [], meta: { total: 0 } })),
+    listAllDues().catch(() => ({ data: [], total: 0, truncated: false })),
     getDuesSummary().catch(() => null),
     getClub().catch(() => null),
   ])
@@ -55,7 +55,7 @@ export default async function DuesPage() {
             {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {t("description", { count: dues.meta.total })}
+            {t("description", { count: dues.total })}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -102,6 +102,11 @@ export default async function DuesPage() {
         </div>
       )}
 
+      {dues.truncated && (
+        <p className="text-sm text-destructive">
+          {t("truncated", { shown: dues.data.length })}
+        </p>
+      )}
       <DuesTable
         dues={dues.data}
         timeZone={timeZone}
