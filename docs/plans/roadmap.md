@@ -3,6 +3,28 @@
 Stand 2026-08-09, auf Basis der vollständigen Inventur (Backend, Web, Android)
 und des verifizierten Prozessmodells Termin ↔ Einheit ↔ Wettkampf.
 
+## Was erledigt ist (Fortschritt, nicht Plan)
+
+**Phasen 0 bis 4 sind durch.** Dashboard statt Scaffold-Startseite, Termine,
+Beiträge samt SEPA-Export, Wettkämpfe, Command-Palette; in der App der Weg von
+der Serie zum Durchgang, dazu der eigene Stand als Selbsteintrag und der
+Check-in-Hinweis.
+
+**Aus Phase 5 ist der größte Posten erledigt:** die Bescheinigung ist ein
+druckbares Dokument, ihr QR führt auf eine öffentliche Prüfseite statt auf
+JSON, die gezählten Termine lassen sich als Anlage mitgeben, und die
+Verbandsmitgliedschaft steht mit drauf.
+
+Die Entscheidungen E1 bis E3 sind getroffen und umgesetzt (siehe Tabelle
+unten). E4 — iOS parken — ist weiterhin unbeantwortet.
+
+**Zwei Erkenntnisse aus dem Betrieb, die keine Phase waren:** Der Login auf
+Prod ist gebrochen, solange `COOKIE_DOMAIN` den Container nicht erreicht; das
+Backend verweigert seit `840c648` den Start in dieser Konstellation, statt
+eine unbenutzbare Anmeldung auszuliefern. Und eine neue Abhängigkeit erreicht
+weder den Web- noch den Backend-Container von allein — beide halten ihre
+Installation in einem Volume.
+
 ## Ausgangslage in einem Absatz
 
 Das Backend ist für fast alle Domänen fertig (inkl. SEPA-Export, Events,
@@ -104,15 +126,34 @@ Einziger Bereich, in dem auch Android nur lesend ist.
 
 ## Phase 5 — Self-Service & Lückenschluss Web
 
+- ~~Öffentliche **Verifikationsseite** und PDF-Ausgabe der Bescheinigung~~ —
+  erledigt, inklusive optionaler Terminliste und Verbandsdaten.
+- **Paginierung** statt des 100er-Caps in Mitglieder- und Anwesenheitslisten.
+  Der dringendste Rest: bei 26 Testmitgliedern unsichtbar, bei 240 ein
+  Datenverlust in der Ansicht.
 - `/my` ausbauen: eigene Anwesenheit/Schießtage, eigene Ämter,
   Event-Anmeldungen; Mitgliederverzeichnis (`/members/directory`) fürs Web.
-- Öffentliche **Verifikationsseite** für Bescheinigungs-Prüfcodes
-  (`GET /verify/{code}` existiert, QR auf dem Ausdruck zeigt ins Leere) +
-  PDF-Ausgabe der Bescheinigung.
-- **Paginierung** statt 100er-Cap in Mitglieder- und Anwesenheitslisten.
 - **Spartenverwaltung** in den Einstellungen (heute nur beim Onboarding).
 - RSVP ↔ Anwesenheit-Spiegel am Termin („angemeldet, nicht gekommen") —
   reine Leseansicht, war als A4 geparkt.
+
+## Noch nicht eingeplant: der inhaltliche Ausbau
+
+Gegenüber modernen Vereinsverwaltungen fehlen ganze Bereiche: Kommunikation
+(Rundmails an Mitglieder oder Abteilungen), Dokumentenablage, Gruppen und
+Mannschaften, Auswertungen. Das ist mehr als eine Phase und gehört geplant,
+bevor daran gebaut wird.
+
+## Offene Fragen an den Verband (nicht durch Code lösbar)
+
+Ob eine digitale Bescheinigung überhaupt akzeptiert wird, entscheidet der
+Verband (BDS/DSB), nicht die Behörde — er stellt die Bedürfnisbescheinigung
+aus, auf die sich die Behörde stützt. Mehrere vergleichbare Apps schreiben
+deshalb dazu, dass sie den Papiernachweis nicht ersetzen. Offen sind: akzeptiert
+der Verband die digitale Form, und gibt es ein vorgeschriebenes Formular? Mit
+dessen Vorgabe lässt sich das PDF danach bauen. Das qualifizierte Siegel nach
+eIDAS (`seal` ist im Modell reserviert) ist der Schritt, der das letzte
+technische Argument dagegen ausräumt.
 
 ## Phase 6 — Plattform & Ausbau (nach Parität)
 
