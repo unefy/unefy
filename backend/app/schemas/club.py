@@ -116,6 +116,23 @@ class ClubUpdate(BaseSchema):
     _check_timezone = field_validator("timezone")(_validate_timezone)
 
 
+class DivisionCreate(BaseSchema):
+    """A new division (Sparte).
+
+    `sport_id` is what makes a division more than a label — the §14 evaluation
+    excludes evenings held by a division whose sport does not carry the
+    shooting module.
+    """
+
+    name: str = Field(min_length=1, max_length=255)
+    sport_id: uuid.UUID | None = None
+
+
+class DivisionUpdate(BaseSchema):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    sport_id: uuid.UUID | None = None
+
+
 class ClubSportsUpdate(BaseSchema):
     """The club's sports, replaced as a set."""
 

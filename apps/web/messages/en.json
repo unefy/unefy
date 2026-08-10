@@ -82,7 +82,8 @@
     "settingsSports": "Sports",
     "settingsFunctions": "Functions",
     "functionHolders": "Office holders",
-    "feeTypes": "Fee types"
+    "feeTypes": "Fee types",
+    "settingsDivisions": "Divisions"
   },
   "dashboard": {
     "title": "Overview",
@@ -1481,6 +1482,53 @@
         "cancel": "Cancel",
         "save": "Save",
         "saving": "Saving …"
+      }
+    },
+    "divisions": {
+      "title": "Divisions",
+      "description": "The club's sections and the sport they practise. The sport decides which evenings count towards the §14 proof.",
+      "columns": {
+        "name": "Division",
+        "sport": "Sport"
+      },
+      "primary": "Primary",
+      "noSport": "No sport",
+      "empty": "No division created yet.",
+      "create": "Add division",
+      "edit": "Edit",
+      "delete": "Delete",
+      "createTitle": "New division",
+      "editTitle": "Edit division",
+      "dialogDescription": "Name and sport. The primary division stays and cannot be deleted.",
+      "placeholder": "Archery section",
+      "fields": {
+        "name": "Name",
+        "sport": "Sport"
+      },
+      "hints": {
+        "sport": "Only sports the club practises. Without one a division is just a label."
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving …",
+      "createdToast": "Division created.",
+      "savedToast": "Division saved.",
+      "deletedToast": "Division deleted.",
+      "readOnly": "Only owners and administrators may change divisions.",
+      "deleteDialog": {
+        "title": "Delete division “{name}”?",
+        "description": "Only possible while no attendance is booked against it.",
+        "confirm": "Delete"
+      },
+      "errors": {
+        "nameTaken": "A division with this name already exists.",
+        "primary": "The primary division cannot be deleted.",
+        "inUse": "Attendance is already booked against this division — deleting would change what past proofs say.",
+        "forbidden": "You do not have permission for this.",
+        "notFound": "Not found.",
+        "validation": "Please check your input.",
+        "unknown": "Something went wrong.",
+        "unreachable": "Server unreachable."
       }
     }
   },

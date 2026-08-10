@@ -328,3 +328,112 @@ async def test_tenant_isolation(
 
     redis_module._redis_client = original_redis
     app.dependency_overrides.clear()
+
+
+# --- Divisions (Sparten) ---
+
+
+async def test_a_division_can_be_added_renamed_and_removed(
+    auth_client: AsyncClient,
+) -> None:
+    """Until now they existed only from onboarding, with no way back in."""
+    created = await auth_client.post(
+        "/api/v1/club/divisions", json={"name": "Bogen"}
+    )
+    assert created.status_code == 201, created.text
+    division = created.json()["data"]
+    assert division["is_primary"] is False
+
+    renamed = await auth_client.patch(
+        f"/api/v1/club/divisions/{division['id']}", json={"name": "Bogensport"}
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["data"]["name"] == "Bogensport"
+
+    listed = await auth_client.get("/api/v1/club/divisions")
+    assert "Bogensport" in [row["name"] for row in listed.json()["data"]]
+
+    removed = await auth_client.delete(f"/api/v1/club/divisions/{division['id']}")
+    assert removed.status_code == 204
+
+
+async def test_two_divisions_cannot_share_a_name(auth_client: AsyncClient) -> None:
+    """A duplicate name makes every division picker ambiguous."""
+    first = await auth_client.post("/api/v1/club/divisions", json={"name": "Bogen"})
+    assert first.status_code == 201
+
+    second = await auth_client.post("/api/v1/club/divisions", json={"name": "Bogen"})
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "DIVISION_EXISTS"
+
+
+async def test_the_primary_division_stays(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """A club always has one; removing it would leave pickers with nothing."""
+    from app.models.division import Division
+
+    primary = Division(tenant_id=test_tenant.id, name="Hauptverein", is_primary=True)
+    db_session.add(primary)
+    await db_session.flush()
+
+    resp = await auth_client.delete(f"/api/v1/club/divisions/{primary.id}")
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "DIVISION_PRIMARY"
+
+
+async def test_a_division_with_attendance_is_not_deletable(
+    auth_client: AsyncClient, db_session: AsyncSession, test_tenant: Tenant
+) -> None:
+    """Not tidiness — the foreign key is ON DELETE SET NULL, and a sessionless
+    evening counts in the §14 evaluation where one held by a non-shooting
+    division does not. Deleting would rewrite what past evaluations say.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.attendance import AttendanceSession
+
+    created = await auth_client.post("/api/v1/club/divisions", json={"name": "Bogen"})
+    division_id = created.json()["data"]["id"]
+
+    opens = datetime.now(UTC)
+    db_session.add(
+        AttendanceSession(
+            tenant_id=test_tenant.id,
+            title="Übungsabend",
+            division_id=uuid.UUID(division_id),
+            opens_at=opens,
+            closes_at=opens + timedelta(hours=3),
+        )
+    )
+    await db_session.flush()
+
+    resp = await auth_client.delete(f"/api/v1/club/divisions/{division_id}")
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "DIVISION_IN_USE"
+
+
+async def test_a_division_may_only_carry_a_sport_the_club_practises(
+    auth_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    from app.models.sport import Sport
+
+    stranger = Sport(key=f"chess-{uuid.uuid4().hex[:6]}", name="Schach", modules=[])
+    db_session.add(stranger)
+    await db_session.flush()
+
+    resp = await auth_client.post(
+        "/api/v1/club/divisions",
+        json={"name": "Schach", "sport_id": str(stranger.id)},
+    )
+    assert resp.status_code == 422
+
+
+async def test_divisions_are_board_free_to_read_but_admin_to_change(
+    auth_client: AsyncClient, anon_client: AsyncClient
+) -> None:
+    """Reading is every member's; changing the club's structure is not."""
+    assert (await anon_client.get("/api/v1/club/divisions")).status_code == 403
+    assert (
+        await anon_client.post("/api/v1/club/divisions", json={"name": "X"})
+    ).status_code == 403

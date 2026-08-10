@@ -54,4 +54,6 @@ export type ClubDivision = {
   id: string
   name: string
   is_primary: boolean
+  /** The sport it practises — what makes a division more than a label. */
+  sport_id: string | null
 }

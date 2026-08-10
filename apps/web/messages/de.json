@@ -82,7 +82,8 @@
     "settingsSports": "Sportarten",
     "settingsFunctions": "Funktionen",
     "functionHolders": "Funktionsträger",
-    "feeTypes": "Beitragsarten"
+    "feeTypes": "Beitragsarten",
+    "settingsDivisions": "Sparten"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -1481,6 +1482,53 @@
         "cancel": "Abbrechen",
         "save": "Speichern",
         "saving": "Wird gespeichert …"
+      }
+    },
+    "divisions": {
+      "title": "Sparten",
+      "description": "Die Abteilungen des Vereins und die Sportart, die sie betreiben. Die Sportart entscheidet mit, welche Abende in den §14-Nachweis zählen.",
+      "columns": {
+        "name": "Sparte",
+        "sport": "Sportart"
+      },
+      "primary": "Hauptsparte",
+      "noSport": "Keine Sportart",
+      "empty": "Noch keine Sparte angelegt.",
+      "create": "Sparte anlegen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "createTitle": "Neue Sparte",
+      "editTitle": "Sparte bearbeiten",
+      "dialogDescription": "Name und Sportart. Die Hauptsparte bleibt bestehen und lässt sich nicht löschen.",
+      "placeholder": "Bogenabteilung",
+      "fields": {
+        "name": "Name",
+        "sport": "Sportart"
+      },
+      "hints": {
+        "sport": "Nur Sportarten, die der Verein betreibt. Ohne Sportart ist die Sparte nur ein Etikett."
+      },
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern …",
+      "createdToast": "Sparte angelegt.",
+      "savedToast": "Sparte gespeichert.",
+      "deletedToast": "Sparte gelöscht.",
+      "readOnly": "Sparten ändern dürfen nur Inhaber und Administratoren.",
+      "deleteDialog": {
+        "title": "Sparte „{name}“ löschen?",
+        "description": "Nur möglich, solange keine Anwesenheit auf sie gebucht ist.",
+        "confirm": "Löschen"
+      },
+      "errors": {
+        "nameTaken": "Eine Sparte mit diesem Namen gibt es schon.",
+        "primary": "Die Hauptsparte lässt sich nicht löschen.",
+        "inUse": "Auf diese Sparte ist bereits Anwesenheit gebucht — das Löschen würde ändern, was vergangene Nachweise aussagen.",
+        "forbidden": "Dafür fehlt dir die Berechtigung.",
+        "notFound": "Nicht gefunden.",
+        "validation": "Bitte die Eingaben prüfen.",
+        "unknown": "Da ist etwas schiefgelaufen.",
+        "unreachable": "Server nicht erreichbar."
       }
     }
   },

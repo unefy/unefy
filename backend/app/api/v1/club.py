@@ -5,9 +5,10 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.database import get_db_session
 from app.dependencies import AuthContext, get_current_user, require_role
 from app.models.sport import Sport
@@ -15,7 +16,13 @@ from app.models.tenant import Tenant
 from app.models.tenant_sport import TenantSport
 from app.models.user import TenantMembership
 from app.redis import get_redis
-from app.schemas.club import ClubResponse, ClubSportsUpdate, ClubUpdate
+from app.schemas.club import (
+    ClubResponse,
+    ClubSportsUpdate,
+    ClubUpdate,
+    DivisionCreate,
+    DivisionUpdate,
+)
 
 logger = structlog.get_logger()
 
@@ -159,11 +166,142 @@ async def list_divisions(
         .where(Division.tenant_id == auth.tenant)
         .order_by(Division.is_primary.desc(), Division.name)
     )
+    return {"data": [_division_response(d) for d in result.scalars().all()]}
+
+
+@router.post("/divisions", status_code=201)
+async def create_division(
+    data: DivisionCreate,
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Add a division. Never primary — a club already has exactly one."""
+    from app.models.division import Division
+
+    await _require_club_sport(session, auth.tenant, data.sport_id)
+    division = Division(
+        tenant_id=auth.tenant,
+        name=data.name.strip(),
+        sport_id=data.sport_id,
+        is_primary=False,
+        created_by=auth.user_id,
+        updated_by=auth.user_id,
+    )
+    session.add(division)
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        # The (tenant, name) unique constraint. Two divisions with one name
+        # would make every picker ambiguous.
+        raise ConflictError(
+            "A division with this name already exists", code="DIVISION_EXISTS"
+        ) from error
+    return {"data": _division_response(division)}
+
+
+@router.patch("/divisions/{division_id}")
+async def update_division(
+    division_id: uuid.UUID,
+    data: DivisionUpdate,
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """Rename a division or move it to another of the club's sports."""
+    from app.models.division import Division
+
+    division = (
+        await session.execute(
+            select(Division)
+            .where(Division.tenant_id == auth.tenant)
+            .where(Division.id == division_id)
+        )
+    ).scalar_one_or_none()
+    if division is None:
+        raise NotFoundError("Division not found")
+
+    changes = data.model_dump(exclude_unset=True)
+    if "sport_id" in changes:
+        await _require_club_sport(session, auth.tenant, changes["sport_id"])
+        division.sport_id = changes["sport_id"]
+    if "name" in changes and changes["name"] is not None:
+        division.name = changes["name"].strip()
+    division.updated_by = auth.user_id
+
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        raise ConflictError(
+            "A division with this name already exists", code="DIVISION_EXISTS"
+        ) from error
+    return {"data": _division_response(division)}
+
+
+@router.delete("/divisions/{division_id}", status_code=204)
+async def delete_division(
+    division_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> None:
+    """Remove a division that never ran an evening.
+
+    Refused once attendance hangs off it, and not for tidiness: the foreign key
+    is ON DELETE SET NULL, and a sessionless evening *counts* in the §14
+    evaluation where one held by a non-shooting division does not. Deleting
+    would therefore silently change what past evaluations say.
+    """
+    from app.models.attendance import AttendanceSession
+    from app.models.division import Division
+
+    division = (
+        await session.execute(
+            select(Division)
+            .where(Division.tenant_id == auth.tenant)
+            .where(Division.id == division_id)
+        )
+    ).scalar_one_or_none()
+    if division is None:
+        raise NotFoundError("Division not found")
+    if division.is_primary:
+        raise ConflictError("The primary division cannot be removed", code="DIVISION_PRIMARY")
+
+    used = (
+        await session.execute(
+            select(AttendanceSession.id)
+            .where(AttendanceSession.tenant_id == auth.tenant)
+            .where(AttendanceSession.division_id == division_id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if used is not None:
+        raise ConflictError("Attendance was recorded for this division", code="DIVISION_IN_USE")
+
+    await session.delete(division)
+    await session.flush()
+
+
+async def _require_club_sport(
+    session: AsyncSession, tenant_id: uuid.UUID, sport_id: uuid.UUID | None
+) -> None:
+    """A division may only carry a sport the club actually practises."""
+    if sport_id is None:
+        return
+    found = (
+        await session.execute(
+            select(TenantSport.id)
+            .where(TenantSport.tenant_id == tenant_id)
+            .where(TenantSport.sport_id == sport_id)
+        )
+    ).scalar_one_or_none()
+    if found is None:
+        raise ValidationError("The club does not practise this sport")
+
+
+def _division_response(division: Any) -> dict[str, Any]:
     return {
-        "data": [
-            {"id": str(d.id), "name": d.name, "is_primary": d.is_primary}
-            for d in result.scalars().all()
-        ]
+        "id": str(division.id),
+        "name": division.name,
+        "is_primary": division.is_primary,
+        "sport_id": str(division.sport_id) if division.sport_id else None,
     }
 
 
