@@ -100,6 +100,12 @@ export function ClubGeneralForm({
   const [applicationsEnabled, setApplicationsEnabled] = useState(
     club.applications_enabled
   )
+  const [feesDeductible, setFeesDeductible] = useState(
+    club.membership_fees_deductible
+  )
+  const [exemptionKind, setExemptionKind] = useState(
+    club.tax_exemption_kind ?? "freistellungsbescheid"
+  )
 
   // Ask the runtime for the zone list rather than shipping one: it is already
   // there, it stays current, and hard-coding a region would contradict a
@@ -391,6 +397,107 @@ export function ClubGeneralForm({
               defaultValue={club.bic ?? ""}
             />
           </Field>
+        </Section>
+
+        <Section
+          title={t("sections.donations")}
+          description={t("hints.donations")}
+        >
+          <Field
+            id="nonprofit_purposes"
+            label={t("fields.nonprofitPurposes")}
+            hint={t("hints.nonprofitPurposes")}
+          >
+            <Input
+              id="nonprofit_purposes"
+              name="nonprofit_purposes"
+              maxLength={500}
+              defaultValue={club.nonprofit_purposes ?? ""}
+              placeholder="Förderung des Sports"
+            />
+          </Field>
+          <div className="space-y-2">
+            <Label htmlFor="tax_exemption_kind">
+              {t("fields.taxExemptionKind")}
+            </Label>
+            <Select
+              name="tax_exemption_kind"
+              value={exemptionKind}
+              onValueChange={(value) => setExemptionKind(String(value))}
+            >
+              <SelectTrigger id="tax_exemption_kind" className="w-full">
+                <SelectValue>
+                  {(value: string) => t(`exemptionKinds.${value}`)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="freistellungsbescheid">
+                  {t("exemptionKinds.freistellungsbescheid")}
+                </SelectItem>
+                <SelectItem value="feststellung_60a">
+                  {t("exemptionKinds.feststellung_60a")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              {t("hints.taxExemptionKind")}
+            </p>
+          </div>
+          <Field
+            id="tax_exemption_date"
+            label={t("fields.taxExemptionDate")}
+            hint={t("hints.taxExemptionDate")}
+          >
+            <Input
+              id="tax_exemption_date"
+              name="tax_exemption_date"
+              type="date"
+              defaultValue={club.tax_exemption_date ?? ""}
+            />
+          </Field>
+          {/* Only a Freistellungsbescheid covers an assessment period; a §60a
+              determination has none, and asking for one would invite a made-up
+              answer. */}
+          {exemptionKind === "freistellungsbescheid" && (
+            <Field
+              id="tax_exemption_period"
+              label={t("fields.taxExemptionPeriod")}
+              hint={t("hints.taxExemptionPeriod")}
+            >
+              <Input
+                id="tax_exemption_period"
+                name="tax_exemption_period"
+                inputMode="numeric"
+                defaultValue={club.tax_exemption_period ?? ""}
+                placeholder="2024"
+              />
+            </Field>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="membership_fees_deductible">
+              {t("fields.membershipFeesDeductible")}
+            </Label>
+            <div className="flex h-9 items-center gap-3">
+              <Switch
+                id="membership_fees_deductible"
+                checked={feesDeductible}
+                onCheckedChange={(checked) =>
+                  setFeesDeductible(checked === true)
+                }
+              />
+              <span className="text-sm text-muted-foreground">
+                {feesDeductible ? t("yes") : t("no")}
+              </span>
+            </div>
+            <input
+              type="hidden"
+              name="membership_fees_deductible"
+              value={feesDeductible ? "on" : ""}
+            />
+            <p className="text-sm text-muted-foreground">
+              {t("hints.membershipFeesDeductible")}
+            </p>
+          </div>
         </Section>
 
         <Section

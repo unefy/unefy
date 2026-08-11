@@ -121,6 +121,7 @@ export const sidebarData: SidebarData = {
           items: [
             { titleKey: "dues", url: "/dues" },
             { titleKey: "feeTypes", url: "/dues/fee-types" },
+            { titleKey: "donations", url: "/donations" },
           ],
         },
       ],

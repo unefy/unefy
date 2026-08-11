@@ -86,7 +86,8 @@
     "feeTypes": "Fee types",
     "settingsDivisions": "Divisions",
     "applications": "Applications",
-    "settingsDocuments": "Certificates"
+    "settingsDocuments": "Certificates",
+    "donations": "Donations"
   },
   "dashboard": {
     "title": "Overview",
@@ -1400,7 +1401,8 @@
       "address": "Address",
       "legal": "Legal",
       "sepa": "Bank details & SEPA",
-      "applications": "Joining"
+      "applications": "Joining",
+      "donations": "Donation receipts"
     },
     "fields": {
       "name": "Name",
@@ -1425,7 +1427,12 @@
       "sepaCreditorId": "Creditor identifier",
       "iban": "IBAN",
       "bic": "BIC",
-      "applicationsEnabled": "Public join form"
+      "applicationsEnabled": "Public join form",
+      "nonprofitPurposes": "Recognised purposes",
+      "taxExemptionKind": "Kind of notice",
+      "taxExemptionDate": "Date of the notice",
+      "taxExemptionPeriod": "Last assessment period",
+      "membershipFeesDeductible": "Membership fees certifiable"
     },
     "hints": {
       "shortName": "For tight spots such as the sidebar.",
@@ -1435,7 +1442,13 @@
       "sepa": "The club's side of a direct debit. Without a creditor identifier and IBAN no direct debit file can be produced.",
       "sepaCreditorId": "Issued by the national central bank.",
       "applications": "Whether people can apply for membership through a public form. An application creates no member — the board decides on that.",
-      "joinUrl": "Reachable at"
+      "joinUrl": "Reachable at",
+      "donations": "Details that have to appear on every donation receipt. They are frozen into each receipt as they were on the day.",
+      "nonprofitPurposes": "Wording from the notice, e.g. \"Förderung des Sports\".",
+      "taxExemptionKind": "Freistellungsbescheid normally; the § 60a determination only for newly founded clubs.",
+      "taxExemptionDate": "Date of the notice.",
+      "taxExemptionPeriod": "Last assessment period the notice covers.",
+      "membershipFeesDeductible": "Only switch on when the recognised purposes allow it. For sports clubs, membership fees are not deductible (§ 10b Abs. 1 Satz 8 EStG) — a wrong receipt is useless to the member and the club is liable for it."
     },
     "errors": {
       "forbidden": "You do not have permission for that.",
@@ -1549,6 +1562,10 @@
         "unknown": "Something went wrong.",
         "unreachable": "Server unreachable."
       }
+    },
+    "exemptionKinds": {
+      "freistellungsbescheid": "Freistellungsbescheid",
+      "feststellung_60a": "Determination under § 60a AO"
     }
   },
   "shooting": {
@@ -2130,6 +2147,76 @@
       "title": "Ready-made wordings",
       "description": "Common club documents as drafts. One click opens the editor with the text; nothing is saved until you have read and adapted it.",
       "disclaimer": "These are suggested wordings, not legal advice. What your club may certify follows from its articles and from what the recipient needs it for. The donation receipt is deliberately absent: it follows an official template and does not belong in freely written text."
+    }
+  },
+  "donations": {
+    "title": "Donation receipts",
+    "description": "Donation receipts following the official template. The content is prescribed and therefore built in code — unlike the free certificates, there is nothing to word here.",
+    "issueTitle": "Record a donation",
+    "issueHint": "The details are frozen with the club's data as of the issuing day. Later changes to the tax notice do not change an issued receipt.",
+    "issue": "Issue receipt",
+    "issuing": "Issuing …",
+    "issued": "Donation receipt issued.",
+    "historyTitle": "Issued receipts",
+    "historyNote": "Issued receipts are never edited. A mistake is revoked and re-issued — the recipient already holds the paper and the tax office may have seen it.",
+    "search": "Donor name …",
+    "empty": "No receipt has been issued yet.",
+    "noMatch": "No receipt matches the search.",
+    "yes": "Yes",
+    "no": "No",
+    "valid": "Valid",
+    "revoked": "Revoked",
+    "revoke": "Revoke",
+    "revokedToast": "Receipt revoked.",
+    "download": "Download PDF",
+    "noMember": "Not a member (free entry)",
+    "notReady": "Some club details are still missing for donation receipts.",
+    "toSettings": "Add them in the settings",
+    "columns": {
+      "donor": "Donor",
+      "amount": "Amount",
+      "receivedOn": "Date of donation",
+      "kind": "Kind",
+      "status": "Status"
+    },
+    "kinds": {
+      "geldzuwendung": "Money donation",
+      "mitgliedsbeitrag": "Membership fee"
+    },
+    "fields": {
+      "member": "Member",
+      "donor": "Donor name",
+      "donorAddress": "Address",
+      "amount": "Amount in euro",
+      "receivedOn": "Date of donation",
+      "kind": "Kind of contribution",
+      "waiver": "Waiver of expense reimbursement"
+    },
+    "hints": {
+      "member": "For a member, name and address are taken from the record.",
+      "waiver": "Yes when reimbursement of expenses was waived. The official template asks explicitly.",
+      "feesNotDeductible": "Membership fees cannot be certified for this club. For sports clubs that is the normal case (§ 10b Abs. 1 Satz 8 EStG). Changeable in the club settings."
+    },
+    "missing": {
+      "club": "Club data",
+      "nonprofit_purposes": "Recognised purposes",
+      "tax_exemption_kind": "Kind of notice",
+      "tax_exemption_date": "Date of the notice",
+      "tax_exemption_period": "Last assessment period",
+      "tax_office": "Tax office",
+      "tax_number": "Tax number"
+    },
+    "confirmRevoke": {
+      "title": "Revoke the receipt?",
+      "description": "The receipt keeps all its details and is marked invalid — on the PDF and on the public check page."
+    },
+    "errors": {
+      "conflict": "This receipt has already been revoked.",
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "Not found.",
+      "validation": "Please check the details. Membership fees cannot be certified by every club.",
+      "unknown": "That did not work.",
+      "unreachable": "The server cannot be reached."
     }
   }
 }

@@ -66,6 +66,24 @@ const clubSchema = z.object({
   iban: optionalText,
   bic: optionalText,
 
+  // Donation receipt data. The period only applies to a Freistellungsbescheid,
+  // so it is optional here and checked by the backend against the kind.
+  nonprofit_purposes: optionalText,
+  tax_exemption_kind: z
+    .enum(["freistellungsbescheid", "feststellung_60a"])
+    .optional(),
+  tax_exemption_date: optionalDate.optional(),
+  tax_exemption_period: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const trimmed = (value ?? "").trim()
+      return trimmed === "" ? null : Number(trimmed)
+    })
+    .refine((value) => value === null || (value >= 1900 && value <= 2200), {
+      message: "invalid year",
+    }),
+
   // The zone the club's calendar day is resolved against. Validated properly
   // in the backend against the actual zone database — a typo here would shift
   // every attendance date by a day.
@@ -83,6 +101,7 @@ export async function updateClubAction(
   // An unchecked checkbox is absent from FormData rather than "false".
   const isNonprofit = formData.get("is_nonprofit") === "on"
   const applicationsEnabled = formData.get("applications_enabled") === "on"
+  const feesDeductible = formData.get("membership_fees_deductible") === "on"
 
   try {
     const club = await apiCall<Club>("/api/v1/club", {
@@ -91,6 +110,7 @@ export async function updateClubAction(
         ...parsed.data,
         is_nonprofit: isNonprofit,
         applications_enabled: applicationsEnabled,
+        membership_fees_deductible: feesDeductible,
         // Meaningless without the flag, and leaving it behind would suggest a
         // status the club no longer claims.
         nonprofit_since: isNonprofit

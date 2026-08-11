@@ -43,6 +43,13 @@ export type Club = {
   /** Whether the public join form accepts applications for this club. */
   applications_enabled: boolean
 
+  /** What a donation receipt has to state about the club. */
+  nonprofit_purposes: string | null
+  tax_exemption_kind: string | null
+  tax_exemption_date: string | null
+  tax_exemption_period: number | null
+  membership_fees_deductible: boolean
+
   /**
    * Modules activated by the club's sports (union over `sports.modules`),
    * e.g. `["shooting"]`. Gates module sections in nav and pages — the backend

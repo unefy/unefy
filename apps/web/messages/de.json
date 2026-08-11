@@ -86,7 +86,8 @@
     "feeTypes": "Beitragsarten",
     "settingsDivisions": "Sparten",
     "applications": "Aufnahmeanträge",
-    "settingsDocuments": "Bescheinigungen"
+    "settingsDocuments": "Bescheinigungen",
+    "donations": "Zuwendungen"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -1400,7 +1401,8 @@
       "address": "Anschrift",
       "legal": "Rechtliches",
       "sepa": "Bankverbindung & SEPA",
-      "applications": "Beitritt"
+      "applications": "Beitritt",
+      "donations": "Zuwendungsbestätigungen"
     },
     "fields": {
       "name": "Name",
@@ -1425,7 +1427,12 @@
       "sepaCreditorId": "Gläubiger-Identifikationsnummer",
       "iban": "IBAN",
       "bic": "BIC",
-      "applicationsEnabled": "Öffentliches Beitrittsformular"
+      "applicationsEnabled": "Öffentliches Beitrittsformular",
+      "nonprofitPurposes": "Begünstigte Zwecke",
+      "taxExemptionKind": "Art des Bescheids",
+      "taxExemptionDate": "Datum des Bescheids",
+      "taxExemptionPeriod": "Letzter Veranlagungszeitraum",
+      "membershipFeesDeductible": "Mitgliedsbeiträge bescheinigungsfähig"
     },
     "hints": {
       "shortName": "Für enge Stellen wie die Seitenleiste.",
@@ -1435,7 +1442,13 @@
       "sepa": "Die Seite des Vereins beim Lastschrifteinzug. Ohne Gläubiger-ID und IBAN lässt sich keine Lastschrift erzeugen.",
       "sepaCreditorId": "Wird von der Bundesbank vergeben.",
       "applications": "Ob Interessierte über ein öffentliches Formular einen Aufnahmeantrag stellen können. Der Antrag legt kein Mitglied an — darüber entscheidet der Vorstand.",
-      "joinUrl": "Erreichbar unter"
+      "joinUrl": "Erreichbar unter",
+      "donations": "Angaben, die auf jeder Spendenquittung stehen müssen. Sie werden bei jeder Ausstellung mit dem damaligen Stand festgehalten.",
+      "nonprofitPurposes": "Wortlaut aus dem Bescheid, z. B. „Förderung des Sports“.",
+      "taxExemptionKind": "Freistellungsbescheid im Regelfall; die Feststellung nach § 60a AO nur bei neu gegründeten Vereinen.",
+      "taxExemptionDate": "Datum des Bescheids.",
+      "taxExemptionPeriod": "Letzter Veranlagungszeitraum, den der Bescheid abdeckt.",
+      "membershipFeesDeductible": "Nur einschalten, wenn die anerkannten Zwecke das zulassen. Bei Sportvereinen sind Mitgliedsbeiträge nicht abziehbar (§ 10b Abs. 1 Satz 8 EStG) — eine falsche Bestätigung nützt dem Mitglied nichts und der Verein haftet dafür."
     },
     "errors": {
       "forbidden": "Dafür fehlt dir die Berechtigung.",
@@ -1549,6 +1562,10 @@
         "unknown": "Da ist etwas schiefgelaufen.",
         "unreachable": "Server nicht erreichbar."
       }
+    },
+    "exemptionKinds": {
+      "freistellungsbescheid": "Freistellungsbescheid",
+      "feststellung_60a": "Feststellung nach § 60a AO"
     }
   },
   "shooting": {
@@ -2130,6 +2147,76 @@
       "title": "Muster zum Übernehmen",
       "description": "Gängige Vereinsdokumente als Entwurf. Ein Klick öffnet den Editor mit dem Text; gespeichert wird erst, wenn Sie ihn gelesen und angepasst haben.",
       "disclaimer": "Diese Muster sind Formulierungsvorschläge, keine Rechtsberatung. Was Ihr Verein bescheinigen darf, ergibt sich aus Ihrer Satzung und aus dem, wofür der Empfänger die Bescheinigung braucht. Die Zuwendungsbestätigung ist bewusst nicht dabei: sie folgt einem amtlichen Muster und gehört nicht in einen frei geschriebenen Text."
+    }
+  },
+  "donations": {
+    "title": "Zuwendungsbestätigungen",
+    "description": "Spendenquittungen nach dem amtlichen Muster. Der Inhalt ist vorgeschrieben und deshalb fest gebaut — anders als bei den freien Bescheinigungen gibt es hier nichts zu formulieren.",
+    "issueTitle": "Zuwendung erfassen",
+    "issueHint": "Die Angaben werden mit dem Stand des Vereins zum Ausstellungstag festgehalten. Spätere Änderungen am Freistellungsbescheid ändern eine ausgestellte Bestätigung nicht.",
+    "issue": "Bestätigung ausstellen",
+    "issuing": "Wird ausgestellt …",
+    "issued": "Zuwendungsbestätigung ausgestellt.",
+    "historyTitle": "Ausgestellte Bestätigungen",
+    "historyNote": "Ausgestellte Bestätigungen werden nicht geändert. Ein Fehler wird widerrufen und neu ausgestellt — der Empfänger hat das Papier bereits, und das Finanzamt hat es womöglich gesehen.",
+    "search": "Name des Zuwendenden …",
+    "empty": "Es wurde noch keine Bestätigung ausgestellt.",
+    "noMatch": "Keine Bestätigung passt zur Suche.",
+    "yes": "Ja",
+    "no": "Nein",
+    "valid": "Gültig",
+    "revoked": "Widerrufen",
+    "revoke": "Widerrufen",
+    "revokedToast": "Bestätigung widerrufen.",
+    "download": "PDF herunterladen",
+    "noMember": "Kein Mitglied (freie Eingabe)",
+    "notReady": "Für Zuwendungsbestätigungen fehlen noch Angaben zum Verein.",
+    "toSettings": "In den Einstellungen ergänzen",
+    "columns": {
+      "donor": "Zuwendender",
+      "amount": "Betrag",
+      "receivedOn": "Tag der Zuwendung",
+      "kind": "Art",
+      "status": "Status"
+    },
+    "kinds": {
+      "geldzuwendung": "Geldzuwendung",
+      "mitgliedsbeitrag": "Mitgliedsbeitrag"
+    },
+    "fields": {
+      "member": "Mitglied",
+      "donor": "Name des Zuwendenden",
+      "donorAddress": "Anschrift",
+      "amount": "Betrag in Euro",
+      "receivedOn": "Tag der Zuwendung",
+      "kind": "Art der Zuwendung",
+      "waiver": "Verzicht auf Aufwendungsersatz"
+    },
+    "hints": {
+      "member": "Bei einem Mitglied werden Name und Anschrift aus dem Datensatz übernommen.",
+      "waiver": "Ja, wenn auf die Erstattung von Auslagen verzichtet wurde. Das amtliche Muster fragt das ausdrücklich ab.",
+      "feesNotDeductible": "Mitgliedsbeiträge sind für diesen Verein nicht bescheinigungsfähig. Bei Sportvereinen ist das der Regelfall (§ 10b Abs. 1 Satz 8 EStG). Umstellbar in den Vereinseinstellungen."
+    },
+    "missing": {
+      "club": "Vereinsdaten",
+      "nonprofit_purposes": "Begünstigte Zwecke",
+      "tax_exemption_kind": "Art des Bescheids",
+      "tax_exemption_date": "Datum des Bescheids",
+      "tax_exemption_period": "Letzter Veranlagungszeitraum",
+      "tax_office": "Finanzamt",
+      "tax_number": "Steuernummer"
+    },
+    "confirmRevoke": {
+      "title": "Bestätigung widerrufen?",
+      "description": "Die Bestätigung bleibt mit allen Angaben erhalten und wird als ungültig gekennzeichnet — auf dem PDF und auf der öffentlichen Prüfseite."
+    },
+    "errors": {
+      "conflict": "Diese Bestätigung wurde bereits widerrufen.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Angaben prüfen. Mitgliedsbeiträge sind nicht für jeden Verein bescheinigungsfähig.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
     }
   }
 }
