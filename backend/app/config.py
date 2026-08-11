@@ -89,6 +89,19 @@ class Settings(BaseSettings):
     # can send push to every device in every club.
     FCM_CREDENTIALS_FILE: str = ""
 
+    # File storage (document library). A directory on disk is the default:
+    # `docker compose up` must not require an object store for a club to file
+    # its statutes. Point STORAGE_PATH at a volume — a path inside the
+    # container is a document library that empties itself on every deploy.
+    STORAGE_BACKEND: Literal["local", "s3"] = "local"
+    STORAGE_PATH: str = "./var/storage"
+    # Per file. Around what a twelve-page scan needs, with room to spare.
+    MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
+    # Per club. Without a ceiling an upload form in a multi-tenant install is
+    # an open hard disk, so the limit exists from the first version rather
+    # than being retrofitted once one is full.
+    TENANT_STORAGE_QUOTA_BYTES: int = 1024 * 1024 * 1024
+
     # RFC-3161 time-stamping authority for proof-chain anchors. Empty by
     # default: an unconfigured install has no anchors rather than fake ones —
     # the chain still holds against outsiders, only the external witness for
@@ -120,6 +133,21 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"Production secret configuration invalid: {joined}. "
                 "Set DEBUG=true for local development or provide real secrets."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_a_storage_backend_that_does_not_exist(self) -> "Settings":
+        """`s3` is a documented value with no implementation behind it yet.
+
+        Accepting it would mean a deployment that believes its documents are
+        in an object store while they are written to a container's filesystem
+        — discovered on the first redeploy, when they are gone.
+        """
+        if self.STORAGE_BACKEND != "local":
+            raise ValueError(
+                f"STORAGE_BACKEND={self.STORAGE_BACKEND} is not implemented yet. "
+                "Only 'local' works today; see docs/plans/document-library.md."
             )
         return self
 

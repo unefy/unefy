@@ -144,6 +144,34 @@ def test_mail_is_configurable_in_production() -> None:
     assert not missing, f"SMTP settings not forwarded by docker-compose.prod.yml: {missing}"
 
 
+def test_uploaded_documents_survive_a_redeploy() -> None:
+    """STORAGE_PATH has to land on a volume, not in the container.
+
+    The failure is quiet and late: uploads work, downloads work, and the club's
+    statutes disappear on the next `docker compose pull` — with the database
+    rows still pointing at them. So the path the backend writes to must be
+    covered by a mount, and the mount must be a named volume rather than
+    whatever the host happens to have at that path.
+    """
+    compose: dict[str, Any] = yaml.safe_load(COMPOSE_FILE.read_text())
+    backend = compose["services"]["backend"]
+    storage_path = _backend_environment()["STORAGE_PATH"]
+
+    mounts = {
+        target: source
+        for source, _, target in (mount.partition(":") for mount in backend.get("volumes", []))
+    }
+    covering = [
+        target
+        for target in mounts
+        if storage_path == target or storage_path.startswith(f"{target.rstrip('/')}/")
+    ]
+    assert covering, f"STORAGE_PATH ({storage_path}) is not on any mounted volume: {mounts}"
+    assert mounts[covering[0]] in compose["volumes"], (
+        f"{mounts[covering[0]]} is not declared as a named volume"
+    )
+
+
 def test_the_migration_step_shares_the_backend_environment() -> None:
     """Alembic runs with the same settings, or it fails the same validation."""
     compose: dict[str, Any] = yaml.safe_load(COMPOSE_FILE.read_text())

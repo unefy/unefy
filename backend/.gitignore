@@ -26,6 +26,9 @@ htmlcov/
 # Ruff
 .ruff_cache/
 
+# Uploaded documents (STORAGE_PATH in development)
+var/
+
 # Environment
 .env
 .env.*

@@ -52,8 +52,17 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-unefy <noreply@localhost>}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      # Uploaded documents. The path is fixed rather than interpolated: it has
+      # to match the volume mounted below, and a STORAGE_PATH pointing at the
+      # container's own filesystem is a document library that empties itself
+      # on the next `docker compose pull`.
+      STORAGE_PATH: /data/storage
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
+      TENANT_STORAGE_QUOTA_BYTES: ${TENANT_STORAGE_QUOTA_BYTES:-1073741824}
       DEBUG: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - storage_data:/data/storage
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -103,3 +112,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  storage_data:

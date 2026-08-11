@@ -102,10 +102,17 @@ Ein schmales Protokoll, zwei Umsetzungen:
 
 ```python
 class Storage(Protocol):
-    async def put(self, key: str, stream: AsyncIterator[bytes]) -> None: ...
+    async def put(self, key: str, stream: AsyncIterator[bytes],
+                  *, max_bytes: int | None = None) -> StoredObject: ...
     def open(self, key: str) -> AsyncIterator[bytes]: ...
-    async def delete(self, key: str) -> None: ...
+    async def delete(self, key: str) -> bool: ...
+    async def exists(self, key: str) -> bool: ...
 ```
+
+`put` gibt Größe und SHA-256 zurück, weil beide beim Durchlaufen ohnehin
+entstehen — der Dienst müsste die Datei sonst ein zweites Mal lesen, um zwei
+Spalten zu füllen. `max_bytes` bricht mitten im Strom ab: die Prüfung gegen
+`Content-Length` ist eine Behauptung, diese hier ist die Grenze.
 
 - **`LocalStorage`** — Standard. Schreibt unter `STORAGE_PATH/{key}`, mit
   `aiofiles` (ist bereits Abhängigkeit). Geschrieben wird in eine Temporärdatei
@@ -182,9 +189,14 @@ Antworten in der Hülle `{ data }`, Fehler mit den bestehenden Codes
 
 ## Phasen
 
-**Phase 0 — Speicher (kein UI).** `Storage`-Protokoll, `LocalStorage`,
-Einstellungen, Tests gegen ein Temporärverzeichnis. Danach existiert die
-Fähigkeit, Bytes zu behalten, und sonst nichts.
+**Phase 0 — Speicher (kein UI). Fertig 2026-08-12.** `app/core/storage.py`
+mit `Storage`-Protokoll und `LocalStorage`, die vier Einstellungen,
+31 Tests gegen ein Temporärverzeichnis (`tests/test_storage.py`). Dazu das
+Volume `storage_data` in `docker-compose.prod.yml` — ein `STORAGE_PATH` im
+Container wäre eine Ablage, die sich beim nächsten `pull` selbst leert, und
+das prüft jetzt ein Test mit. `STORAGE_BACKEND=s3` wird beim Start abgelehnt,
+solange nichts dahintersteht. Keine neue Laufzeit-Abhängigkeit, nur
+`types-aiofiles` für mypy.
 
 **Phase 1 — Modell und API.** Migration, Modelle, Service mit Typ-, Größen-
 und Kontingentprüfung, Endpunkte, Rollen. Ordnerbaum inklusive Verschieben mit
