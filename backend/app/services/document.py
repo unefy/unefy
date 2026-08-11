@@ -15,15 +15,19 @@ the recipient actually received, not what the template says today.
 import hashlib
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.models.document import DocumentTemplate, IssuedDocument
+from app.models.due import FeeType, MemberFee
+from app.models.function import Function, MemberFunction
 from app.models.member import Member
 from app.models.tenant import Tenant
 from app.schemas.document import TemplateCreate, TemplateUpdate
@@ -156,7 +160,16 @@ class DocumentService:
         ).scalar_one()
 
         issued_at = datetime.now(UTC)
-        body = variables.render(template.body, variables.build_values(member, tenant))
+        today = issued_at.astimezone(ZoneInfo(tenant.timezone)).date()
+        body = variables.render(
+            template.body,
+            variables.build_values(
+                member,
+                tenant,
+                fee=await self._current_fee(member_id, today),
+                offices=await self._current_offices(member_id, today),
+            ),
+        )
 
         document = IssuedDocument(
             tenant_id=self.tenant_id,
@@ -228,6 +241,47 @@ class DocumentService:
         if member_id is not None:
             query = query.where(IssuedDocument.member_id == member_id)
         return list((await self.session.execute(query)).scalars().all())
+
+    async def _current_fee(self, member_id: uuid.UUID, on: date) -> tuple[str, Decimal, str] | None:
+        """The fee assignment in force on the given day, if there is one.
+
+        Bounded by the validity range rather than taking the newest row: a
+        certificate that names next season's fee because it was already
+        entered would be wrong on the day it is handed over.
+        """
+        row = (
+            await self.session.execute(
+                select(FeeType.name, FeeType.amount, FeeType.interval)
+                .join(MemberFee, MemberFee.fee_type_id == FeeType.id)
+                .where(MemberFee.tenant_id == self.tenant_id)
+                .where(MemberFee.member_id == member_id)
+                .where(MemberFee.deleted_at.is_(None))
+                .where(MemberFee.valid_from <= on)
+                .where(or_(MemberFee.valid_to.is_(None), MemberFee.valid_to >= on))
+                .order_by(MemberFee.valid_from.desc())
+            )
+        ).first()
+        return (row[0], row[1], row[2]) if row else None
+
+    async def _current_offices(self, member_id: uuid.UUID, on: date) -> list[str]:
+        """Offices held on the given day, in the club's own order."""
+        rows = (
+            await self.session.execute(
+                select(Function.name)
+                .join(MemberFunction, MemberFunction.function_id == Function.id)
+                .where(MemberFunction.tenant_id == self.tenant_id)
+                .where(MemberFunction.member_id == member_id)
+                .where(MemberFunction.valid_from <= on)
+                .where(
+                    or_(
+                        MemberFunction.valid_to.is_(None),
+                        MemberFunction.valid_to >= on,
+                    )
+                )
+                .order_by(Function.name)
+            )
+        ).all()
+        return [name for (name,) in rows]
 
     def _verification_code(self) -> str:
         return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))

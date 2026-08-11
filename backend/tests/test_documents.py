@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -9,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import DocumentTemplate, IssuedDocument
+from app.models.due import FeeType
 from app.models.member import Member
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -48,6 +50,20 @@ async def a_member(db_session: AsyncSession, tenant: Tenant, user: User, **kw: o
     db_session.add(member)
     await db_session.flush()
     return member
+
+
+async def a_fee(db_session: AsyncSession, tenant: Tenant, user: User, **kw: object) -> FeeType:
+    fee = FeeType(
+        tenant_id=tenant.id,
+        name=str(kw.get("name", "Erwachsene")),
+        amount=Decimal("120.00"),
+        interval="yearly",
+        created_by=user.id,
+        updated_by=user.id,
+    )
+    db_session.add(fee)
+    await db_session.flush()
+    return fee
 
 
 async def a_template(auth_client: AsyncClient, **overrides: object) -> dict:
@@ -527,3 +543,189 @@ async def test_the_check_page_dates_the_document_in_the_clubs_day(
     data = (await anon_client.get(f"/verify/{issued['verification_code']}")).json()["data"]
     club_today = datetime.now(ZoneInfo(test_tenant.timezone)).date()
     assert data["issued_at"] == club_today.isoformat()
+
+
+# --- Ready-made wordings ---
+
+
+async def test_every_starter_uses_only_placeholders_that_exist(
+    auth_client: AsyncClient,
+) -> None:
+    """A shipped draft that cannot be saved is worse than no draft.
+
+    Guards the seam between two files that have no other reason to agree: the
+    wordings in `document_starters` and the catalogue in `document_variables`.
+    Removing a variable would otherwise break a template nobody is looking at.
+    """
+    starters = (await auth_client.get("/api/v1/documents/starter-templates")).json()["data"]
+    assert starters
+
+    for starter in starters:
+        assert variables.unknown_placeholders(starter["body"]) == [], starter["key"]
+
+
+async def test_every_starter_saves_and_issues(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The whole path, for each of them: save, issue, render."""
+    member = await a_member(db_session, test_tenant, test_user)
+    starters = (await auth_client.get("/api/v1/documents/starter-templates")).json()["data"]
+
+    for starter in starters:
+        created = await auth_client.post(
+            "/api/v1/documents/templates",
+            json={
+                "name": starter["name"],
+                "title": starter["title"],
+                "body": starter["body"],
+                "include_letterhead": starter["include_letterhead"],
+                "include_footer": starter["include_footer"],
+                "verifiable": starter["verifiable"],
+                "is_active": True,
+            },
+        )
+        assert created.status_code == 201, starter["key"]
+
+        issued = await auth_client.post(
+            f"/api/v1/documents/members/{member.id}/issue",
+            json={"template_id": created.json()["data"]["id"]},
+        )
+        assert issued.status_code == 201, starter["key"]
+        assert "{{" not in issued.json()["data"]["body"], starter["key"]
+
+
+async def test_no_starter_pretends_to_be_a_donation_receipt(
+    auth_client: AsyncClient,
+) -> None:
+    """It follows an official template; rebuilding it as free text is the one
+    thing this feature was explicitly kept away from."""
+    starters = (await auth_client.get("/api/v1/documents/starter-templates")).json()["data"]
+
+    for starter in starters:
+        text = f"{starter['name']} {starter['title']} {starter['body']}".lower()
+        assert "zuwendungsbestätigung" not in text
+        assert "spendenquittung" not in text
+        assert "spendenbescheinigung" not in text
+
+
+async def test_every_starter_says_what_to_check(auth_client: AsyncClient) -> None:
+    """A draft handed over without a caveat looks finished."""
+    starters = (await auth_client.get("/api/v1/documents/starter-templates")).json()["data"]
+
+    for starter in starters:
+        assert len(starter["caveat"]) > 40, starter["key"]
+
+
+async def test_starters_are_for_owners_and_admins(auth_client: AsyncClient) -> None:
+    assert (await auth_client.get("/api/v1/documents/starter-templates")).status_code == 200
+
+
+async def test_the_fee_placeholder_uses_the_assignment_in_force(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """Next season's fee is already entered; today's certificate must not
+    name it."""
+    from datetime import timedelta
+
+    from app.models.due import MemberFee
+
+    member = await a_member(db_session, test_tenant, test_user)
+    now_fee = await a_fee(db_session, test_tenant, test_user, name="Erwachsene")
+    later_fee = await a_fee(db_session, test_tenant, test_user, name="Erwachsene neu")
+
+    today = date.today()
+    db_session.add(
+        MemberFee(
+            tenant_id=test_tenant.id,
+            member_id=member.id,
+            fee_type_id=now_fee.id,
+            valid_from=today - timedelta(days=365),
+            valid_to=today + timedelta(days=30),
+            created_by=test_user.id,
+            updated_by=test_user.id,
+        )
+    )
+    db_session.add(
+        MemberFee(
+            tenant_id=test_tenant.id,
+            member_id=member.id,
+            fee_type_id=later_fee.id,
+            valid_from=today + timedelta(days=31),
+            created_by=test_user.id,
+            updated_by=test_user.id,
+        )
+    )
+    await db_session.flush()
+
+    template = await a_template(auth_client, body="{{mitglied.beitragsart}}")
+    issued = await auth_client.post(
+        f"/api/v1/documents/members/{member.id}/issue",
+        json={"template_id": template["id"]},
+    )
+    assert issued.json()["data"]["body"] == "Erwachsene"
+
+
+async def test_the_offices_placeholder_lists_current_ones(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    from datetime import timedelta
+
+    from app.models.function import Function, MemberFunction
+
+    member = await a_member(db_session, test_tenant, test_user)
+    today = date.today()
+
+    for name, valid_to in (("Schriftführerin", None), ("Kassenwartin", today - timedelta(days=1))):
+        function = Function(
+            tenant_id=test_tenant.id,
+            name=name,
+            created_by=test_user.id,
+            updated_by=test_user.id,
+        )
+        db_session.add(function)
+        await db_session.flush()
+        db_session.add(
+            MemberFunction(
+                tenant_id=test_tenant.id,
+                member_id=member.id,
+                function_id=function.id,
+                valid_from=today - timedelta(days=100),
+                valid_to=valid_to,
+                created_by=test_user.id,
+                updated_by=test_user.id,
+            )
+        )
+    await db_session.flush()
+
+    template = await a_template(auth_client, body="{{mitglied.aemter}}")
+    issued = await auth_client.post(
+        f"/api/v1/documents/members/{member.id}/issue",
+        json={"template_id": template["id"]},
+    )
+    # The office that ended yesterday is not held today.
+    assert issued.json()["data"]["body"] == "Schriftführerin"
+
+
+async def test_a_member_without_a_fee_or_office_prints_a_dash(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    member = await a_member(db_session, test_tenant, test_user)
+    template = await a_template(auth_client, body="{{mitglied.beitrag}}|{{mitglied.aemter}}")
+
+    issued = await auth_client.post(
+        f"/api/v1/documents/members/{member.id}/issue",
+        json={"template_id": template["id"]},
+    )
+    assert issued.json()["data"]["body"] == f"{variables.EMPTY}|{variables.EMPTY}"

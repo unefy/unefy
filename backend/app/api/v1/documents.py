@@ -17,6 +17,7 @@ from app.schemas.document import (
     IssueRequest,
     PreviewResponse,
     RevokeRequest,
+    StarterResponse,
     TemplateCreate,
     TemplatePreview,
     TemplateResponse,
@@ -26,6 +27,7 @@ from app.schemas.document import (
 from app.services import document_variables as variables
 from app.services.document import DocumentService
 from app.services.document_pdf import DocumentLetter, build_document_pdf
+from app.services.document_starters import STARTERS
 
 router = APIRouter()
 
@@ -45,6 +47,34 @@ async def list_variables(
         "data": [
             VariableResponse(key=v.key, description=v.description).model_dump()
             for v in variables.VARIABLES
+        ]
+    }
+
+
+@router.get("/starter-templates")
+async def list_starter_templates(
+    auth: AuthContext = Depends(require_role("owner", "admin")),  # noqa: B008
+) -> dict[str, Any]:
+    """Ready-made wordings, as drafts.
+
+    Read-only: choosing one opens the editor with the text in it, and the club
+    saves it — or does not. Nothing is installed on a club's behalf, which is
+    the only honest way to hand over a document somebody will sign.
+    """
+    del auth
+    return {
+        "data": [
+            StarterResponse(
+                key=s.key,
+                name=s.name,
+                title=s.title,
+                body=s.body,
+                caveat=s.caveat,
+                include_letterhead=s.include_letterhead,
+                include_footer=s.include_footer,
+                verifiable=s.verifiable,
+            ).model_dump()
+            for s in STARTERS
         ]
     }
 

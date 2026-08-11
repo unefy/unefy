@@ -15,8 +15,10 @@ The names are German because the people writing the templates are.
 
 import re
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from app.models.member import Member
@@ -49,9 +51,13 @@ VARIABLES: tuple[Variable, ...] = (
     Variable("mitglied.nummer", "Member number"),
     Variable("mitglied.geburtstag", "Date of birth"),
     Variable("mitglied.eintritt", "Date of joining"),
+    Variable("mitglied.mitgliedsjahre", "Completed years of membership"),
     Variable("mitglied.austritt", "Date of leaving, if any"),
     Variable("mitglied.status", "Membership status"),
     Variable("mitglied.anschrift", "Address on one line"),
+    Variable("mitglied.beitragsart", "Name of the current fee"),
+    Variable("mitglied.beitrag", "Current fee with amount and interval"),
+    Variable("mitglied.aemter", "Offices currently held, comma separated"),
     Variable("verein.name", "Club name"),
     Variable("verein.anschrift", "Club address on one line"),
     Variable("verein.registernummer", "Register number"),
@@ -61,6 +67,14 @@ VARIABLES: tuple[Variable, ...] = (
 )
 
 VARIABLE_KEYS = frozenset(v.key for v in VARIABLES)
+
+INTERVAL_LABELS = {
+    "yearly": "jährlich",
+    "half_yearly": "halbjährlich",
+    "quarterly": "vierteljährlich",
+    "monthly": "monatlich",
+    "one_time": "einmalig",
+}
 
 STATUS_LABELS = {
     "active": "aktiv",
@@ -94,7 +108,21 @@ def _one_line(*parts: str | None) -> str:
     return joined or EMPTY
 
 
-def build_values(member: Member, tenant: Tenant) -> dict[str, str]:
+def _years_between(start: date | None, end: date) -> str:
+    """Completed years, the way a club counts them for an anniversary."""
+    if start is None:
+        return EMPTY
+    years = end.year - start.year - ((end.month, end.day) < (start.month, start.day))
+    return str(max(years, 0))
+
+
+def build_values(
+    member: Member,
+    tenant: Tenant,
+    *,
+    fee: tuple[str, Decimal, str] | None = None,
+    offices: Sequence[str] = (),
+) -> dict[str, str]:
     """Resolve every variable for this member and club.
 
     Every key is present, so rendering never has to decide what a missing name
@@ -103,6 +131,10 @@ def build_values(member: Member, tenant: Tenant) -> dict[str, str]:
     "Today" is the club's day, not the server's: a certificate dated the 31st
     because the server is in UTC and the office is in Berlin is wrong on paper
     in a way nobody would think to check.
+
+    `fee` and `offices` are passed in rather than looked up here: this module
+    stays free of database access, so the same substitution runs in a test with
+    two objects and in production with a session behind it.
     """
     zone = ZoneInfo(tenant.timezone)
     today = datetime.now(zone).date()
@@ -114,6 +146,7 @@ def build_values(member: Member, tenant: Tenant) -> dict[str, str]:
         "mitglied.nummer": member.member_number or EMPTY,
         "mitglied.geburtstag": _german_date(member.birthday),
         "mitglied.eintritt": _german_date(member.joined_at),
+        "mitglied.mitgliedsjahre": _years_between(member.joined_at, today),
         "mitglied.austritt": _german_date(member.left_at),
         "mitglied.status": STATUS_LABELS.get(member.status, member.status),
         "mitglied.anschrift": _one_line(
@@ -121,6 +154,13 @@ def build_values(member: Member, tenant: Tenant) -> dict[str, str]:
             " ".join(p for p in (member.zip_code, member.city) if p),
             member.country,
         ),
+        "mitglied.beitragsart": fee[0] if fee else EMPTY,
+        "mitglied.beitrag": (
+            f"{fee[1]:.2f} EUR {INTERVAL_LABELS.get(fee[2], fee[2])}".replace(".", ",")
+            if fee
+            else EMPTY
+        ),
+        "mitglied.aemter": ", ".join(offices) if offices else EMPTY,
         "verein.name": tenant.name or EMPTY,
         "verein.anschrift": _one_line(
             tenant.street,
@@ -165,9 +205,13 @@ def sample_values(
         "mitglied.nummer": "0042",
         "mitglied.geburtstag": "01.03.1985",
         "mitglied.eintritt": "01.01.2020",
+        "mitglied.mitgliedsjahre": "25",
         "mitglied.austritt": EMPTY,
         "mitglied.status": "aktiv",
         "mitglied.anschrift": "Musterweg 1, 12345 Musterstadt",
+        "mitglied.beitragsart": "Erwachsene",
+        "mitglied.beitrag": "120,00 EUR jährlich",
+        "mitglied.aemter": "Schriftführerin",
         "verein.name": club_name,
         "verein.anschrift": "Vereinsstraße 2, 12345 Musterstadt",
         "verein.registernummer": "VR 1234",

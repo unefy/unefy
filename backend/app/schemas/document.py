@@ -49,6 +49,23 @@ class VariableResponse(BaseSchema):
     description: str
 
 
+class StarterResponse(BaseSchema):
+    """A ready-made wording the club can start from.
+
+    Carries the caveat with it: a draft handed over without saying what to
+    check is worse than no draft, because it looks finished.
+    """
+
+    key: str
+    name: str
+    title: str
+    body: str
+    caveat: str
+    include_letterhead: bool
+    include_footer: bool
+    verifiable: bool
+
+
 class TemplatePreview(BaseSchema):
     """Rendering a draft before it is saved, against stand-in values."""
 
