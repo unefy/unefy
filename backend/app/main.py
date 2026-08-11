@@ -173,6 +173,11 @@ def create_app() -> FastAPI:
     from app.api.middleware.idempotency import IdempotencyMiddleware
 
     app.add_middleware(IdempotencyMiddleware)
+    # Outermost of the three, so an oversized body is turned away before
+    # anything spools it to disk.
+    from app.api.middleware.body_limit import BodySizeLimitMiddleware
+
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.MAX_UPLOAD_BYTES)
     app.add_middleware(RequestLoggingMiddleware)
 
     # Routers

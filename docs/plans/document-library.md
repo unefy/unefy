@@ -198,10 +198,29 @@ das prüft jetzt ein Test mit. `STORAGE_BACKEND=s3` wird beim Start abgelehnt,
 solange nichts dahintersteht. Keine neue Laufzeit-Abhängigkeit, nur
 `types-aiofiles` für mypy.
 
-**Phase 1 — Modell und API.** Migration, Modelle, Service mit Typ-, Größen-
-und Kontingentprüfung, Endpunkte, Rollen. Ordnerbaum inklusive Verschieben mit
-Zyklusprüfung und Fassungen über `replaces_id` — beide sind entschieden und
-gehören damit in die Runde, in der das Modell entsteht.
+**Phase 1 — Modell und API. Fertig 2026-08-12.** Migration `d2b71c4f9a30`
+(hoch und runter geprüft, `alembic check` ohne Drift für beide Tabellen),
+Modelle, `LibraryService`, `/api/v1/library/…`, 63 Tests.
+
+Vier Dinge sind unterwegs anders entschieden worden als oben skizziert:
+
+- **`NULLS NOT DISTINCT`** statt zweitem Teilindex für den Wurzelnamen. Ohne
+  das gilt die Eindeutigkeit überall außer an der Wurzel, und genau dort legt
+  ein Verein „Protokolle" zweimal an.
+- **Typerkennung ohne Endungsvertrauen**, außer wo die Bytes nichts hergeben:
+  ODF nennt sich selbst, OOXML verrät sich über die Einträge, Text hat keine
+  Signatur — dort entscheidet die Endung, nachdem der Inhalt als Text
+  bestätigt ist. Alles in `app/core/file_types.py`, rein und einzeln testbar.
+- **Body-Grenze als Middleware.** Starlette schreibt einen Multipart-Upload
+  vollständig nach `/tmp`, *bevor* der Endpunkt läuft — eine Prüfung im
+  Handler kommt zu spät. `BodySizeLimitMiddleware` weist über `Content-Length`
+  ab, `LocalStorage` zählt zusätzlich mit.
+- **413 mit zwei Codes**: `UPLOAD_TOO_LARGE` und `STORAGE_QUOTA_EXCEEDED`.
+  Gleicher Status, verschiedene Probleme — wer am Scanner steht, braucht die
+  richtige Antwort.
+
+Nicht auditiert werden Ordner-Umbenennungen; protokolliert sind Upload,
+Löschung, neue Fassung und Sichtbarkeitswechsel.
 
 **Phase 2 — Web.** Ordnerbaum, Liste, Upload, Download, Umbenennen,
 Verschieben, Löschen. Ab hier ist es für einen Verein benutzbar.

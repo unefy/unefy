@@ -41,6 +41,27 @@ class ConflictError(AppError):
         super().__init__(status_code=409, code=code, message=message)
 
 
+class PayloadTooLargeError(AppError):
+    """A body, or a file in it, over the configured limit.
+
+    The code is overridable because "this file is too big" and "the club is out
+    of space" are the same status and completely different problems: one is
+    solved by scanning at a lower resolution, the other by deleting something
+    or raising the quota. A client that cannot tell them apart says the wrong
+    thing to whoever is standing at the scanner.
+    """
+
+    def __init__(self, message: str = "Payload too large", code: str = "PAYLOAD_TOO_LARGE") -> None:
+        super().__init__(status_code=413, code=code, message=message)
+
+
+class UnsupportedMediaTypeError(AppError):
+    """The bytes are not a type this endpoint accepts."""
+
+    def __init__(self, message: str = "Unsupported file type") -> None:
+        super().__init__(status_code=415, code="UNSUPPORTED_FILE_TYPE", message=message)
+
+
 class ValidationError(AppError):
     def __init__(
         self,

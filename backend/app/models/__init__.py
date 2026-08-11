@@ -24,6 +24,7 @@ from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
 from app.models.function import CatalogFunction, Function, MemberFunction
 from app.models.invitation import Invitation
+from app.models.library import LIBRARY_VISIBILITIES, LibraryDocument, LibraryFolder
 from app.models.member import Member, MemberFederationMembership
 from app.models.proof_chain import ProofChainAnchor, ProofChainEntry
 from app.models.push_device import PushDevice
@@ -43,6 +44,7 @@ __all__ = [
     "CONSENT_SOURCES",
     "DONATION_KINDS",
     "EXEMPTION_KINDS",
+    "LIBRARY_VISIBILITIES",
     "AdminAuditLog",
     "AttendanceCheckinContext",
     "AttendanceRecord",
@@ -66,6 +68,8 @@ __all__ = [
     "Function",
     "Invitation",
     "IssuedDocument",
+    "LibraryDocument",
+    "LibraryFolder",
     "MeasurementUnit",
     "Member",
     "MemberConsent",
