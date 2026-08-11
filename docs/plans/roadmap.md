@@ -302,18 +302,49 @@ Verein daran prüfen muss, und **nichts wird von allein angelegt**: ein Klick
 hält die Muster gegen den Platzhaltersatz — eine ausgelieferte Vorlage, die
 sich nicht speichern lässt, wäre schlimmer als gar keine.
 
-Die **Zuwendungsbestätigung fehlt bewusst.** Sie folgt einem amtlichen Muster
-der Finanzverwaltung, und sie als freien Text nachzubauen wäre genau die
-Einladung, ein ungültiges Dokument zu erzeugen, die vorgeschriebene Formen aus
-diesem Feature herausgehalten hat. Ebenso fehlt eine Beitragsbescheinigung
-über die Zahlungen eines Jahres: dafür müsste beim Ausstellen ein Jahr gewählt
-werden, und dieses Feature kennt keine Eingabe je Ausstellung. Lieber keine
-als eine, die stillschweigend den falschen Zeitraum meldet.
+Die **Zuwendungsbestätigung ist keine Vorlage** — sie folgt einem amtlichen
+Muster und ist deshalb **fest gebaut** (siehe unten). Sie als freien Text
+nachzubauen wäre genau die Einladung, ein ungültiges Dokument zu erzeugen.
+Ebenso fehlt eine Beitragsbescheinigung über die Zahlungen eines Jahres: dafür
+müsste beim Ausstellen ein Jahr gewählt werden, und dieses Feature kennt keine
+Eingabe je Ausstellung. Lieber keine als eine, die stillschweigend den
+falschen Zeitraum meldet.
 
 Dafür sind vier Platzhalter dazugekommen — Beitrag, Beitragsart, laufende
 Ämter und volle Mitgliedsjahre. Beitrag und Ämter werden **zum Stichtag**
 aufgelöst, nicht als neueste Zeile: eine Bescheinigung, die den erst zur
 nächsten Saison eingetragenen Beitrag nennt, ist am Tag der Übergabe falsch.
+
+**Zuwendungsbestätigung (2026-08-11):** eigenes, fest gebautes Dokument nach
+dem amtlichen Muster — Aussteller, Zuwendender, Betrag in Ziffern **und**
+Buchstaben, Tag und Art der Zuwendung, Verzicht auf Aufwendungsersatz, der
+Anerkennungssatz mit Finanzamt, Steuernummer und Bescheiddatum, die
+Verwendungsbestätigung und der Haftungshinweis nach § 10b Abs. 4 EStG. Die
+vorgeschriebenen Sätze stehen gesammelt in `TEXTS`, damit ein Abgleich mit dem
+aktuellen amtlichen Muster eine offensichtliche Änderung an einer Stelle ist.
+
+Zwei Verweigerungen tragen das Ganze:
+
+- **Mitgliedsbeiträge sind bei Sportvereinen nicht abziehbar** (§ 10b Abs. 1
+  Satz 8 EStG i. V. m. § 52 Abs. 2 Nr. 21 AO). Wer sie trotzdem bescheinigt,
+  gibt dem Mitglied ein Papier, das das Finanzamt zurückweist, und haftet für
+  die verkürzte Steuer. Der Verein muss deshalb ausdrücklich erklären, dass
+  seine anerkannten Zwecke das zulassen — Vorgabe ist *nein*, und das Formular
+  bietet die Art dann gar nicht erst an.
+- **Unvollständige Steuerdaten sperren das Ausstellen.** Eine Bestätigung, die
+  amtlich aussieht und nichts behauptet, ist schlimmer als keine. Die Seite
+  sagt vorher, was fehlt, statt hinterher.
+
+Der Vereinsstand wird in jede Bestätigung kopiert, nicht referenziert: eine
+Bestätigung von 2024 muss weiterhin sagen, was 2024 galt. Ein Fehler wird
+widerrufen und neu ausgestellt — der Empfänger hat das Papier bereits, und das
+Finanzamt hat es womöglich gesehen. Der Betrag in Worten hat ein eigenes Modul
+mit eigenen Tests: eine Ziffer lässt sich mit einem Stift ändern, ein Wort
+nicht.
+
+**Vor dem Produktivbetrieb gegen das aktuelle amtliche Muster prüfen.** Der
+Aufbau folgt ihm, aber ob jeder Satz wörtlich dem heute geltenden Stand
+entspricht, ist eine Frage an den Steuerberater des Vereins und nicht an uns.
 
 **Offen:**
 
@@ -321,8 +352,9 @@ nächsten Saison eingetragenen Beitrag nennt, ist am Tag der Übergabe falsch.
   holen hieße eine blockierende Anfrage an eine URL, die der Verein bestimmt —
   im besten Fall langsam, im schlechtesten eine SSRF. Braucht erst die
   Dateiablage aus 6.6.
-- Zuwendungsbestätigung nach amtlichem Muster: eigenes, fest gebautes
-  Dokument, noch nicht gebaut.
+- Vereinfachter Zuwendungsnachweis bis 300 € (Bareinzahlungsbeleg /
+  Buchungsbestätigung) — braucht kein Dokument von uns, aber ein Hinweis im
+  Produkt wäre freundlich.
 
 ### 6.4 Kommunikation
 
