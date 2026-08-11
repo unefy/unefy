@@ -4,6 +4,12 @@ import { useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
+import {
+  midpoint,
+  penWidth,
+  velocityBetween,
+  type Point,
+} from "@/lib/signature"
 
 /**
  * Somewhere to sign with a finger.
@@ -12,18 +18,24 @@ import { Button } from "@/components/ui/button"
  * and mouse, and the chair signing on a tablet and the treasurer trying it
  * with a trackpad get the same thing.
  *
+ * The line is drawn as curves between the midpoints of consecutive samples,
+ * with the sample itself as the control point, and its width follows the
+ * speed of the stroke. Straight segments of one thickness looked like cable,
+ * which is not what a signature looks like. The arithmetic for both lives in
+ * `lib/signature`, where it can be tested.
+ *
  * The canvas is sized in device pixels and scaled by CSS, otherwise a
  * signature drawn on a phone arrives as a blurred enlargement. What leaves
  * here is a PNG with a transparent background, cropped to the ink — a
  * rectangle of empty pixels would print as a grey box on the certificate.
  */
 
-//: Ink, and it is a constant rather than a theme colour: what is drawn here
-//: goes onto a white PDF page, so it has to be dark whatever the app is
-//: wearing.
+//: Ink, and a constant rather than a theme colour: what is drawn here goes
+//: onto a white PDF page, so it has to be dark whatever the app is wearing.
 const INK = "#111111"
-//: Wide enough that a fingertip leaves a line somebody can read on paper.
-const PEN_WIDTH = 3
+//: How thin and how thick the pen gets, in CSS pixels. The spread is what
+//: makes the line read as ink rather than as a marker.
+const PEN = { min: 1.4, max: 3.6 }
 const EXPORT_PADDING = 8
 
 export function SignaturePad({
@@ -36,6 +48,12 @@ export function SignaturePad({
   const t = useTranslations("sign")
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
+  // The pen's state between samples: where it was, where the last curve
+  // ended, how wide it was and when it last moved.
+  const last = useRef<Point | null>(null)
+  const lastMid = useRef<Point | null>(null)
+  const width = useRef(PEN.max)
+  const lastAt = useRef(0)
   // The ink's bounding box, so the export can be cropped to it.
   const bounds = useRef<{
     minX: number
@@ -49,20 +67,19 @@ export function SignaturePad({
     const canvas = canvasRef.current
     if (!canvas) return null
     const ratio = window.devicePixelRatio || 1
-    if (canvas.width !== canvas.clientWidth * ratio) {
-      canvas.width = canvas.clientWidth * ratio
-      canvas.height = canvas.clientHeight * ratio
+    if (canvas.width !== Math.round(canvas.clientWidth * ratio)) {
+      canvas.width = Math.round(canvas.clientWidth * ratio)
+      canvas.height = Math.round(canvas.clientHeight * ratio)
     }
     const ctx = canvas.getContext("2d")
     if (!ctx) return null
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     ctx.strokeStyle = INK
-    ctx.lineWidth = PEN_WIDTH * ratio
     return ctx
   }
 
-  function pointOf(event: React.PointerEvent<HTMLCanvasElement>) {
+  function pointOf(event: { clientX: number; clientY: number }): Point {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
@@ -81,39 +98,84 @@ export function SignaturePad({
     // instead of leaving the pad in a half-drawn state.
     event.currentTarget.setPointerCapture(event.pointerId)
     drawing.current = true
-    const { x, y } = pointOf(event)
+
+    const point = pointOf(event)
+    last.current = point
+    lastMid.current = point
+    width.current = PEN.max
+    lastAt.current = event.timeStamp
+    track(point)
+
+    // A tap is a dot, not nothing: somebody who signs with a single stab
+    // should see something.
+    const ratio = window.devicePixelRatio || 1
     ctx.beginPath()
-    ctx.moveTo(x, y)
-    track(x, y)
+    ctx.arc(point.x, point.y, (PEN.max * ratio) / 2, 0, Math.PI * 2)
+    ctx.fillStyle = INK
+    ctx.fill()
+    setHasInk(true)
   }
 
   function move(event: React.PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return
     const ctx = context()
     if (!ctx) return
-    const { x, y } = pointOf(event)
-    ctx.lineTo(x, y)
+
+    // Every position the browser batched into this frame, not just the last
+    // one. On a phone that is the difference between four samples a stroke
+    // and forty — and it is where the smoothness actually comes from.
+    const native = event.nativeEvent
+    const samples =
+      typeof native.getCoalescedEvents === "function"
+        ? native.getCoalescedEvents()
+        : [native]
+
+    for (const sample of samples.length > 0 ? samples : [native]) {
+      draw(ctx, pointOf(sample), sample.timeStamp || event.timeStamp)
+    }
+  }
+
+  function draw(ctx: CanvasRenderingContext2D, point: Point, at: number) {
+    const previous = last.current
+    const previousMid = lastMid.current
+    if (!previous || !previousMid) return
+
+    const ratio = window.devicePixelRatio || 1
+    const velocity = velocityBetween(previous, point, at - lastAt.current)
+    width.current = penWidth(velocity, width.current, PEN)
+
+    const mid = midpoint(previous, point)
+    ctx.lineWidth = width.current * ratio
+    ctx.beginPath()
+    ctx.moveTo(previousMid.x, previousMid.y)
+    // The sample steers the curve; the segment runs midpoint to midpoint.
+    ctx.quadraticCurveTo(previous.x, previous.y, mid.x, mid.y)
     ctx.stroke()
-    track(x, y)
-    if (!hasInk) setHasInk(true)
+
+    last.current = point
+    lastMid.current = mid
+    lastAt.current = at
+    track(point)
   }
 
   function end() {
     if (!drawing.current) return
     drawing.current = false
+    last.current = null
+    lastMid.current = null
     onChange(exportPng())
   }
 
-  function track(x: number, y: number) {
+  function track(point: Point) {
     const current = bounds.current
     bounds.current = current
       ? {
-          minX: Math.min(current.minX, x),
-          minY: Math.min(current.minY, y),
-          maxX: Math.max(current.maxX, x),
-          maxY: Math.max(current.maxY, y),
+          minX: Math.min(current.minX, point.x),
+          minY: Math.min(current.minY, point.y),
+          maxX: Math.max(current.maxX, point.x),
+          maxY: Math.max(current.maxY, point.y),
         }
-      : { minX: x, minY: y, maxX: x, maxY: y }
+      : { minX: point.x, minY: point.y, maxX: point.x, maxY: point.y }
   }
 
   function exportPng(): string | null {
@@ -121,24 +183,29 @@ export function SignaturePad({
     const box = bounds.current
     if (!canvas || !box) return null
 
-    const pad = EXPORT_PADDING
-    const width = Math.max(1, Math.ceil(box.maxX - box.minX) + pad * 2)
-    const height = Math.max(1, Math.ceil(box.maxY - box.minY) + pad * 2)
+    // Padded by the widest the pen gets, so a stroke is never clipped at its
+    // own edge.
+    const pad = EXPORT_PADDING + PEN.max
+    const left = Math.max(0, box.minX - pad)
+    const top = Math.max(0, box.minY - pad)
+    const width = Math.min(canvas.width - left, box.maxX - box.minX + pad * 2)
+    const height = Math.min(canvas.height - top, box.maxY - box.minY + pad * 2)
+
     const cropped = document.createElement("canvas")
-    cropped.width = width
-    cropped.height = height
+    cropped.width = Math.max(1, Math.ceil(width))
+    cropped.height = Math.max(1, Math.ceil(height))
     const ctx = cropped.getContext("2d")
     if (!ctx) return null
     ctx.drawImage(
       canvas,
-      Math.max(0, box.minX - pad),
-      Math.max(0, box.minY - pad),
-      width,
-      height,
+      left,
+      top,
+      cropped.width,
+      cropped.height,
       0,
       0,
-      width,
-      height
+      cropped.width,
+      cropped.height
     )
     return cropped.toDataURL("image/png")
   }
@@ -148,6 +215,8 @@ export function SignaturePad({
     const ctx = canvas?.getContext("2d")
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height)
     bounds.current = null
+    last.current = null
+    lastMid.current = null
     setHasInk(false)
     onChange(null)
   }
@@ -157,11 +226,16 @@ export function SignaturePad({
       <canvas
         ref={canvasRef}
         // `touch-none`, or the browser scrolls the page instead of drawing.
-        // White in both themes, and the ink dark to match. The pad is a piece
-        // of paper, not a part of the interface: in dark mode a themed
+        //
+        // White in both themes, and the ink dark to match: the pad is a piece
+        // of paper, not a part of the interface — in dark mode a themed
         // background left the strokes black on near-black, and the drawing
         // ends up on a white page either way.
-        className="h-48 w-full touch-none rounded-lg border border-input bg-white"
+        //
+        // Taller where the pointer is a finger. Sized by pointer rather than
+        // by viewport: a tablet in landscape is a wide screen and still wants
+        // room to sign.
+        className="h-48 w-full touch-none rounded-lg border border-input bg-white pointer-coarse:h-72"
         onPointerDown={start}
         onPointerMove={move}
         onPointerUp={end}
