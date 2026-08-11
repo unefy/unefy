@@ -19,6 +19,7 @@ from app.models.consent import CONSENT_KINDS, CONSENT_SOURCES, MemberConsent
 from app.models.discipline import Discipline
 from app.models.division import Division
 from app.models.document import DocumentTemplate, IssuedDocument
+from app.models.donation import DONATION_KINDS, EXEMPTION_KINDS, DonationReceipt
 from app.models.due import Due, FeeType, MemberFee
 from app.models.event import Event, EventRegistration
 from app.models.function import CatalogFunction, Function, MemberFunction
@@ -40,6 +41,8 @@ from app.models.user import TenantMembership, User
 __all__ = [
     "CONSENT_KINDS",
     "CONSENT_SOURCES",
+    "DONATION_KINDS",
+    "EXEMPTION_KINDS",
     "AdminAuditLog",
     "AttendanceCheckinContext",
     "AttendanceRecord",
@@ -54,6 +57,7 @@ __all__ = [
     "Discipline",
     "Division",
     "DocumentTemplate",
+    "DonationReceipt",
     "Due",
     "Entry",
     "Event",

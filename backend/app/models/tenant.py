@@ -48,6 +48,35 @@ class Tenant(Base, TimestampMixin):
     is_nonprofit: Mapped[bool] = mapped_column(default=False, nullable=False)
     nonprofit_since: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # --- What a donation receipt has to state about the club ---
+    #
+    # Prescribed content, not decoration: the official template requires the
+    # club to name which notice recognises it, from when, and for what. Frozen
+    # into every receipt at issuing time, because all of it changes.
+
+    #: The recognised purposes, as they appear on the notice — "Förderung des
+    #: Sports", "Förderung der Jugendhilfe". The club copies them; guessing
+    #: them from the sports it offers would put words in a tax office's mouth.
+    nonprofit_purposes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    #: "freistellungsbescheid" — the ordinary case, a club that has been
+    #: assessed — or "feststellung_60a" for one that is newly founded and only
+    #: has the preliminary determination.
+    tax_exemption_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    tax_exemption_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: The last assessment period the notice covers. Only meaningful for a
+    #: Freistellungsbescheid; a §60a determination has none.
+    tax_exemption_period: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Whether membership fees may be certified as deductible. Off by default,
+    #: and for a sports club it stays off: fees to a club that promotes sport
+    #: are not deductible (§ 10b Abs. 1 Satz 8 EStG in Verbindung mit § 52
+    #: Abs. 2 Nr. 21 AO). Getting this wrong produces receipts the members
+    #: cannot use and the club is liable for.
+    membership_fees_deductible: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+
     # SEPA creditor data (for direct debit collection of dues)
     sepa_creditor_id: Mapped[str | None] = mapped_column(String(35), nullable=True)
     iban: Mapped[str | None] = mapped_column(String(34), nullable=True)

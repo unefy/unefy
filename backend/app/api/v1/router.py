@@ -12,6 +12,7 @@ from app.api.v1.club_disciplines import router as club_disciplines_router
 from app.api.v1.competitions import router as competitions_router
 from app.api.v1.disciplines import router as disciplines_router
 from app.api.v1.documents import router as documents_router
+from app.api.v1.donations import router as donations_router
 from app.api.v1.dues import router as dues_router
 from app.api.v1.events import router as events_router
 from app.api.v1.functions import router as functions_router
@@ -41,6 +42,7 @@ router.include_router(
 router.include_router(competitions_router, prefix="/competitions", tags=["competitions"])
 router.include_router(disciplines_router, prefix="/disciplines", tags=["disciplines"])
 router.include_router(documents_router, prefix="/documents", tags=["documents"])
+router.include_router(donations_router, prefix="/donations", tags=["donations"])
 router.include_router(dues_router, prefix="/dues", tags=["dues"])
 router.include_router(shot_entries_router, prefix="/entries", tags=["entries"])
 router.include_router(events_router, prefix="/events", tags=["events"])

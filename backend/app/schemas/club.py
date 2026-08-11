@@ -51,6 +51,13 @@ class ClubResponse(BaseSchema):
     is_nonprofit: bool = False
     nonprofit_since: date | None = None
 
+    # What a donation receipt has to state about the club.
+    nonprofit_purposes: str | None = None
+    tax_exemption_kind: str | None = None
+    tax_exemption_date: date | None = None
+    tax_exemption_period: int | None = None
+    membership_fees_deductible: bool = False
+
     # SEPA creditor data
     sepa_creditor_id: str | None = Field(default=None, max_length=35)
     iban: str | None = Field(default=None, max_length=34)
@@ -101,6 +108,16 @@ class ClubUpdate(BaseSchema):
     tax_office: str | None = Field(default=None, max_length=255)
     is_nonprofit: bool | None = None
     nonprofit_since: date | None = None
+
+    nonprofit_purposes: str | None = Field(default=None, max_length=500)
+    tax_exemption_kind: str | None = Field(
+        default=None, pattern="^(freistellungsbescheid|feststellung_60a)$"
+    )
+    tax_exemption_date: date | None = None
+    tax_exemption_period: int | None = Field(default=None, ge=1900, le=2200)
+    #: Off unless the club says otherwise. Fees to a club promoting sport are
+    #: not deductible (§ 10b Abs. 1 Satz 8 EStG).
+    membership_fees_deductible: bool | None = None
 
     # SEPA creditor data
     sepa_creditor_id: str | None = Field(default=None, max_length=35)

@@ -21,6 +21,7 @@ from app.core.rate_limit import RateLimit
 from app.database import get_db_session
 from app.repositories.shooting import certificate_by_verification_code
 from app.services.document import document_by_verification_code
+from app.services.donation import receipt_by_verification_code
 
 router = APIRouter(tags=["verify"])
 
@@ -37,7 +38,8 @@ async def verify_certificate(
 ) -> dict[str, Any]:
     """Check one code, whatever kind of document it belongs to.
 
-    Two kinds share this path: the §14 proof and the club's own certificates.
+    Three kinds share this path: the §14 proof, the club's own certificates
+    and donation receipts.
     One page for both, because the person scanning the QR is holding a piece
     of paper and does not know — or care — which of our tables it came from.
     The codes come from the same alphabet and the same length, so a collision
@@ -79,6 +81,24 @@ async def verify_certificate(
                 "issued_at": document.issued_at.astimezone(ZoneInfo(timezone)).date().isoformat(),
                 "club_name": club_name,
                 "member_name": member_name,
+            }
+        }
+
+    donation = await receipt_by_verification_code(session, verification_code)
+    if donation is not None:
+        receipt, donor_name = donation
+        return {
+            "data": {
+                "kind": "donation_receipt",
+                "valid": receipt.revoked_at is None,
+                "revoked": receipt.revoked_at is not None,
+                # No amount. Whoever merely found a code learns that the
+                # receipt is genuine, not what somebody gave — and a donation
+                # is nobody else's business.
+                "issued_at": receipt.issued_at.date().isoformat(),
+                "received_on": receipt.received_on.isoformat(),
+                "club_name": receipt.club_name,
+                "member_name": donor_name,
             }
         }
 
