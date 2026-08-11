@@ -5,9 +5,7 @@ knows every field it prints. This one knows nothing about the content — the
 club wrote it — and only has to place flowing text on a page and break it
 where it runs out.
 
-Drawn rather than templated, for the same reason as the other: one page of
-fixed structure is less code than a template engine plus an HTML converter,
-and it adds no runtime that has to be kept patched.
+How it looks is `pdf_theme`'s business, shared with the other documents.
 """
 
 from dataclasses import dataclass
@@ -18,15 +16,17 @@ from reportlab.graphics import renderPDF
 from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-#: Everything sits inside this margin, including the footer.
-MARGIN = 22 * mm
-BODY_SIZE = 11
-BODY_LEADING = 5.6 * mm
+from app.services import pdf_theme as theme
+from app.services.pdf_theme import mm
+
+BODY_SIZE = theme.BODY
+BODY_LEADING = theme.BODY_LEADING
 #: Space between paragraphs, on top of the line leading.
 PARAGRAPH_GAP = 3 * mm
+
+REVOKED_TEXT = "WIDERRUFEN — dieses Dokument ist ungültig"
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ class DocumentLetter:
     body: str
     issued_on: date
 
-    #: Letterhead lines under the club name — address, contact. Empty when the
+    #: Letterhead lines beside the club name — address, contact. Empty when the
     #: template asked for no letterhead.
     letterhead: tuple[str, ...] = ()
     #: Register and tax data along the bottom. Empty when switched off.
@@ -60,28 +60,6 @@ def _de(value: date) -> str:
     return value.strftime("%d.%m.%Y")
 
 
-def _wrap(pdf: canvas.Canvas, text: str, width: float, font: str, size: float) -> list[str]:
-    """Greedy word wrap against the real string widths of the chosen font.
-
-    Measured rather than estimated by character count: "Mitgliedsbescheinigung"
-    and "iiiiiiiiiiiiiiiiiiiiii" have the same length and nothing else.
-    """
-    if not text:
-        return [""]
-
-    lines: list[str] = []
-    current = ""
-    for word in text.split(" "):
-        candidate = f"{current} {word}".strip()
-        if current and pdf.stringWidth(candidate, font, size) > width:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-    lines.append(current)
-    return lines
-
-
 def build_document_pdf(doc: DocumentLetter) -> bytes:
     """Render one document to PDF bytes, over as many pages as it needs.
 
@@ -95,48 +73,35 @@ def build_document_pdf(doc: DocumentLetter) -> bytes:
     # Not a claim about the club, only about who produced the file.
     pdf.setAuthor(doc.club_name)
 
-    text_width = width - 2 * MARGIN
+    text_width = width - 2 * theme.MARGIN
     # Where the text may not go, so the footer and QR keep their room.
-    floor = MARGIN + (34 * mm if doc.footer or doc.verification_code else 8 * mm)
+    floor = theme.MARGIN + (32 * mm if doc.footer or doc.verification_code else 12 * mm)
 
     def new_page() -> float:
         pdf.showPage()
-        pdf.setFillGray(0)
-        return float(height - MARGIN)
+        pdf.setFillGray(theme.INK)
+        return float(height - theme.MARGIN)
 
-    y = float(height - MARGIN)
+    y = theme.masthead(
+        pdf,
+        width,
+        height - theme.MARGIN,
+        club_name=doc.club_name,
+        address_lines=doc.letterhead,
+    )
+    y = theme.title(pdf, width, y, text=doc.title)
 
-    if doc.letterhead or doc.club_name:
-        pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(MARGIN, y, doc.club_name)
-        y -= 6 * mm
-        pdf.setFont("Helvetica", 9)
-        pdf.setFillGray(0.35)
-        for line in doc.letterhead:
-            pdf.drawString(MARGIN, y, line)
-            y -= 4.5 * mm
-        pdf.setFillGray(0)
-        y -= 6 * mm
-
-    pdf.setFont("Helvetica-Bold", 16)
-    for line in _wrap(pdf, doc.title, text_width, "Helvetica-Bold", 16):
-        pdf.drawString(MARGIN, y, line)
-        y -= 7 * mm
-    y -= 4 * mm
-
-    pdf.setLineWidth(0.5)
-    pdf.setStrokeGray(0.8)
-    pdf.line(MARGIN, y, width - MARGIN, y)
-    y -= 10 * mm
+    if doc.revoked:
+        y = theme.revoked_notice(pdf, width, y, REVOKED_TEXT)
 
     pdf.setFont("Helvetica", BODY_SIZE)
     for paragraph in doc.body.split("\n\n"):
         for source_line in paragraph.split("\n"):
-            for line in _wrap(pdf, source_line, text_width, "Helvetica", BODY_SIZE):
+            for line in theme.wrap(pdf, source_line, text_width, "Helvetica", BODY_SIZE):
                 if y < floor:
                     y = new_page()
                     pdf.setFont("Helvetica", BODY_SIZE)
-                pdf.drawString(MARGIN, y, line)
+                pdf.drawString(theme.MARGIN, y, line)
                 y -= BODY_LEADING
         y -= PARAGRAPH_GAP
 
@@ -144,13 +109,7 @@ def build_document_pdf(doc: DocumentLetter) -> bytes:
         y -= 12 * mm
         if y < floor:
             y = new_page()
-        pdf.setStrokeGray(0.6)
-        pdf.line(MARGIN, y, MARGIN + 60 * mm, y)
-        y -= 5 * mm
-        pdf.setFont("Helvetica", 9)
-        pdf.setFillGray(0.35)
-        pdf.drawString(MARGIN, y, doc.signature_line)
-        pdf.setFillGray(0)
+        theme.signature_line(pdf, y, doc.signature_line)
 
     _draw_foot(pdf, doc, width)
 
@@ -164,12 +123,13 @@ def _draw_foot(pdf: canvas.Canvas, doc: DocumentLetter, width: float) -> None:
     Pinned rather than following the text: a reader looking for the check code
     should find it in the same place on every document a club issues.
     """
+    size = 0.0
     if doc.verification_code and doc.verification_url:
         # The QR and the code say the same thing twice on purpose: a scanner is
         # quicker, but a code that can be typed still works from a photocopy.
+        size = 20 * mm
         widget = qr.QrCodeWidget(doc.verification_url)
         bounds = widget.getBounds()
-        size = 24 * mm
         drawing = Drawing(
             size,
             size,
@@ -183,35 +143,23 @@ def _draw_foot(pdf: canvas.Canvas, doc: DocumentLetter, width: float) -> None:
             ],
         )
         drawing.add(widget)
-        renderPDF.draw(drawing, pdf, MARGIN, MARGIN + 6 * mm)
+        renderPDF.draw(drawing, pdf, theme.MARGIN, theme.MARGIN)
 
-        pdf.setFont("Helvetica", 8)
-        pdf.setFillGray(0.35)
-        pdf.drawString(
-            MARGIN + size + 4 * mm,
-            MARGIN + 22 * mm,
-            f"Echtheit prüfen: {doc.verification_url}",
-        )
-        pdf.drawString(
-            MARGIN + size + 4 * mm, MARGIN + 18 * mm, f"Prüfcode: {doc.verification_code}"
-        )
-        pdf.drawString(
-            MARGIN + size + 4 * mm,
-            MARGIN + 14 * mm,
-            f"Ausgestellt am {_de(doc.issued_on)}",
-        )
-        if doc.revoked:
-            # A revoked document should say so on its face, not only on the
-            # check page — the page is the second line of defence, not the
-            # first.
-            pdf.setFillColorRGB(0.7, 0.1, 0.1)
-            pdf.setFont("Helvetica-Bold", 9)
-            pdf.drawString(MARGIN + size + 4 * mm, MARGIN + 9 * mm, "WIDERRUFEN — ungültig")
-        pdf.setFillGray(0.35)
+    if size or doc.footer:
+        theme.footer_rule(pdf, width, theme.MARGIN + (size or 6 * mm) + 6 * mm)
 
-    if doc.footer:
-        pdf.setFont("Helvetica", 7.5)
-        pdf.setFillGray(0.45)
-        y = MARGIN + 2 * mm
-        pdf.drawRightString(width - MARGIN, y, " · ".join(doc.footer))
-        pdf.setFillGray(0)
+    theme.footer(
+        pdf,
+        width,
+        lines=(*doc.footer, f"Ausgestellt am {_de(doc.issued_on)}"),
+        check_lines=(
+            (
+                "Echtheit prüfen",
+                doc.verification_url or "",
+                f"Prüfcode {doc.verification_code}",
+            )
+            if doc.verification_code
+            else ()
+        ),
+        qr_size=size,
+    )

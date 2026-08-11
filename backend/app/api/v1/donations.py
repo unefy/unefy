@@ -144,8 +144,10 @@ async def download_receipt(
         content=build_donation_pdf(document),
         media_type="application/pdf",
         headers={
+            # `inline`, so the receipt opens in the browser's viewer; the
+            # filename still travels along for whoever saves it from there.
             "Content-Disposition": (
-                f'attachment; filename="zuwendungsbestaetigung-{receipt.received_on.year}-'
+                f'inline; filename="zuwendungsbestaetigung-{receipt.received_on.year}-'
                 f'{receipt.verification_code}.pdf"'
             ),
             "Cache-Control": "no-store",

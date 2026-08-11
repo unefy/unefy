@@ -379,7 +379,9 @@ async def test_the_pdf_carries_the_frozen_text(
     response = await auth_client.get(f"/api/v1/documents/{issued['id']}/pdf")
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
-    assert response.headers["content-disposition"].startswith("attachment")
+    # `inline`, so the browser opens it in its viewer instead of dropping it in
+    # the downloads folder — the club reads what it just issued.
+    assert response.headers["content-disposition"].startswith("inline")
     # A document about one person has no business in a shared cache.
     assert response.headers["cache-control"] == "no-store"
     assert response.content.startswith(b"%PDF")

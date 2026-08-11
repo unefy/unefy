@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { DocumentTemplate, IssuedDocument } from "@/lib/types/document"
-import { DownloadIcon } from "lucide-react"
+import { FileTextIcon } from "lucide-react"
 
 /**
  * Issuing a document for one member, and what has already been issued.
@@ -100,12 +100,17 @@ export function MemberDocuments({
       header: "",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
+          {/* A new tab, not this one: the PDF opens in the browser's viewer
+              and the list stays where it was. */}
           <a
             href={`/api/documents/${row.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
             className={buttonVariants({ variant: "ghost", size: "sm" })}
-            aria-label={t("download")}
+            aria-label={t("open")}
+            title={t("open")}
           >
-            <DownloadIcon className="size-4" />
+            <FileTextIcon className="size-4" />
           </a>
           {row.revoked_at ? null : (
             <ReasonDialog

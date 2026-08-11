@@ -5,7 +5,7 @@ import { API_BASE, sessionCookieHeader } from "@/lib/api"
 import { SESSION_COOKIE } from "@/lib/constants"
 
 /**
- * Proxies a donation receipt's PDF to the browser as a download.
+ * Proxies a donation receipt's PDF to the browser, to be opened in its viewer.
  *
  * Same shape as the other file proxies: session cookie forwarded
  * server-side, backend origin stays private, the backend decides who may read
@@ -53,7 +53,7 @@ export async function GET(
       "Content-Type": "application/pdf",
       "Content-Disposition":
         upstream.headers.get("content-disposition") ??
-        'attachment; filename="zuwendungsbestaetigung.pdf"',
+        'inline; filename="zuwendungsbestaetigung.pdf"',
       // A document naming a person and an amount has no business in a cache.
       "Cache-Control": "no-store",
     },

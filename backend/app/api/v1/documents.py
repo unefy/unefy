@@ -253,7 +253,10 @@ async def download_document(
         content=build_document_pdf(letter),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{_ascii_filename(name)}.pdf"',
+            # `inline`, so the browser's viewer opens it: the usual next step
+            # after issuing a document is reading it, not filing it. The
+            # filename still travels along for whoever then saves it.
+            "Content-Disposition": f'inline; filename="{_ascii_filename(name)}.pdf"',
             "Cache-Control": "no-store",
         },
     )

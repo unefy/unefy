@@ -5,7 +5,7 @@ import { API_BASE, sessionCookieHeader } from "@/lib/api"
 import { SESSION_COOKIE } from "@/lib/constants"
 
 /**
- * Proxies an issued document's PDF to the browser as a download.
+ * Proxies an issued document's PDF to the browser, to be opened in its viewer.
  *
  * A route handler rather than a server action because an action cannot answer
  * with a file. Same shape as the SEPA and range-book proxies: session cookie
@@ -54,7 +54,7 @@ export async function GET(
       "Content-Type": "application/pdf",
       "Content-Disposition":
         upstream.headers.get("content-disposition") ??
-        'attachment; filename="dokument.pdf"',
+        'inline; filename="dokument.pdf"',
       // A document about one person has no business in a shared cache.
       "Cache-Control": "no-store",
     },

@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl"
 
-import { DownloadIcon } from "lucide-react"
+import { FileTextIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -107,25 +107,31 @@ export function CertificatesTable({
               producible, and the PDF says on its face that it was revoked. */}
           {/* Two documents, one action: whether an authority wants the single
               appointments differs by state and association, so the club picks
-              per download instead of the code picking once. */}
+              per certificate instead of the code picking once. Both open in a
+              new tab — the browser's viewer shows the PDF, and this list stays
+              where it was. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label={t("download")}
-                  title={t("download")}
+                  aria-label={t("open")}
+                  title={t("open")}
                 >
-                  <DownloadIcon className="text-muted-foreground" />
+                  <FileTextIcon className="text-muted-foreground" />
                 </Button>
               }
             />
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 render={
-                  <a href={`/api/shooting/certificate?id=${row.id}`} download>
-                    {t("downloadPlain")}
+                  <a
+                    href={`/api/shooting/certificate?id=${row.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("openPlain")}
                   </a>
                 }
               />
@@ -133,9 +139,10 @@ export function CertificatesTable({
                 render={
                   <a
                     href={`/api/shooting/certificate?id=${row.id}&details=true`}
-                    download
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    {t("downloadWithDays")}
+                    {t("openWithDays")}
                   </a>
                 }
               />

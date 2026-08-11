@@ -28,7 +28,7 @@ import type {
   DonationReadiness,
   DonationReceipt,
 } from "@/lib/types/donation"
-import { AlertTriangleIcon, DownloadIcon, InfoIcon } from "lucide-react"
+import { AlertTriangleIcon, FileTextIcon, InfoIcon } from "lucide-react"
 
 const NO_MEMBER = "none"
 
@@ -137,12 +137,17 @@ export function DonationReceipts({
       header: "",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
+          {/* A new tab, not this one: the PDF opens in the browser's viewer
+              and the list stays where it was. */}
           <a
             href={`/api/donations/${row.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
             className={buttonVariants({ variant: "ghost", size: "sm" })}
-            aria-label={t("download")}
+            aria-label={t("open")}
+            title={t("open")}
           >
-            <DownloadIcon className="size-4" />
+            <FileTextIcon className="size-4" />
           </a>
           {row.revoked_at ? null : (
             <ReasonDialog

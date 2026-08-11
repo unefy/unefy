@@ -1617,9 +1617,9 @@
         "status": "Status",
         "code": "Prüfcode"
       },
-      "download": "Als PDF herunterladen",
-      "downloadPlain": "Bescheinigung (PDF)",
-      "downloadWithDays": "Bescheinigung mit Terminliste (PDF)"
+      "open": "Als PDF öffnen",
+      "openPlain": "Bescheinigung (PDF)",
+      "openWithDays": "Bescheinigung mit Terminliste (PDF)"
     },
     "revoke": {
       "action": "Widerrufen",
@@ -2104,7 +2104,7 @@
     "revoked": "Widerrufen",
     "revoke": "Widerrufen",
     "revokedToast": "Dokument widerrufen.",
-    "download": "PDF herunterladen",
+    "open": "PDF öffnen",
     "confirmRevoke": {
       "title": "Dokument widerrufen?",
       "description": "Das Dokument bleibt mit seinem Text erhalten und wird als ungültig gekennzeichnet — auch auf der öffentlichen Prüfseite."
@@ -2168,7 +2168,7 @@
     "revoked": "Widerrufen",
     "revoke": "Widerrufen",
     "revokedToast": "Bestätigung widerrufen.",
-    "download": "PDF herunterladen",
+    "open": "PDF öffnen",
     "noMember": "Kein Mitglied (freie Eingabe)",
     "notReady": "Für Zuwendungsbestätigungen fehlen noch Angaben zum Verein.",
     "toSettings": "In den Einstellungen ergänzen",

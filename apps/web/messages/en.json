@@ -1617,9 +1617,9 @@
         "status": "Status",
         "code": "Code"
       },
-      "download": "Download as PDF",
-      "downloadPlain": "Certificate (PDF)",
-      "downloadWithDays": "Certificate with appointment list (PDF)"
+      "open": "Open as PDF",
+      "openPlain": "Certificate (PDF)",
+      "openWithDays": "Certificate with appointment list (PDF)"
     },
     "revoke": {
       "action": "Revoke",
@@ -2104,7 +2104,7 @@
     "revoked": "Revoked",
     "revoke": "Revoke",
     "revokedToast": "Document revoked.",
-    "download": "Download PDF",
+    "open": "Open PDF",
     "confirmRevoke": {
       "title": "Revoke the document?",
       "description": "The document keeps its text and is marked invalid — including on the public check page."
@@ -2168,7 +2168,7 @@
     "revoked": "Revoked",
     "revoke": "Revoke",
     "revokedToast": "Receipt revoked.",
-    "download": "Download PDF",
+    "open": "Open PDF",
     "noMember": "Not a member (free entry)",
     "notReady": "Some club details are still missing for donation receipts.",
     "toSettings": "Add them in the settings",

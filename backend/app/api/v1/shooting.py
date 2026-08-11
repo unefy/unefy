@@ -260,7 +260,10 @@ async def certificate_pdf(
     return Response(
         content=build_certificate_pdf(document),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        # `inline`, so the browser's viewer opens it — the certificate is read
+        # and checked before it is ever saved. The CSV below stays a download:
+        # a spreadsheet has no viewer to open into.
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
 
