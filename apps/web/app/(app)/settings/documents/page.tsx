@@ -1,16 +1,20 @@
 import Link from "next/link"
 import { getTranslations } from "next-intl/server"
 
+import { StarterTemplates } from "@/components/settings/starter-templates"
 import { TemplatesTable } from "@/components/settings/templates-table"
 import { buttonVariants } from "@/components/ui/button"
-import { listTemplates } from "@/lib/documents"
+import { listStarterTemplates, listTemplates } from "@/lib/documents"
 import { PlusIcon } from "lucide-react"
 
 /** The club's own wording for the documents it hands out. */
 export default async function TemplatesPage() {
-  const [t, templates] = await Promise.all([
+  const [t, templates, starters] = await Promise.all([
     getTranslations("documents"),
     listTemplates(true).catch(() => []),
+    // Only owners and admins may read these; a board member simply sees no
+    // suggestions rather than an error.
+    listStarterTemplates().catch(() => []),
   ])
 
   return (
@@ -34,6 +38,8 @@ export default async function TemplatesPage() {
       </div>
 
       <TemplatesTable templates={templates} />
+
+      <StarterTemplates starters={starters} />
     </>
   )
 }

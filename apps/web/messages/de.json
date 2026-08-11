@@ -2102,7 +2102,11 @@
         "eintritt": "Eintrittsdatum",
         "austritt": "Austrittsdatum, falls vorhanden",
         "status": "Status der Mitgliedschaft",
-        "anschrift": "Anschrift in einer Zeile"
+        "anschrift": "Anschrift in einer Zeile",
+        "mitgliedsjahre": "Volle Jahre der Mitgliedschaft",
+        "beitragsart": "Name der Beitragsart",
+        "beitrag": "Beitrag mit Betrag und Intervall",
+        "aemter": "Aktuelle Ämter, mit Komma getrennt"
       },
       "verein": {
         "name": "Name des Vereins",
@@ -2120,6 +2124,12 @@
       "validation": "Bitte die Eingaben prüfen.",
       "unknown": "Das hat nicht geklappt.",
       "unreachable": "Der Server ist nicht erreichbar."
+    },
+    "starterNotice": "Musterformulierung — bitte prüfen:",
+    "starters": {
+      "title": "Muster zum Übernehmen",
+      "description": "Gängige Vereinsdokumente als Entwurf. Ein Klick öffnet den Editor mit dem Text; gespeichert wird erst, wenn Sie ihn gelesen und angepasst haben.",
+      "disclaimer": "Diese Muster sind Formulierungsvorschläge, keine Rechtsberatung. Was Ihr Verein bescheinigen darf, ergibt sich aus Ihrer Satzung und aus dem, wofür der Empfänger die Bescheinigung braucht. Die Zuwendungsbestätigung ist bewusst nicht dabei: sie folgt einem amtlichen Muster und gehört nicht in einen frei geschriebenen Text."
     }
   }
 }

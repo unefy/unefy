@@ -10,21 +10,30 @@ import {
   saveTemplateAction,
   type TemplateInput,
 } from "@/actions/documents"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { completeAt, openPlaceholder } from "@/lib/template-completion"
-import type { DocumentTemplate, DocumentVariable } from "@/lib/types/document"
-import { AlertTriangleIcon } from "lucide-react"
+import type {
+  DocumentTemplate,
+  DocumentVariable,
+  StarterTemplate,
+} from "@/lib/types/document"
+import { AlertTriangleIcon, InfoIcon } from "lucide-react"
 
 export function TemplateEditor({
   template,
   variables,
+  starter = null,
 }: {
   template: DocumentTemplate | null
   variables: DocumentVariable[]
+  /** A ready-made wording to begin from. Its caveat stays on screen while the
+   * club edits — that is the point of shipping one. */
+  starter?: StarterTemplate | null
 }) {
   const t = useTranslations("documents")
   const router = useRouter()
@@ -32,12 +41,13 @@ export function TemplateEditor({
   const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   const [form, setForm] = useState<TemplateInput>({
-    name: template?.name ?? "",
-    title: template?.title ?? "",
-    body: template?.body ?? "",
-    include_letterhead: template?.include_letterhead ?? true,
-    include_footer: template?.include_footer ?? true,
-    verifiable: template?.verifiable ?? true,
+    name: template?.name ?? starter?.name ?? "",
+    title: template?.title ?? starter?.title ?? "",
+    body: template?.body ?? starter?.body ?? "",
+    include_letterhead:
+      template?.include_letterhead ?? starter?.include_letterhead ?? true,
+    include_footer: template?.include_footer ?? starter?.include_footer ?? true,
+    verifiable: template?.verifiable ?? starter?.verifiable ?? true,
     is_active: template?.is_active ?? true,
   })
 
@@ -129,6 +139,16 @@ export function TemplateEditor({
 
   return (
     <div className="space-y-6">
+      {starter ? (
+        <Alert>
+          <InfoIcon />
+          <AlertDescription>
+            <span className="font-medium">{t("starterNotice")}</span>{" "}
+            {starter.caveat}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="template-name">{t("fields.name")}</Label>

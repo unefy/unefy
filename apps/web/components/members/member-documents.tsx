@@ -153,7 +153,14 @@ export function MemberDocuments({
                 onValueChange={(value) => setTemplateId(String(value))}
               >
                 <SelectTrigger id="issue-template" className="w-72">
-                  <SelectValue />
+                  {/* base-ui renders the raw value unless told otherwise, and
+                      the value here is a uuid. */}
+                  <SelectValue>
+                    {(value: string) =>
+                      templates.find((template) => template.id === value)
+                        ?.name ?? ""
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map((template) => (

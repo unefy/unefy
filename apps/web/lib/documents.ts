@@ -3,6 +3,7 @@ import type {
   DocumentTemplate,
   DocumentVariable,
   IssuedDocument,
+  StarterTemplate,
 } from "@/lib/types/document"
 
 /** The club's templates. Inactive ones only when asked for. */
@@ -18,6 +19,11 @@ export async function getTemplate(id: string) {
 /** The placeholder catalogue — the same one that validates a save. */
 export async function listVariables() {
   return apiCall<DocumentVariable[]>("/api/v1/documents/variables")
+}
+
+/** Ready-made wordings to start from. Drafts — nothing is installed by us. */
+export async function listStarterTemplates() {
+  return apiCall<StarterTemplate[]>("/api/v1/documents/starter-templates")
 }
 
 /** What the club has issued, optionally for one member. */

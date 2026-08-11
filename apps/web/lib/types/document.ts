@@ -18,6 +18,21 @@ export type DocumentVariable = {
   description: string
 }
 
+/**
+ * A ready-made wording. `caveat` travels with it and is shown next to the
+ * text — a draft handed over without saying what to check looks finished.
+ */
+export type StarterTemplate = {
+  key: string
+  name: string
+  title: string
+  body: string
+  caveat: string
+  include_letterhead: boolean
+  include_footer: boolean
+  verifiable: boolean
+}
+
 export type TemplatePreview = {
   rendered: string
   /** Names in the text that are not in the set. */

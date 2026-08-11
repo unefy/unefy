@@ -2102,7 +2102,11 @@
         "eintritt": "Date of joining",
         "austritt": "Date of leaving, if any",
         "status": "Membership status",
-        "anschrift": "Address on one line"
+        "anschrift": "Address on one line",
+        "mitgliedsjahre": "Completed years of membership",
+        "beitragsart": "Name of the current fee",
+        "beitrag": "Fee with amount and interval",
+        "aemter": "Offices currently held, comma separated"
       },
       "verein": {
         "name": "Club name",
@@ -2120,6 +2124,12 @@
       "validation": "Please check the input.",
       "unknown": "That did not work.",
       "unreachable": "The server cannot be reached."
+    },
+    "starterNotice": "Sample wording — please check:",
+    "starters": {
+      "title": "Ready-made wordings",
+      "description": "Common club documents as drafts. One click opens the editor with the text; nothing is saved until you have read and adapted it.",
+      "disclaimer": "These are suggested wordings, not legal advice. What your club may certify follows from its articles and from what the recipient needs it for. The donation receipt is deliberately absent: it follows an official template and does not belong in freely written text."
     }
   }
 }
