@@ -2158,6 +2158,18 @@
       "none": "Das Dokument endet mit dem Text. Für Urkunden mit eigenem Aufbau.",
       "machine": "Druckt „Dieses Dokument wurde maschinell erstellt und ist ohne Unterschrift gültig.\" — passend für alles, was per E-Mail rausgeht.",
       "line": "Leere Linie mit dem Vereinsnamen darunter. Der Vorstand unterschreibt von Hand."
+    },
+    "signed": "Unterschrieben",
+    "signing": {
+      "action": "Unterschrift einholen",
+      "title": "Auf einem Gerät unterschreiben",
+      "description": "Code mit dem Handy scannen oder den Link öffnen. Wer ihn öffnet, unterschreibt mit dem Finger — direkt auf diesem Dokument.",
+      "loading": "Link wird erstellt …",
+      "copy": "Link kopieren",
+      "copied": "Link kopiert.",
+      "expires": "Der Link gilt {minutes} Minuten und lässt sich genau einmal verwenden.",
+      "close": "Schließen",
+      "failed": "Der Link konnte nicht erstellt werden."
     }
   },
   "donations": {
@@ -2229,5 +2241,17 @@
       "unknown": "Das hat nicht geklappt.",
       "unreachable": "Der Server ist nicht erreichbar."
     }
+  },
+  "sign": {
+    "title": "Dokument unterschreiben",
+    "padLabel": "Feld zum Unterschreiben",
+    "padHint": "Mit dem Finger oder einem Stift unterschreiben.",
+    "clear": "Löschen",
+    "submit": "Unterschreiben",
+    "submitting": "Wird übertragen …",
+    "thanks": "Danke — die Unterschrift steht jetzt auf dem Dokument.",
+    "failed": "Die Unterschrift konnte nicht übertragen werden.",
+    "expiredTitle": "Dieser Link gilt nicht mehr",
+    "expiredHint": "Links zum Unterschreiben laufen nach kurzer Zeit ab und gelten nur einmal. Bitten Sie um einen neuen."
   }
 }

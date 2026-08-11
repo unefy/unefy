@@ -36,6 +36,7 @@ from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -43,6 +44,7 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Flowable,
     Frame,
+    Image,
     KeepTogether,
     PageTemplate,
     Paragraph,
@@ -106,6 +108,9 @@ SMALL = 8
 FOOTNOTE = 7
 
 BODY_LEADING = 15
+#: How tall a signature is drawn. About the height of a handwritten name at
+#: this size — big enough to read, small enough not to become the page.
+SIGNATURE_HEIGHT = 16 * mm
 #: Uppercase labels get letterspacing; at 7pt they are unreadable without it.
 LABEL_TRACKING = 0.8
 
@@ -356,17 +361,31 @@ def paragraph(
     return Paragraph(rich(value) if keep_breaks else text(value), style)
 
 
-def signature(caption: str, width: float = 70 * mm) -> Flowable:
+def signature(caption: str, width: float = 70 * mm, drawing: bytes | None = None) -> Flowable:
     """Line and caption, held together — a signature split over a page break
-    would leave somebody signing a blank sheet."""
-    return KeepTogether(
-        [
-            Spacer(0, 12 * mm),
-            _Rule(width),
-            Spacer(0, 1.5 * mm),
-            Paragraph(text(caption), FOOTNOTE_STYLE),
-        ]
-    )
+    would leave somebody signing a blank sheet.
+
+    With `drawing`, the strokes somebody made on a phone sit on the line
+    instead of the empty space above it. Scaled to fit the line and never
+    stretched: a signature squeezed to a different shape is not the one that
+    was given.
+    """
+    block: list[Flowable] = [Spacer(0, 12 * mm)]
+    if drawing:
+        source_width, source_height = ImageReader(BytesIO(drawing)).getSize()
+        # Fit inside the line's box, aspect ratio kept: a signature squeezed to
+        # a different shape is not the one that was given.
+        height = SIGNATURE_HEIGHT
+        drawn_width = height * source_width / max(source_height, 1)
+        if drawn_width > width:
+            drawn_width = width
+            height = drawn_width * source_height / max(source_width, 1)
+        # A fresh stream: the reader above consumed the first one, and Image
+        # wants a file it can read rather than a reader it cannot.
+        block.append(Image(BytesIO(drawing), width=drawn_width, height=height, hAlign="LEFT"))
+        block.append(Spacer(0, 1 * mm))
+    block += [_Rule(width), Spacer(0, 1.5 * mm), Paragraph(text(caption), FOOTNOTE_STYLE)]
+    return KeepTogether(block)
 
 
 def verdict(value: str, color: tuple[float, float, float]) -> Flowable:

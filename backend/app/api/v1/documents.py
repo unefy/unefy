@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.exceptions import ConflictError, ValidationError
 from app.database import get_db_session
 from app.dependencies import AuthContext, require_role
 from app.models.member import Member
@@ -17,6 +18,7 @@ from app.schemas.document import (
     IssueRequest,
     PreviewResponse,
     RevokeRequest,
+    SignatureLinkResponse,
     StarterResponse,
     TemplateCreate,
     TemplatePreview,
@@ -25,9 +27,11 @@ from app.schemas.document import (
     VariableResponse,
 )
 from app.services import document_variables as variables
+from app.services import signature_link
 from app.services.document import DocumentService
 from app.services.document_pdf import DocumentLetter, build_document_pdf
 from app.services.document_starters import STARTERS
+from app.services.qr import qr_matrix
 
 router = APIRouter()
 
@@ -211,6 +215,39 @@ async def revoke_document(
     return {"data": IssuedDocumentResponse.model_validate(document).model_dump(mode="json")}
 
 
+@router.post("/{document_id}/signature-link", status_code=201)
+async def create_signature_link(
+    document_id: uuid.UUID,
+    auth: AuthContext = Depends(require_role("owner", "admin", "board")),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """A link that lets somebody sign this document on their own phone.
+
+    Asked for deliberately by a signed-in board member, never handed out on a
+    list page: the link is the whole authorisation, so it should exist only
+    while somebody is standing there meaning to sign.
+    """
+    document = await DocumentService(session, auth.tenant).get_document(document_id)
+    if document.signature_mode != "line":
+        raise ValidationError("This document has no signature line")
+    if document.signed_at is not None:
+        raise ConflictError("This document is already signed")
+    if document.revoked_at is not None:
+        raise ConflictError("This document is revoked")
+
+    token = await signature_link.issue(
+        signature_link.SignatureTarget(tenant_id=auth.tenant, document_id=document_id)
+    )
+    url = f"{get_settings().WEB_APP_URL.rstrip('/')}/sign/{token}"
+    return {
+        "data": SignatureLinkResponse(
+            url=url,
+            expires_in=signature_link.TTL_SECONDS,
+            qr=qr_matrix(url),
+        ).model_dump()
+    }
+
+
 @router.get("/{document_id}/pdf")
 async def download_document(
     document_id: uuid.UUID,
@@ -249,6 +286,7 @@ async def download_document(
         ),
         revoked=document.revoked_at is not None,
         signature_line=(tenant.name if document.signature_mode == "line" and tenant else None),
+        signature_drawing=document.signature_png,
         machine_made=document.signature_mode == "machine",
     )
 

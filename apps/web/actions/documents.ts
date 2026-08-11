@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { apiCall, ApiError } from "@/lib/api"
+import { API_BASE, apiCall, ApiError } from "@/lib/api"
 import type { ActionResult } from "@/actions/members"
 import type {
   DocumentTemplate,
   IssuedDocument,
+  SignatureLink,
+  SigningPage,
   TemplatePreview,
 } from "@/lib/types/document"
 
@@ -62,6 +64,78 @@ export async function saveTemplateAction(
     return { success: true, data: template }
   } catch (error) {
     return toError(error)
+  }
+}
+
+/**
+ * Ask for a link that lets somebody sign this document on their own phone.
+ *
+ * Requested per document and per attempt: the link is the whole
+ * authorisation, so it should exist only while somebody is standing there
+ * meaning to sign. It expires by itself and is spent on signing.
+ */
+export async function requestSignatureLinkAction(
+  documentId: string
+): Promise<ActionResult<SignatureLink>> {
+  if (!z.string().uuid().safeParse(documentId).success) {
+    return { success: false, error: "validation" }
+  }
+  try {
+    const link = await apiCall<SignatureLink>(
+      `/api/v1/documents/${documentId}/signature-link`,
+      { method: "POST" }
+    )
+    return { success: true, data: link }
+  } catch (error) {
+    return toError(error)
+  }
+}
+
+/**
+ * What the signing page shows, fetched without a session.
+ *
+ * Deliberately not `apiCall`: the person signing is on their own phone and
+ * has no session here, and forwarding somebody else's would be wrong even if
+ * one existed.
+ */
+export async function signingPageQuery(
+  token: string
+): Promise<SigningPage | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/sign/${encodeURIComponent(token)}`,
+      { cache: "no-store" }
+    )
+    if (!response.ok) return null
+    return ((await response.json()) as { data: SigningPage }).data
+  } catch {
+    return null
+  }
+}
+
+export async function submitSignatureAction(
+  token: string,
+  signaturePng: string
+): Promise<ActionResult> {
+  if (!signaturePng.startsWith("data:image/png;base64,")) {
+    return { success: false, error: "validation" }
+  }
+  try {
+    const response = await fetch(
+      `${API_BASE}/sign/${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature_png: signaturePng }),
+        cache: "no-store",
+      }
+    )
+    if (response.status === 429) return { success: false, error: "rateLimited" }
+    if (response.status === 404) return { success: false, error: "notFound" }
+    if (!response.ok) return { success: false, error: "unknown" }
+    return { success: true }
+  } catch {
+    return { success: false, error: "unreachable" }
   }
 }
 

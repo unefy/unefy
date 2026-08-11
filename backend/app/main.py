@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.join import router as join_router
 from app.api.middleware.logging import RequestLoggingMiddleware
+from app.api.sign import router as sign_router
 from app.api.v1.router import router as v1_router
 from app.api.verify import router as verify_router
 from app.config import get_settings
@@ -179,6 +180,7 @@ def create_app() -> FastAPI:
     # Outside /api/v1 on purpose: the QR on a printed certificate carries this
     # URL, and a printed thing must outlive API versioning.
     app.include_router(join_router)
+    app.include_router(sign_router)
     app.include_router(verify_router)
     app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
 

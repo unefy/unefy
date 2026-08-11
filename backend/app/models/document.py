@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -85,6 +86,12 @@ class DocumentTemplate(TenantModel, AuditMixin):
     )
 
 
+#: A signature is a few strokes on a transparent canvas. Bounded so that a
+#: phone cannot post a photograph instead, and so the column stays something a
+#: document row can carry.
+MAX_SIGNATURE_BYTES = 200_000
+
+
 class IssuedDocument(TenantModel, AuditMixin):
     """A document that was actually handed out, frozen as it was handed out.
 
@@ -103,6 +110,12 @@ class IssuedDocument(TenantModel, AuditMixin):
         CheckConstraint(
             f"signature_mode IN ({', '.join(repr(m) for m in SIGNATURE_MODES)})",
             name="ck_issued_documents_signature_mode",
+        ),
+        # Both or neither: a timestamp without an image would print a document
+        # that claims to be signed with nothing on the line.
+        CheckConstraint(
+            "(signature_png IS NULL) = (signed_at IS NULL)",
+            name="ck_issued_documents_signature_complete",
         ),
     )
 
@@ -152,3 +165,15 @@ class IssuedDocument(TenantModel, AuditMixin):
     signature_mode: Mapped[str] = mapped_column(
         String(16), nullable=False, default="line", server_default="line"
     )
+
+    #: The signature drawn for *this* document, on somebody's phone, as a PNG
+    #: with a transparent background.
+    #:
+    #: On the document rather than on the club, and that is the whole design:
+    #: there is no club-wide signature graphic to reuse, so nothing here can be
+    #: put under a second document. It is kept rather than baked into a file
+    #: because the PDF is re-rendered on every download — a document that lost
+    #: its signature on the way to the printer would be worse than one that
+    #: never had it.
+    signature_png: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

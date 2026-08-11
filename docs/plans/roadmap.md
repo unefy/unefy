@@ -360,6 +360,24 @@ kostet das nichts — für Mitgliedsbescheinigungen ist ohnehin keine Form
 vorgeschrieben, und eine gemalte Unterschrift wäre dieselbe einfache
 elektronische Signatur wie eine eingescannte.
 
+**Unterschreiben auf einem anderen Gerät (2026-08-11):** Der Vorstand fordert
+am Dokument einen Link an, legt den QR auf den Bildschirm, und wer ihn öffnet,
+unterschreibt mit dem Finger — ohne Konto auf diesem Handy. Die Zeichnung hängt
+danach als PNG an **genau diesem** ausgestellten Dokument, nicht am Verein: es
+gibt weiterhin kein wiederverwendbares Unterschriftsbild, und nichts davon
+lässt sich unter ein zweites Papier setzen.
+
+Der Link ist die ganze Berechtigung und deshalb entsprechend gebaut: 32 Byte,
+nur gehasht in Redis, 15 Minuten, ein benanntes Dokument, beim Signieren
+verbraucht. Die Signierseite zeigt den vollen Text — man kann niemanden bitten,
+etwas zu unterschreiben, das er nicht lesen darf. Angeboten wird das nur, wo
+die Vorlage eine Unterschriftslinie vorsieht; ein maschinell erstelltes oder
+widerrufenes Dokument lässt sich nicht nachträglich unterschreiben.
+
+Der QR kommt als Modulmatrix aus dem Backend und wird im Browser als Quadrate
+gezeichnet — reportlab hat den Encoder ohnehin, das spart ein Frontend-Paket
+und setzt kein servergeneriertes Markup in die Seite.
+
 Dabei ist ein Fehler aufgefallen und mitbehoben: **Briefkopf und Fußzeile
 waren je Vorlage einstellbar, wurden beim Rendern aber ignoriert.** Alle drei
 Schalter werden jetzt beim Ausstellen auf das Dokument kopiert — aus demselben

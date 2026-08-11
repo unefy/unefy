@@ -25,7 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.models.document import DocumentTemplate, IssuedDocument
+from app.models.document import MAX_SIGNATURE_BYTES, DocumentTemplate, IssuedDocument
 from app.models.due import FeeType, MemberFee
 from app.models.function import Function, MemberFunction
 from app.models.member import Member
@@ -224,6 +224,38 @@ class DocumentService:
         document.revoke_reason = reason
         document.updated_by = revoked_by
         await self.session.flush()
+        return document
+
+    async def attach_signature(self, document_id: uuid.UUID, png: bytes) -> IssuedDocument:
+        """Put the signature somebody drew on a device onto this document.
+
+        Refused rather than silently accepted in three cases, because each one
+        would produce a piece of paper that says something untrue: a document
+        that does not have a line to sign, one that was already signed, and one
+        that has been revoked.
+        """
+        document = await self.get_document(document_id)
+        if document.signature_mode != "line":
+            raise ValidationError("This document has no signature line")
+        if document.signed_at is not None:
+            raise ConflictError("This document is already signed")
+        if document.revoked_at is not None:
+            raise ConflictError("This document is revoked")
+        if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValidationError("A signature has to be a PNG")
+        if len(png) > MAX_SIGNATURE_BYTES:
+            raise ValidationError("Signature too large")
+
+        document.signature_png = png
+        document.signed_at = datetime.now(UTC)
+        await self.session.flush()
+
+        logger.info(
+            "document_signed",
+            tenant_id=str(self.tenant_id),
+            document_id=str(document.id),
+            bytes=len(png),
+        )
         return document
 
     async def get_document(self, document_id: uuid.UUID) -> IssuedDocument:

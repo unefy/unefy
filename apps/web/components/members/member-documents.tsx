@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { issueDocumentAction, revokeDocumentAction } from "@/actions/documents"
 import { ReasonDialog } from "@/components/attendance/reason-dialog"
+import { SignatureRequestDialog } from "@/components/documents/signature-request-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table"
@@ -78,6 +79,8 @@ export function MemberDocuments({
       cell: (row) =>
         row.revoked_at ? (
           <Badge variant="outline">{t("revoked")}</Badge>
+        ) : row.signed_at ? (
+          <Badge>{t("signed")}</Badge>
         ) : (
           <Badge>{t("valid")}</Badge>
         ),
@@ -112,6 +115,11 @@ export function MemberDocuments({
           >
             <FileTextIcon className="size-4" />
           </a>
+          {row.revoked_at === null &&
+          row.signed_at === null &&
+          row.signature_mode === "line" ? (
+            <SignatureRequestDialog documentId={row.id} />
+          ) : null}
           {row.revoked_at ? null : (
             <ReasonDialog
               title={t("confirmRevoke.title")}

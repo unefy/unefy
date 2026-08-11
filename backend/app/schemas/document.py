@@ -98,6 +98,26 @@ class RevokeRequest(BaseSchema):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class SignatureSubmit(BaseSchema):
+    """The drawing from the canvas, as a data URL or bare base64."""
+
+    signature_png: str = Field(min_length=1, max_length=400_000)
+
+
+class SignatureLinkResponse(BaseSchema):
+    """Where to sign, and the same thing as a QR to point a phone at.
+
+    The QR travels as its module matrix rather than as an image: the backend
+    already has the encoder, and a matrix is drawn by the browser without a
+    dependency and without putting server-made markup into the page.
+    """
+
+    url: str
+    expires_in: int
+    #: One string per row, "0" and "1" per module.
+    qr: list[str]
+
+
 class IssuedDocumentResponse(BaseSchema):
     id: uuid.UUID
     member_id: uuid.UUID
@@ -109,3 +129,6 @@ class IssuedDocumentResponse(BaseSchema):
     revoked_at: datetime | None = None
     revoke_reason: str | None = None
     verification_code: str | None = None
+    signature_mode: SignatureMode
+    #: When it was signed on a device — never the drawing itself.
+    signed_at: datetime | None = None

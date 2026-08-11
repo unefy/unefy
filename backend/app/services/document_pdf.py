@@ -53,6 +53,9 @@ class DocumentLetter:
     #: Caption under a ruled line the club signs by hand. Absent when the
     #: template asked for no signature or for the machine-made note.
     signature_line: str | None = None
+    #: The signature somebody drew on a device for this document, if there is
+    #: one. Sits on the line instead of the empty space above it.
+    signature_drawing: bytes | None = None
     #: Says the document is valid without one. Printed instead of the line, not
     #: beside it — a document cannot both want a signature and not need one.
     machine_made: bool = False
@@ -77,7 +80,7 @@ def build_document_pdf(doc: DocumentLetter) -> bytes:
         story.append(Spacer(0, 3 * mm))
 
     if doc.signature_line:
-        story.append(theme.signature(doc.signature_line))
+        story.append(theme.signature(doc.signature_line, drawing=doc.signature_drawing))
     elif doc.machine_made:
         story.append(Spacer(0, 8 * mm))
         story.append(

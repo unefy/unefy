@@ -2158,6 +2158,18 @@
       "none": "The document ends with its text. For certificates with their own layout.",
       "machine": "Prints \"This document was produced automatically and is valid without a signature.\" — right for anything sent by email.",
       "line": "A blank line with the club's name under it. The board signs by hand."
+    },
+    "signed": "Signed",
+    "signing": {
+      "action": "Ask for a signature",
+      "title": "Sign on a device",
+      "description": "Scan the code with a phone or open the link. Whoever opens it signs with a finger — on this document.",
+      "loading": "Creating the link …",
+      "copy": "Copy link",
+      "copied": "Link copied.",
+      "expires": "The link is valid for {minutes} minutes and works exactly once.",
+      "close": "Close",
+      "failed": "The link could not be created."
     }
   },
   "donations": {
@@ -2229,5 +2241,17 @@
       "unknown": "That did not work.",
       "unreachable": "The server cannot be reached."
     }
+  },
+  "sign": {
+    "title": "Sign the document",
+    "padLabel": "Area to sign in",
+    "padHint": "Sign with a finger or a pen.",
+    "clear": "Clear",
+    "submit": "Sign",
+    "submitting": "Sending …",
+    "thanks": "Thank you — the signature is on the document now.",
+    "failed": "The signature could not be sent.",
+    "expiredTitle": "This link is no longer valid",
+    "expiredHint": "Signing links expire after a short while and work only once. Please ask for a new one."
   }
 }

@@ -48,6 +48,23 @@ export type TemplatePreview = {
   unknown: string[]
 }
 
+/** Where to sign, plus the same address as a QR the phone can scan. */
+export type SignatureLink = {
+  url: string
+  expires_in: number
+  /** One string of "0"/"1" per row of the QR. Drawn as squares, not an image. */
+  qr: string[]
+}
+
+/** What the signing page shows the person holding the phone. */
+export type SigningPage = {
+  club_name: string
+  title: string
+  body: string
+  member_name: string
+  issued_on: string
+}
+
 export type IssuedDocument = {
   id: string
   member_id: string
@@ -59,4 +76,7 @@ export type IssuedDocument = {
   revoked_at: string | null
   revoke_reason: string | null
   verification_code: string | null
+  signature_mode: SignatureMode
+  /** When it was signed on a device — never the drawing itself. */
+  signed_at: string | null
 }
