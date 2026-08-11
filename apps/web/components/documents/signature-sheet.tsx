@@ -1,10 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 
-import { SignaturePad } from "@/components/documents/signature-pad"
+import {
+  SignaturePad,
+  type SignaturePadHandle,
+} from "@/components/documents/signature-pad"
 import { Button } from "@/components/ui/button"
+import { EraserIcon } from "lucide-react"
 
 /**
  * The whole screen, turned sideways, to sign on.
@@ -56,6 +60,7 @@ export function SignatureSheet({
 }) {
   const t = useTranslations("sign")
   const upright = useUpright()
+  const pad = useRef<SignaturePadHandle>(null)
   const [signature, setSignature] = useState<string | null>(null)
 
   // Nothing behind this should scroll while a finger is drawing on it.
@@ -87,11 +92,15 @@ export function SignatureSheet({
       >
         <SignaturePad
           fill
+          ref={pad}
           quarterTurn={upright}
           onChange={setSignature}
           disabled={pending}
         />
-        <div className="flex shrink-0 items-center justify-end gap-2">
+        {/* Starting over belongs next to signing, at the same weight. Nobody
+            gets their signature right first time, and a small grey button in
+            a corner is not an answer to that. */}
+        <div className="flex shrink-0 items-center justify-between gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -100,13 +109,24 @@ export function SignatureSheet({
           >
             {t("cancel")}
           </Button>
-          <Button
-            type="button"
-            onClick={() => signature && onConfirm(signature)}
-            disabled={pending || signature === null}
-          >
-            {pending ? t("submitting") : confirmLabel}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => pad.current?.clear()}
+              disabled={pending || signature === null}
+            >
+              <EraserIcon />
+              {t("clear")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => signature && onConfirm(signature)}
+              disabled={pending || signature === null}
+            >
+              {pending ? t("submitting") : confirmLabel}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

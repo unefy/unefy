@@ -1,9 +1,10 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useImperativeHandle, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
+import { EraserIcon } from "lucide-react"
 import {
   localPoint,
   midpoint,
@@ -46,11 +47,15 @@ const EXPORT_PADDING = 8
 //: across, and the signature has to survive an upload limit.
 const MAX_EXPORT_EDGE = 1400
 
+/** What a surrounding component can do to the pad from outside. */
+export type SignaturePadHandle = { clear: () => void }
+
 export function SignaturePad({
   onChange,
   disabled = false,
   fill = false,
   quarterTurn = false,
+  ref,
 }: {
   onChange: (png: string | null) => void
   disabled?: boolean
@@ -58,6 +63,11 @@ export function SignaturePad({
   fill?: boolean
   /** The surface is turned a quarter turn clockwise by its container. */
   quarterTurn?: boolean
+  /**
+   * Filling the parent means the pad has no room for its own buttons; the
+   * container puts them in its bar and clears through this.
+   */
+  ref?: React.Ref<SignaturePadHandle>
 }) {
   const t = useTranslations("sign")
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -262,6 +272,8 @@ export function SignaturePad({
     onChange(null)
   }
 
+  useImperativeHandle(ref, () => ({ clear }))
+
   return (
     <div
       className={cn("flex flex-col gap-2", fill ? "min-h-0 flex-1" : undefined)}
@@ -288,18 +300,24 @@ export function SignaturePad({
         onPointerCancel={end}
         aria-label={t("padLabel")}
       />
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{t("padHint")}</p>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={clear}
-          disabled={disabled || !hasInk}
-        >
-          {t("clear")}
-        </Button>
-      </div>
+      {fill ? null : (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{t("padHint")}</p>
+          {/* Outlined rather than a ghost: starting over is the thing people
+              reach for most here, and next to a hint in grey a ghost button
+              reads as more of the hint. */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={clear}
+            disabled={disabled || !hasInk}
+          >
+            <EraserIcon />
+            {t("clear")}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
