@@ -358,14 +358,34 @@ Die PDFs **öffnen sich im Browser**, statt im Download-Ordner zu landen: was
 gerade ausgestellt wurde, will man zuerst lesen. Auskunftsdatei, SEPA-XML und
 Standbuch bleiben Downloads — das sind Daten, keine Schriftstücke.
 
+**Satz und Umbruch (2026-08-11):** die Dokumente werden nicht mehr Zeile für
+Zeile auf den Canvas gemalt, sondern als Flowables an reportlabs **Platypus**
+übergeben. Der Umbruch gehört damit der Engine: Briefkopf und Prüfblock
+wiederholen sich auf jeder Seite, die Anlage nimmt ihre Kopfzeile mit, ab zwei
+Seiten steht „Seite 1 von 3" in der Fußzeile, und Unterschriftszeile samt
+Beschriftung bleiben zusammen. Vorher rechnete jeder Renderer selbst in
+Millimetern — das freie Dokument brach richtig um, die Zuwendungsbestätigung
+lief bei langem Zwecktext unten aus der Seite.
+
+Gesetzt in **Fira Sans**, eingebettet (SIL OFL, `backend/app/assets/fonts`).
+Nicht Helvetica: die base-14-Schriften stecken nicht in der Datei, und womit
+ein Betrachter sie ersetzt, ist nichts, worauf ein Papier für eine Behörde
+sich verlassen sollte.
+
+Zwei Fehler kamen dabei ans Licht, beide mit Regressionstest:
+
+- **Sperrung lief aus.** `Tc` gehört zum Grafikzustand und überlebt das
+  Textobjekt, das es gesetzt hat. Jede Zeichenkette danach wurde 0,8 pt pro
+  Zeichen breiter gezeichnet, als `stringWidth` sie gemessen hatte — worauf
+  rechtsbündiger Text ankert. Die Fußzeile lief deshalb über den rechten Rand.
+  Das hatte ich vorher als Schriftersetzung im Betrachter notiert; das war
+  falsch, es war unser eigener Zustand.
+- **Vereinstext ist Text, kein Markup.** Platypus liest Absätze als XML. Wer
+  „Beitragsgruppe <Jugend>" schreibt, hat das Wort sonst kommentarlos
+  verloren.
+
 **Offen:**
 
-- **Keine eingebettete Schrift.** Die base-14-Helvetica hält die Datei klein
-  und den Build ohne Binärdatei, aber sie ist nicht in der PDF enthalten:
-  Betrachter ohne echte Helvetica setzen eine breitere Schrift ein, und der
-  Umbruch stimmt dann nicht mehr — auf diesem Rechner läuft die Haftungszeile
-  in poppler über den Rand, in Chrome nicht. Für ein Papier, das ein Verein
-  ausdruckt und weitergibt, ist das irgendwann eine eigene Entscheidung wert.
 - Das Logo bleibt draußen. `logo_url` zeigt irgendwohin, und es beim Rendern zu
   holen hieße eine blockierende Anfrage an eine URL, die der Verein bestimmt —
   im besten Fall langsam, im schlechtesten eine SSRF. Braucht erst die

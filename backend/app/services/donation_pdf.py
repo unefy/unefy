@@ -17,13 +17,8 @@ How it *looks* is `pdf_theme`'s business, shared with the other documents.
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from io import BytesIO
 
-from reportlab.graphics import renderPDF
-from reportlab.graphics.barcode import qr
-from reportlab.graphics.shapes import Drawing
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+from reportlab.platypus import Flowable, Spacer
 
 from app.services import pdf_theme as theme
 from app.services.amount_in_words import euros_in_words
@@ -99,66 +94,48 @@ def _money(value: Decimal) -> str:
 
 def build_donation_pdf(doc: DonationDocument) -> bytes:
     """Render one donation receipt to PDF bytes."""
-    buffer = BytesIO()
-    width, height = A4
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-    pdf.setTitle(f"{TEXTS['title']} — {doc.donor_name}")
-    pdf.setAuthor(doc.club_name)
-
-    y = theme.masthead(
-        pdf,
-        width,
-        height - theme.MARGIN,
-        club_name=doc.club_name,
-        address_lines=(doc.club_address,) if doc.club_address else (),
-    )
-    y = theme.title(pdf, width, y, text=TEXTS["title"], subtitle=TEXTS["subtitle"])
+    story: list[Flowable] = list(theme.title(TEXTS["title"], TEXTS["subtitle"]))
 
     if doc.revoked:
-        y = theme.revoked_notice(pdf, width, y, TEXTS["revoked"])
+        story.append(theme.revoked_notice(TEXTS["revoked"]))
 
-    y = theme.section(pdf, width, y, "Zuwendender")
-    y = theme.facts(
-        pdf,
-        width,
-        y,
-        (
-            ("Name", doc.donor_name),
-            ("Anschrift", doc.donor_address or "—"),
-        ),
+    story.append(theme.section("Zuwendender"))
+    story.append(
+        theme.facts(
+            (
+                ("Name", doc.donor_name),
+                ("Anschrift", doc.donor_address or "—"),
+            )
+        )
     )
 
-    y = theme.section(pdf, width, y, "Zuwendung")
-    y = theme.facts(
-        pdf,
-        width,
-        y,
-        (
-            ("Betrag in Ziffern", _money(doc.amount)),
-            ("Tag der Zuwendung", _de(doc.received_on)),
-        ),
-        emphasise=frozenset({"Betrag in Ziffern"}),
+    story.append(theme.section("Zuwendung"))
+    story.append(
+        theme.facts(
+            (
+                ("Betrag in Ziffern", _money(doc.amount)),
+                ("Tag der Zuwendung", _de(doc.received_on)),
+            ),
+            emphasise=frozenset({"Betrag in Ziffern"}),
+        )
     )
     # The whole width, because the amount written out is a sentence, not a
     # field: four figures in German run past half an A4 page on their own.
-    y = theme.facts(
-        pdf, width, y, (("Betrag in Buchstaben", euros_in_words(doc.amount)),), columns=1
-    )
-    y = theme.facts(
-        pdf,
-        width,
-        y,
-        (
+    story.append(theme.facts((("Betrag in Buchstaben", euros_in_words(doc.amount)),), columns=1))
+    story.append(
+        theme.facts(
             (
-                "Art der Zuwendung",
-                "Mitgliedsbeitrag" if doc.kind == "mitgliedsbeitrag" else "Geldzuwendung",
-            ),
-            # Printed either way: a blank box is an unanswered question, not a "no".
-            (TEXTS["waiver_question"], "Ja" if doc.is_expense_waiver else "Nein"),
-        ),
+                (
+                    "Art der Zuwendung",
+                    "Mitgliedsbeitrag" if doc.kind == "mitgliedsbeitrag" else "Geldzuwendung",
+                ),
+                # Printed either way: a blank box is an unanswered question, not a "no".
+                (TEXTS["waiver_question"], "Ja" if doc.is_expense_waiver else "Nein"),
+            )
+        )
     )
 
-    y = theme.section(pdf, width, y, "Steuerbegünstigung")
+    story.append(theme.section("Steuerbegünstigung"))
     if doc.exemption_kind == "feststellung_60a":
         recognition = (
             f"{TEXTS['exemption_60a']} {doc.tax_office}, StNr. {doc.tax_number}, "
@@ -176,59 +153,25 @@ def build_donation_pdf(doc: DonationDocument) -> bytes:
             f"vom {_de(doc.exemption_date)}{period} nach § 5 Abs. 1 Nr. 9 KStG von der "
             f"Körperschaftsteuer befreit: {doc.purposes}."
         )
-    y = theme.paragraph(pdf, width, y, recognition, size=9.5)
-    y = theme.paragraph(pdf, width, y, TEXTS["usage"], size=9.5, gap=10 * mm)
+    story.append(theme.paragraph(recognition))
+    story.append(Spacer(0, 3 * mm))
+    story.append(theme.paragraph(TEXTS["usage"]))
 
-    y = theme.signature_line(pdf, y, TEXTS["signature"])
-    theme.paragraph(
-        pdf,
-        width,
-        y - 2 * mm,
-        TEXTS["liability"],
-        size=theme.FOOTNOTE,
-        gray=theme.MUTED,
-        leading=3.4 * mm,
-    )
+    story.append(theme.signature(TEXTS["signature"]))
+    story.append(Spacer(0, 4 * mm))
+    # The liability notice is prescribed and long. It sets small and quiet, but
+    # it is not a footnote the engine may drop off the page — it flows with the
+    # rest and takes a second sheet if the club's purposes need one.
+    story.append(theme.paragraph(TEXTS["liability"], style=theme.FOOTNOTE_STYLE))
 
-    _draw_check(pdf, doc, width)
-
-    pdf.save()
-    return buffer.getvalue()
-
-
-def _draw_check(pdf: canvas.Canvas, doc: DonationDocument, width: float) -> None:
-    """QR and check code, set apart from the prescribed form.
-
-    Deliberately quiet and at the very bottom: it says nothing about the tax
-    treatment, only that this piece of paper came from this club.
-    """
-    size = 20 * mm
-    widget = qr.QrCodeWidget(doc.verification_url)
-    bounds = widget.getBounds()
-    drawing = Drawing(
-        size,
-        size,
-        transform=[
-            size / (bounds[2] - bounds[0]),
-            0,
-            0,
-            size / (bounds[3] - bounds[1]),
-            0,
-            0,
-        ],
-    )
-    drawing.add(widget)
-    renderPDF.draw(drawing, pdf, theme.MARGIN, theme.MARGIN)
-
-    theme.footer_rule(pdf, width, theme.MARGIN + size + 6 * mm)
-    theme.footer(
-        pdf,
-        width,
-        lines=(f"Ausgestellt am {_de(doc.issued_on)}",),
-        check_lines=(
-            "Echtheit prüfen",
-            doc.verification_url,
-            f"Prüfcode {doc.verification_code}",
+    return theme.build(
+        story,
+        page=theme.Furniture(
+            club_name=doc.club_name,
+            address_lines=(doc.club_address,) if doc.club_address else (),
+            footer_lines=(f"Ausgestellt am {_de(doc.issued_on)}",),
+            verification_url=doc.verification_url,
+            verification_code=doc.verification_code,
         ),
-        qr_size=size,
+        pdf_title=f"{TEXTS['title']} — {doc.donor_name}",
     )

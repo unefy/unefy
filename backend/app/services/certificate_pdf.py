@@ -1,34 +1,28 @@
 """The printable §14 certificate.
 
 A club hands this to an authority, so it has to be a document rather than a
-screenshot: one page, the numbers it rests on, and a way to check it against
-the issuing server. That last part is the QR — it points at the *web app's*
-public check page, not at the API, because whoever scans it is holding a piece
-of paper and expects a page, not JSON.
+screenshot: the numbers it rests on, and a way to check it against the issuing
+server. That last part is the QR — it points at the *web app's* public check
+page, not at the API, because whoever scans it is holding a piece of paper and
+expects a page, not JSON.
 
-Drawn rather than templated: one page of fixed structure is less code this way
-than a template engine plus a HTML-to-PDF converter, and it adds no runtime
-that has to be kept patched.
+Assembled from flowables rather than drawn: the annex is a list of unknown
+length, and where it breaks over pages — carrying its header along — is the
+layout engine's job. See `pdf_theme`.
 """
 
 from dataclasses import dataclass
 from datetime import date
-from io import BytesIO
 
-from reportlab.graphics import renderPDF
-from reportlab.graphics.barcode import qr
-from reportlab.graphics.shapes import Drawing
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+from reportlab.platypus import Flowable, PageBreak, Paragraph, Spacer, Table, TableStyle
 
 from app.services import pdf_theme as theme
 from app.services.pdf_theme import mm
 
-#: Everything sits inside this margin, including the footer.
-MARGIN = theme.MARGIN
-
 TITLE = "Nachweis über regelmäßiges Schießen"
 SUBTITLE = "gemäß § 14 Absatz 2 und 3 Waffengesetz"
+
+REVOKED_TEXT = "WIDERRUFEN — diese Bescheinigung ist ungültig"
 
 
 @dataclass(frozen=True)
@@ -93,24 +87,15 @@ def _de(value: date) -> str:
 
 def build_certificate_pdf(doc: CertificateDocument) -> bytes:
     """Render one certificate to PDF bytes."""
-    buffer = BytesIO()
-    width, height = A4
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-    pdf.setTitle(f"{TITLE} — {doc.member_name}")
-    # Not a claim about the club, only about who produced the file.
-    pdf.setAuthor(doc.club_name)
-
-    y = theme.masthead(pdf, width, height - MARGIN, club_name=doc.club_name)
-    y = theme.title(pdf, width, y, text=TITLE, subtitle=SUBTITLE)
+    story: list[Flowable] = list(theme.title(TITLE, SUBTITLE))
 
     if doc.revoked:
-        y = theme.revoked_notice(pdf, width, y, "WIDERRUFEN — diese Bescheinigung ist ungültig")
+        story.append(theme.revoked_notice(REVOKED_TEXT))
 
     member = doc.member_name
     if doc.member_number:
         member = f"{member} (Mitglied {doc.member_number})"
 
-    y = theme.section(pdf, width, y, "Nachweis")
     rows: list[tuple[str, str]] = [
         ("Mitglied", member),
         ("Zeitraum", f"{_de(doc.period_start)} bis {_de(doc.period_end)}"),
@@ -133,134 +118,110 @@ def build_certificate_pdf(doc: CertificateDocument) -> bytes:
             )
         )
 
-    y = theme.facts(
-        pdf,
-        width,
-        y,
-        tuple(rows),
-        emphasise=frozenset({"Schießtage"}),
-    )
+    story.append(theme.section("Nachweis"))
+    story.append(theme.facts(tuple(rows), emphasise=frozenset({"Schießtage"})))
 
-    y -= 2 * mm
-    pdf.setFont("Helvetica-Bold", 12)
     if doc.revoked:
-        pdf.setFillColorRGB(*theme.REVOKED_COLOR)
-        pdf.drawString(MARGIN, y, "Diese Bescheinigung wurde widerrufen.")
+        story.append(theme.verdict("Diese Bescheinigung wurde widerrufen.", theme.REVOKED_COLOR))
     elif doc.passed:
-        pdf.setFillColorRGB(0.10, 0.40, 0.20)
-        pdf.drawString(MARGIN, y, "Die Voraussetzungen der Regel sind erfüllt.")
+        story.append(
+            theme.verdict("Die Voraussetzungen der Regel sind erfüllt.", theme.PASSED_COLOR)
+        )
     else:
-        pdf.setFillColorRGB(*theme.REVOKED_COLOR)
-        pdf.drawString(MARGIN, y, "Die Voraussetzungen der Regel sind nicht erfüllt.")
-    pdf.setFillGray(theme.INK)
-
-    # The QR and the code say the same thing twice on purpose: a scanner is
-    # quicker, but a code that can be typed still works from a photocopy.
-    size = 22 * mm
-    widget = qr.QrCodeWidget(doc.verification_url)
-    bounds = widget.getBounds()
-    drawing = Drawing(
-        size,
-        size,
-        transform=[
-            size / (bounds[2] - bounds[0]),
-            0,
-            0,
-            size / (bounds[3] - bounds[1]),
-            0,
-            0,
-        ],
-    )
-    drawing.add(widget)
-    renderPDF.draw(drawing, pdf, MARGIN, MARGIN)
-
-    theme.footer_rule(pdf, width, MARGIN + size + 6 * mm)
-    theme.footer(
-        pdf,
-        width,
-        lines=(f"Ausgestellt am {_de(doc.issued_on)}",),
-        check_lines=(
-            "Echtheit prüfen",
-            doc.verification_url,
-            f"Prüfcode {doc.verification_code}",
-        ),
-        qr_size=size,
-    )
+        story.append(
+            theme.verdict("Die Voraussetzungen der Regel sind nicht erfüllt.", theme.REVOKED_COLOR)
+        )
 
     if doc.days:
-        _draw_annex(pdf, doc, width, height)
+        story.append(PageBreak())
+        story.extend(_annex(doc))
 
-    pdf.showPage()
-    pdf.save()
-    return buffer.getvalue()
-
-
-def _draw_annex(pdf: canvas.Canvas, doc: CertificateDocument, width: float, height: float) -> None:
-    """The counted days, one per row, continuing onto further pages."""
-    pdf.showPage()
-    y = theme.masthead(pdf, width, height - MARGIN, club_name=doc.club_name)
-    y = theme.title(
-        pdf,
-        width,
-        y,
-        text="Anlage: Schießtage im Zeitraum",
-        subtitle=f"{doc.member_name} · {_de(doc.period_start)} bis {_de(doc.period_end)}",
+    return theme.build(
+        story,
+        page=theme.Furniture(
+            club_name=doc.club_name,
+            footer_lines=(f"Ausgestellt am {_de(doc.issued_on)}",),
+            verification_url=doc.verification_url,
+            verification_code=doc.verification_code,
+        ),
+        pdf_title=f"{TITLE} — {doc.member_name}",
     )
 
-    def header(baseline: float) -> float:
-        pdf.setFont("Helvetica-Bold", theme.LABEL)
-        pdf.setFillGray(theme.MUTED)
-        pdf.drawString(MARGIN, baseline, "Datum")
-        pdf.drawString(MARGIN + 30 * mm, baseline, "Disziplin")
-        pdf.drawString(MARGIN + 90 * mm, baseline, "Waffenart")
-        pdf.drawString(MARGIN + 125 * mm, baseline, "Schuss")
-        pdf.drawString(MARGIN + 145 * mm, baseline, "Herkunft")
-        pdf.setFillGray(theme.INK)
-        theme.hairline(pdf, MARGIN, width - MARGIN, baseline - 2 * mm)
-        return float(baseline - 7 * mm)
 
-    y = header(y)
-    pdf.setFont("Helvetica", 9)
+def _annex(doc: CertificateDocument) -> list[Flowable]:
+    """The counted days, one per row.
+
+    A real table with `repeatRows`, so a list that runs over several pages
+    carries its column headings onto each of them instead of turning into
+    unlabelled numbers on page three.
+    """
+    header = ("Datum", "Disziplin", "Waffenart", "Schuss", "Herkunft")
+    head_style = theme.TABLE_HEAD_STYLE
+    cell_style = theme.TABLE_CELL_STYLE
+
+    data: list[list[Flowable]] = [[Paragraph(theme.text(c), head_style) for c in header]]
     for entry in doc.days:
-        # A page break mid-list must not swallow the header.
-        if y < MARGIN + 20 * mm:
-            pdf.showPage()
-            y = header(height - MARGIN)
-            pdf.setFont("Helvetica", 9)
-        pdf.drawString(MARGIN, y, _de(entry.day))
-        pdf.drawString(MARGIN + 30 * mm, y, (entry.discipline or "—")[:34])
-        pdf.drawString(
-            MARGIN + 90 * mm,
-            y,
-            WEAPON_LABELS.get(entry.weapon_category or "", entry.weapon_category or "—"),
+        data.append(
+            [
+                Paragraph(theme.text(_de(entry.day)), cell_style),
+                Paragraph(theme.text(entry.discipline or "—"), cell_style),
+                Paragraph(
+                    theme.text(
+                        WEAPON_LABELS.get(entry.weapon_category or "", entry.weapon_category or "—")
+                    ),
+                    cell_style,
+                ),
+                Paragraph(
+                    theme.text(str(entry.rounds_fired) if entry.rounds_fired is not None else "—"),
+                    cell_style,
+                ),
+                Paragraph(
+                    theme.text("selbst geführt" if entry.origin == "external" else "Verein"),
+                    cell_style,
+                ),
+            ]
         )
-        pdf.drawString(
-            MARGIN + 125 * mm,
-            y,
-            str(entry.rounds_fired) if entry.rounds_fired is not None else "—",
-        )
-        pdf.drawString(
-            MARGIN + 145 * mm,
-            y,
-            "selbst geführt" if entry.origin == "external" else "Verein",
-        )
-        y -= 6 * mm
 
-    y -= 4 * mm
-    pdf.setFont("Helvetica", 8)
-    pdf.setFillGray(0.35)
-    if doc.missing_days:
-        pdf.drawString(
-            MARGIN,
-            y,
-            f"{doc.missing_days} gezählte Termine sind wegen der Aufbewahrungsfrist "
-            "nicht mehr im Bestand und daher hier nicht aufgeführt.",
-        )
-        y -= 5 * mm
-    pdf.drawString(
-        MARGIN,
-        y,
-        "Die Standaufsicht ist im Standbuch des Vereins verzeichnet und wird auf "
-        "Verlangen vorgelegt.",
+    table = Table(
+        data,
+        colWidths=[26 * mm, 58 * mm, 26 * mm, 18 * mm, 34 * mm],
+        repeatRows=1,
+        hAlign="LEFT",
     )
-    pdf.setFillGray(0)
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4 * mm),
+                ("TOPPADDING", (0, 0), (-1, -1), 1.6 * mm),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.6 * mm),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.4, (theme.HAIRLINE,) * 3),
+            ]
+        )
+    )
+
+    notes: list[Flowable] = [
+        *theme.title(
+            "Anlage: Schießtage im Zeitraum",
+            f"{doc.member_name} · {_de(doc.period_start)} bis {_de(doc.period_end)}",
+        ),
+        table,
+        Spacer(0, 5 * mm),
+    ]
+    if doc.missing_days:
+        notes.append(
+            theme.paragraph(
+                f"{doc.missing_days} gezählte Termine sind wegen der Aufbewahrungsfrist "
+                "nicht mehr im Bestand und daher hier nicht aufgeführt.",
+                style=theme.FOOTNOTE_STYLE,
+            )
+        )
+    notes.append(
+        theme.paragraph(
+            "Die Standaufsicht ist im Standbuch des Vereins verzeichnet und wird auf "
+            "Verlangen vorgelegt.",
+            style=theme.FOOTNOTE_STYLE,
+        )
+    )
+    return notes
