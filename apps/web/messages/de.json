@@ -2163,13 +2163,17 @@
     "signing": {
       "action": "Unterschrift einholen",
       "title": "Auf einem Gerät unterschreiben",
-      "description": "Code mit dem Handy scannen oder den Link öffnen. Wer ihn öffnet, unterschreibt mit dem Finger — direkt auf diesem Dokument.",
+      "description": "Direkt hier mit dem Finger unterschreiben — oder den Code mit einem anderen Gerät scannen.",
       "loading": "Link wird erstellt …",
       "copy": "Link kopieren",
       "copied": "Link kopiert.",
       "expires": "Der Link gilt {minutes} Minuten und lässt sich genau einmal verwenden.",
       "close": "Schließen",
-      "failed": "Der Link konnte nicht erstellt werden."
+      "failed": "Der Link konnte nicht erstellt werden.",
+      "signHere": "Hier unterschreiben",
+      "signing": "Wird übertragen …",
+      "signed": "Unterschrift steht auf dem Dokument.",
+      "otherDevice": "Oder auf einem anderen Gerät"
     }
   },
   "donations": {

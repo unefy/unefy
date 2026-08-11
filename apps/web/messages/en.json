@@ -2163,13 +2163,17 @@
     "signing": {
       "action": "Ask for a signature",
       "title": "Sign on a device",
-      "description": "Scan the code with a phone or open the link. Whoever opens it signs with a finger — on this document.",
+      "description": "Sign here with a finger — or scan the code with another device.",
       "loading": "Creating the link …",
       "copy": "Copy link",
       "copied": "Link copied.",
       "expires": "The link is valid for {minutes} minutes and works exactly once.",
       "close": "Close",
-      "failed": "The link could not be created."
+      "failed": "The link could not be created.",
+      "signHere": "Sign here",
+      "signing": "Sending …",
+      "signed": "The signature is on the document.",
+      "otherDevice": "Or on another device"
     }
   },
   "donations": {

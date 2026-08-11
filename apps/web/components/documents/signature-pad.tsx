@@ -18,7 +18,12 @@ import { Button } from "@/components/ui/button"
  * rectangle of empty pixels would print as a grey box on the certificate.
  */
 
-const PEN_WIDTH = 2.5
+//: Ink, and it is a constant rather than a theme colour: what is drawn here
+//: goes onto a white PDF page, so it has to be dark whatever the app is
+//: wearing.
+const INK = "#111111"
+//: Wide enough that a fingertip leaves a line somebody can read on paper.
+const PEN_WIDTH = 3
 const EXPORT_PADDING = 8
 
 export function SignaturePad({
@@ -52,7 +57,7 @@ export function SignaturePad({
     if (!ctx) return null
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    ctx.strokeStyle = "#111111"
+    ctx.strokeStyle = INK
     ctx.lineWidth = PEN_WIDTH * ratio
     return ctx
   }
@@ -152,7 +157,11 @@ export function SignaturePad({
       <canvas
         ref={canvasRef}
         // `touch-none`, or the browser scrolls the page instead of drawing.
-        className="h-48 w-full touch-none rounded-lg border bg-background"
+        // White in both themes, and the ink dark to match. The pad is a piece
+        // of paper, not a part of the interface: in dark mode a themed
+        // background left the strokes black on near-black, and the drawing
+        // ends up on a white page either way.
+        className="h-48 w-full touch-none rounded-lg border border-input bg-white"
         onPointerDown={start}
         onPointerMove={move}
         onPointerUp={end}
