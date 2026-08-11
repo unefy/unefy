@@ -346,8 +346,26 @@ nicht.
 Aufbau folgt ihm, aber ob jeder Satz wörtlich dem heute geltenden Stand
 entspricht, ist eine Frage an den Steuerberater des Vereins und nicht an uns.
 
+**Ein Aussehen für alle drei (2026-08-11):** §14-Nachweis,
+Zuwendungsbestätigung und freies Dokument trugen je eigene Ränder, Größen und
+Grauwerte — so werden aus drei Dokumenten eines Vereins drei Dokumente von drei
+Vereinen. `app/services/pdf_theme.py` besitzt diese Entscheidungen jetzt
+einmal: kleiner gesperrter Briefkopf, eine große Überschrift, Haarlinien statt
+Kästen, Angaben als Wert unter der Beschriftung. Einfarbig, weil die App es ist
+— eine Farbe, die das Produkt nie verwendet, liest sich wie von woanders.
+
+Die PDFs **öffnen sich im Browser**, statt im Download-Ordner zu landen: was
+gerade ausgestellt wurde, will man zuerst lesen. Auskunftsdatei, SEPA-XML und
+Standbuch bleiben Downloads — das sind Daten, keine Schriftstücke.
+
 **Offen:**
 
+- **Keine eingebettete Schrift.** Die base-14-Helvetica hält die Datei klein
+  und den Build ohne Binärdatei, aber sie ist nicht in der PDF enthalten:
+  Betrachter ohne echte Helvetica setzen eine breitere Schrift ein, und der
+  Umbruch stimmt dann nicht mehr — auf diesem Rechner läuft die Haftungszeile
+  in poppler über den Rand, in Chrome nicht. Für ein Papier, das ein Verein
+  ausdruckt und weitergibt, ist das irgendwann eine eigene Entscheidung wert.
 - Das Logo bleibt draußen. `logo_url` zeigt irgendwohin, und es beim Rendern zu
   holen hieße eine blockierende Anfrage an eine URL, die der Verein bestimmt —
   im besten Fall langsam, im schlechtesten eine SSRF. Braucht erst die
