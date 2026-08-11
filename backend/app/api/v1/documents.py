@@ -73,6 +73,7 @@ async def list_starter_templates(
                 include_letterhead=s.include_letterhead,
                 include_footer=s.include_footer,
                 verifiable=s.verifiable,
+                signature_mode=s.signature_mode,
             ).model_dump()
             for s in STARTERS
         ]
@@ -236,8 +237,10 @@ async def download_document(
         issued_on=document.issued_at.astimezone(
             ZoneInfo(tenant.timezone if tenant else "Europe/Berlin")
         ).date(),
-        letterhead=_letterhead(tenant) if tenant else (),
-        footer=_footer(tenant) if tenant else (),
+        # From the document, not from the template it came out of: the template
+        # is free to change afterwards, and it may be gone entirely.
+        letterhead=_letterhead(tenant) if tenant and document.include_letterhead else (),
+        footer=_footer(tenant) if tenant and document.include_footer else (),
         verification_code=document.verification_code,
         verification_url=(
             f"{settings.WEB_APP_URL.rstrip('/')}/verify/{document.verification_code}"
@@ -245,7 +248,8 @@ async def download_document(
             else None
         ),
         revoked=document.revoked_at is not None,
-        signature_line=tenant.name if tenant else None,
+        signature_line=(tenant.name if document.signature_mode == "line" and tenant else None),
+        machine_made=document.signature_mode == "machine",
     )
 
     name = f"{document.template_name}-{member.member_number if member else document.member_id}"

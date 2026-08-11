@@ -17,6 +17,15 @@ from app.services.pdf_theme import mm
 
 REVOKED_TEXT = "WIDERRUFEN — dieses Dokument ist ungültig"
 
+#: Said plainly, because a blank space where a signature belongs reads as an
+#: oversight. The second sentence is only true when the document carries a
+#: check code, so it is only printed then.
+MACHINE_TEXT = "Dieses Dokument wurde maschinell erstellt und ist ohne Unterschrift gültig."
+MACHINE_TEXT_VERIFIABLE = (
+    "Dieses Dokument wurde maschinell erstellt und ist ohne Unterschrift gültig. "
+    "Seine Echtheit lässt sich mit dem Prüfcode am Fuß dieser Seite bestätigen."
+)
+
 
 @dataclass(frozen=True)
 class DocumentLetter:
@@ -41,8 +50,12 @@ class DocumentLetter:
     verification_url: str | None = None
     revoked: bool = False
 
-    #: Caption under a ruled line the club signs by hand.
+    #: Caption under a ruled line the club signs by hand. Absent when the
+    #: template asked for no signature or for the machine-made note.
     signature_line: str | None = None
+    #: Says the document is valid without one. Printed instead of the line, not
+    #: beside it — a document cannot both want a signature and not need one.
+    machine_made: bool = False
 
 
 def _de(value: date) -> str:
@@ -65,6 +78,14 @@ def build_document_pdf(doc: DocumentLetter) -> bytes:
 
     if doc.signature_line:
         story.append(theme.signature(doc.signature_line))
+    elif doc.machine_made:
+        story.append(Spacer(0, 8 * mm))
+        story.append(
+            theme.paragraph(
+                MACHINE_TEXT_VERIFIABLE if doc.verification_code else MACHINE_TEXT,
+                style=theme.FOOTNOTE_STYLE,
+            )
+        )
 
     return theme.build(
         story,

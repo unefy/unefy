@@ -346,6 +346,26 @@ nicht.
 Aufbau folgt ihm, aber ob jeder Satz wörtlich dem heute geltenden Stand
 entspricht, ist eine Frage an den Steuerberater des Vereins und nicht an uns.
 
+**Abschluss des Dokuments (2026-08-11):** je Vorlage einstellbar — `keine`,
+`maschinell` („Dieses Dokument wurde maschinell erstellt und ist ohne
+Unterschrift gültig", mit Verweis auf den Prüfcode) oder `linie` (leere Linie
+mit dem Vereinsnamen darunter). Vorher war die Unterschriftszeile fest
+verdrahtet und stand auf jedem Dokument.
+
+**Ein Unterschriftsbild gibt es bewusst nicht.** Eine hinterlegte
+Vorstandsunterschrift wäre ein wiederverwendbares Fälschungswerkzeug, das bei
+uns liegt und aus jedem PDF wieder herausschneidbar ist. Was die Unterschrift
+ersetzt, ist der Prüfcode: prüfbar schlägt unterschrieben-aussehend. Rechtlich
+kostet das nichts — für Mitgliedsbescheinigungen ist ohnehin keine Form
+vorgeschrieben, und eine gemalte Unterschrift wäre dieselbe einfache
+elektronische Signatur wie eine eingescannte.
+
+Dabei ist ein Fehler aufgefallen und mitbehoben: **Briefkopf und Fußzeile
+waren je Vorlage einstellbar, wurden beim Rendern aber ignoriert.** Alle drei
+Schalter werden jetzt beim Ausstellen auf das Dokument kopiert — aus demselben
+Grund wie der Text: die Vorlage ändert sich weiter, und eine gelöschte lässt
+`template_id` auf null zurück, während das Papier weiter druckbar bleiben muss.
+
 **Ein Aussehen für alle drei (2026-08-11):** §14-Nachweis,
 Zuwendungsbestätigung und freies Dokument trugen je eigene Ränder, Größen und
 Grauwerte — so werden aus drei Dokumenten eines Vereins drei Dokumente von drei

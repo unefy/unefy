@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -15,6 +16,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, TenantModel
+
+#: How a document ends. No fourth value: a stored signature graphic would be a
+#: reusable forgery tool sitting on our side, and every PDF it was drawn into
+#: would carry it straight back out. The check code replaces it — verifiable
+#: beats looking-signed.
+SIGNATURE_MODES = ("none", "machine", "line")
 
 
 class DocumentTemplate(TenantModel, AuditMixin):
@@ -34,6 +41,10 @@ class DocumentTemplate(TenantModel, AuditMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "name"),
         Index("ix_document_templates_tenant_active", "tenant_id", "is_active"),
+        CheckConstraint(
+            f"signature_mode IN ({', '.join(repr(m) for m in SIGNATURE_MODES)})",
+            name="ck_document_templates_signature_mode",
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -57,6 +68,17 @@ class DocumentTemplate(TenantModel, AuditMixin):
     verifiable: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )
+    #: How the document ends: `none`, `machine` — the sentence that says it was
+    #: machine-made and is valid without a signature — or `line`, a ruled line
+    #: to sign by hand.
+    #:
+    #: Deliberately **no stored signature graphic**. A club's signature kept on
+    #: our side would be a reusable forgery tool, and every PDF it went into
+    #: would carry it back out again. What replaces the signature here is the
+    #: check code: verifiable beats looking-signed.
+    signature_mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="line", server_default="line"
+    )
 
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
@@ -78,6 +100,10 @@ class IssuedDocument(TenantModel, AuditMixin):
     __table_args__ = (
         Index("ix_issued_documents_tenant_member", "tenant_id", "member_id"),
         Index("ix_issued_documents_tenant_issued", "tenant_id", "issued_at"),
+        CheckConstraint(
+            f"signature_mode IN ({', '.join(repr(m) for m in SIGNATURE_MODES)})",
+            name="ck_issued_documents_signature_mode",
+        ),
     )
 
     member_id: Mapped[uuid.UUID] = mapped_column(
@@ -112,3 +138,17 @@ class IssuedDocument(TenantModel, AuditMixin):
 
     #: SHA-256 over member, issue time and the rendered text.
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # How this document looked, copied from the template when it was issued.
+    # Frozen here for the same reason the text is: the template goes on
+    # changing, and a deleted one leaves `template_id` null while this document
+    # still has to print exactly as it was handed over.
+    include_letterhead: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    include_footer: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    signature_mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="line", server_default="line"
+    )

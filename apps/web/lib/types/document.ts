@@ -1,3 +1,10 @@
+/**
+ * How a document ends. There is deliberately no signature graphic: a stored
+ * club signature would be a reusable forgery tool, and every PDF would carry
+ * it back out. The check code is what replaces it.
+ */
+export type SignatureMode = "none" | "machine" | "line"
+
 export type DocumentTemplate = {
   id: string
   name: string
@@ -6,6 +13,7 @@ export type DocumentTemplate = {
   include_letterhead: boolean
   include_footer: boolean
   verifiable: boolean
+  signature_mode: SignatureMode
   is_active: boolean
   created_at: string
   updated_at: string
@@ -31,6 +39,7 @@ export type StarterTemplate = {
   include_letterhead: boolean
   include_footer: boolean
   verifiable: boolean
+  signature_mode: SignatureMode
 }
 
 export type TemplatePreview = {

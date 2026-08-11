@@ -1,9 +1,14 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
 from app.schemas.base import BaseSchema
+
+#: Mirrors `SIGNATURE_MODES`; spelled out because a Literal cannot be built
+#: from a tuple. A test holds the two against each other.
+SignatureMode = Literal["none", "machine", "line"]
 
 
 class TemplateCreate(BaseSchema):
@@ -15,6 +20,9 @@ class TemplateCreate(BaseSchema):
     include_letterhead: bool = True
     include_footer: bool = True
     verifiable: bool = True
+    #: How the document ends. `line` is the default because it is what every
+    #: document did before the setting existed.
+    signature_mode: SignatureMode = "line"
     is_active: bool = True
 
 
@@ -25,6 +33,7 @@ class TemplateUpdate(BaseSchema):
     include_letterhead: bool | None = None
     include_footer: bool | None = None
     verifiable: bool | None = None
+    signature_mode: SignatureMode | None = None
     is_active: bool | None = None
 
 
@@ -36,6 +45,7 @@ class TemplateResponse(BaseSchema):
     include_letterhead: bool
     include_footer: bool
     verifiable: bool
+    signature_mode: SignatureMode
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -64,6 +74,7 @@ class StarterResponse(BaseSchema):
     include_letterhead: bool
     include_footer: bool
     verifiable: bool
+    signature_mode: SignatureMode
 
 
 class TemplatePreview(BaseSchema):

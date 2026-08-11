@@ -14,15 +14,26 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { completeAt, openPlaceholder } from "@/lib/template-completion"
 import type {
   DocumentTemplate,
   DocumentVariable,
+  SignatureMode,
   StarterTemplate,
 } from "@/lib/types/document"
 import { AlertTriangleIcon, InfoIcon } from "lucide-react"
+
+/** In the order a club decides between them: nothing, a note, a place to sign. */
+const SIGNATURE_MODES: SignatureMode[] = ["none", "machine", "line"]
 
 export function TemplateEditor({
   template,
@@ -48,6 +59,8 @@ export function TemplateEditor({
       template?.include_letterhead ?? starter?.include_letterhead ?? true,
     include_footer: template?.include_footer ?? starter?.include_footer ?? true,
     verifiable: template?.verifiable ?? starter?.verifiable ?? true,
+    signature_mode:
+      template?.signature_mode ?? starter?.signature_mode ?? "line",
     is_active: template?.is_active ?? true,
   })
 
@@ -283,6 +296,33 @@ export function TemplateEditor({
           {rendered || t("previewEmpty")}
         </p>
       </section>
+
+      <div className="max-w-sm space-y-1.5">
+        <Label htmlFor="template-signature">{t("fields.signature_mode")}</Label>
+        <Select
+          value={form.signature_mode}
+          onValueChange={(value) =>
+            setForm({ ...form, signature_mode: String(value) as SignatureMode })
+          }
+        >
+          <SelectTrigger id="template-signature" className="w-full">
+            {/* base-ui prints the raw value unless it is given the label. */}
+            <SelectValue>
+              {(value: string) => t(`signatureModes.${value as SignatureMode}`)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SIGNATURE_MODES.map((mode) => (
+              <SelectItem key={mode} value={mode}>
+                {t(`signatureModes.${mode}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {t(`signatureHints.${form.signature_mode}`)}
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {(

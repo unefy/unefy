@@ -2070,7 +2070,8 @@
       "include_footer": "Footer",
       "verifiable": "Verifiable",
       "is_active": "Active",
-      "template": "Template"
+      "template": "Template",
+      "signature_mode": "How the document ends"
     },
     "hints": {
       "name": "Internal only — how the template appears in the list.",
@@ -2147,6 +2148,16 @@
       "title": "Ready-made wordings",
       "description": "Common club documents as drafts. One click opens the editor with the text; nothing is saved until you have read and adapted it.",
       "disclaimer": "These are suggested wordings, not legal advice. What your club may certify follows from its articles and from what the recipient needs it for. The donation receipt is deliberately absent: it follows an official template and does not belong in freely written text."
+    },
+    "signatureModes": {
+      "none": "Nothing",
+      "machine": "Machine-made note",
+      "line": "Line to sign"
+    },
+    "signatureHints": {
+      "none": "The document ends with its text. For certificates with their own layout.",
+      "machine": "Prints \"This document was produced automatically and is valid without a signature.\" — right for anything sent by email.",
+      "line": "A blank line with the club's name under it. The board signs by hand."
     }
   },
   "donations": {

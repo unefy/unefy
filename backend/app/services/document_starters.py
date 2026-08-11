@@ -21,6 +21,8 @@ silently reports the wrong period.
 
 from dataclasses import dataclass
 
+from app.schemas.document import SignatureMode
+
 
 @dataclass(frozen=True)
 class StarterTemplate:
@@ -36,11 +38,17 @@ class StarterTemplate:
     include_letterhead: bool = True
     include_footer: bool = True
     verifiable: bool = True
+    #: `none`, `machine` or `line` — see `DocumentTemplate.signature_mode`.
+    #: Chosen per starter rather than defaulted, because whether a document is
+    #: signed by hand is the whole difference between a certificate a club
+    #: mails out and one it hands over at the counter.
+    signature_mode: SignatureMode = "line"
 
 
 MEMBERSHIP = StarterTemplate(
     key="membership",
     name="Mitgliedsbescheinigung",
+    signature_mode="machine",
     title="Mitgliedsbescheinigung",
     body="""Hiermit bestätigen wir, dass
 
@@ -65,6 +73,7 @@ Diese Bescheinigung wird auf Wunsch des Mitglieds ausgestellt.
 MEMBERSHIP_WITH_FEE = StarterTemplate(
     key="membership_fee",
     name="Mitgliedsbescheinigung mit Beitrag",
+    signature_mode="machine",
     title="Mitgliedsbescheinigung",
     body="""Hiermit bestätigen wir, dass
 
@@ -92,6 +101,7 @@ empfangende Stelle.
 RESIGNATION = StarterTemplate(
     key="resignation",
     name="Austrittsbestätigung",
+    signature_mode="machine",
     title="Bestätigung des Austritts",
     body="""Sehr geehrte(s) Mitglied {{mitglied.name}},
 
@@ -121,6 +131,7 @@ Wir bedanken uns für Ihre Mitgliedschaft.
 VOLUNTEER = StarterTemplate(
     key="volunteer",
     name="Bescheinigung über ehrenamtliche Tätigkeit",
+    signature_mode="line",
     title="Bescheinigung über ehrenamtliche Tätigkeit",
     body="""Hiermit bestätigen wir, dass
 
@@ -145,6 +156,7 @@ Die Tätigkeit erfolgt im Rahmen der Vereinsarbeit.
 ANNIVERSARY = StarterTemplate(
     key="anniversary",
     name="Urkunde für langjährige Mitgliedschaft",
+    signature_mode="line",
     title="Urkunde",
     body="""Der {{verein.name}} ehrt
 

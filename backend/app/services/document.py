@@ -186,6 +186,12 @@ class DocumentService:
             content_hash=hashlib.sha256(
                 variables.content_hash_input(member_id, body, issued_at).encode()
             ).hexdigest(),
+            # Copied, not looked up later: the template keeps changing and may
+            # be deleted, this document has to keep printing as it was handed
+            # over.
+            include_letterhead=template.include_letterhead,
+            include_footer=template.include_footer,
+            signature_mode=template.signature_mode,
             created_by=issued_by,
             updated_by=issued_by,
         )

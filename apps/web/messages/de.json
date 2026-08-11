@@ -2070,7 +2070,8 @@
       "include_footer": "Fußzeile",
       "verifiable": "Prüfbar",
       "is_active": "Aktiv",
-      "template": "Vorlage"
+      "template": "Vorlage",
+      "signature_mode": "Abschluss des Dokuments"
     },
     "hints": {
       "name": "Nur intern — so heißt die Vorlage in der Liste.",
@@ -2147,6 +2148,16 @@
       "title": "Muster zum Übernehmen",
       "description": "Gängige Vereinsdokumente als Entwurf. Ein Klick öffnet den Editor mit dem Text; gespeichert wird erst, wenn Sie ihn gelesen und angepasst haben.",
       "disclaimer": "Diese Muster sind Formulierungsvorschläge, keine Rechtsberatung. Was Ihr Verein bescheinigen darf, ergibt sich aus Ihrer Satzung und aus dem, wofür der Empfänger die Bescheinigung braucht. Die Zuwendungsbestätigung ist bewusst nicht dabei: sie folgt einem amtlichen Muster und gehört nicht in einen frei geschriebenen Text."
+    },
+    "signatureModes": {
+      "none": "Ohne Abschluss",
+      "machine": "Maschinell erstellt",
+      "line": "Linie zum Unterschreiben"
+    },
+    "signatureHints": {
+      "none": "Das Dokument endet mit dem Text. Für Urkunden mit eigenem Aufbau.",
+      "machine": "Druckt „Dieses Dokument wurde maschinell erstellt und ist ohne Unterschrift gültig.\" — passend für alles, was per E-Mail rausgeht.",
+      "line": "Leere Linie mit dem Vereinsnamen darunter. Der Vorstand unterschreibt von Hand."
     }
   },
   "donations": {

@@ -3,6 +3,7 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from httpx import AsyncClient
@@ -15,6 +16,9 @@ from app.models.member import Member
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services import document_variables as variables
+
+if TYPE_CHECKING:  # The letters are only ever inspected, never built here.
+    from app.services.document_pdf import DocumentLetter
 
 pytestmark = pytest.mark.asyncio
 
@@ -385,6 +389,117 @@ async def test_the_pdf_carries_the_frozen_text(
     # A document about one person has no business in a shared cache.
     assert response.headers["cache-control"] == "no-store"
     assert response.content.startswith(b"%PDF")
+
+
+async def test_the_template_decides_how_the_document_ends(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Three modes, three different endings — and no fourth one.
+
+    Read off the letter handed to the renderer rather than out of the PDF: the
+    font is embedded as a subset, so the drawn strings are glyph codes and
+    searching the bytes for a sentence finds nothing.
+    """
+    from app.api.v1 import documents as endpoint
+
+    letters: list[DocumentLetter] = []
+    real = endpoint.build_document_pdf
+    monkeypatch.setattr(
+        endpoint,
+        "build_document_pdf",
+        lambda letter: (letters.append(letter), real(letter))[1],
+    )
+
+    member = await a_member(db_session, test_tenant, test_user)
+    for index, mode in enumerate(("none", "machine", "line")):
+        template = await a_template(auth_client, name=f"Vorlage {index}", signature_mode=mode)
+        issued = (
+            await auth_client.post(
+                f"/api/v1/documents/members/{member.id}/issue",
+                json={"template_id": template["id"]},
+            )
+        ).json()["data"]
+        assert (await auth_client.get(f"/api/v1/documents/{issued['id']}/pdf")).status_code == 200
+
+    without, machine, line = letters
+    assert (without.signature_line, without.machine_made) == (None, False)
+    assert (machine.signature_line, machine.machine_made) == (None, True)
+    assert (line.signature_line, line.machine_made) == (test_tenant.name, False)
+
+
+async def test_a_document_keeps_the_layout_it_was_issued_with(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The template goes on changing; the paper in somebody's hand does not.
+
+    Letterhead, footer and the signature mode are copied when the document is
+    issued, for the same reason the text is. Reading them back off the template
+    would also break for a template that has since been deleted.
+    """
+    from app.api.v1 import documents as endpoint
+
+    letters: list[DocumentLetter] = []
+    real = endpoint.build_document_pdf
+    monkeypatch.setattr(
+        endpoint,
+        "build_document_pdf",
+        lambda letter: (letters.append(letter), real(letter))[1],
+    )
+
+    # The letterhead only has something to print when the club filled it in.
+    test_tenant.street = "Am Schießstand 3"
+    test_tenant.zip_code = "79356"
+    test_tenant.city = "Eichstetten"
+    test_tenant.registration_number = "VR 12345"
+    await db_session.flush()
+
+    member = await a_member(db_session, test_tenant, test_user)
+    # Every value here differs from the column default, so a document that
+    # simply fell back to the defaults would not pass as frozen.
+    template = await a_template(
+        auth_client, signature_mode="machine", include_letterhead=False, include_footer=False
+    )
+    issued = (
+        await auth_client.post(
+            f"/api/v1/documents/members/{member.id}/issue",
+            json={"template_id": template["id"]},
+        )
+    ).json()["data"]
+
+    changed = await auth_client.patch(
+        f"/api/v1/documents/templates/{template['id']}",
+        json={"signature_mode": "line", "include_letterhead": True, "include_footer": True},
+    )
+    assert changed.status_code == 200
+
+    assert (await auth_client.get(f"/api/v1/documents/{issued['id']}/pdf")).status_code == 200
+    printed = letters[-1]
+    assert printed.machine_made is True
+    assert printed.signature_line is None
+    assert printed.letterhead == ()
+    assert printed.footer == ()
+
+
+async def test_a_signature_graphic_is_not_an_option(
+    auth_client: AsyncClient,
+) -> None:
+    """Deliberately absent, not forgotten.
+
+    A club signature kept on our side would be a reusable forgery tool, and
+    every PDF it was drawn into would carry it straight back out.
+    """
+    response = await auth_client.post(
+        "/api/v1/documents/templates", json=template_payload(signature_mode="image")
+    )
+    assert response.status_code == 422
 
 
 # --- The public check page ---

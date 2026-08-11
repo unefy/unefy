@@ -32,6 +32,7 @@ const templateSchema = z.object({
   include_letterhead: z.boolean(),
   include_footer: z.boolean(),
   verifiable: z.boolean(),
+  signature_mode: z.enum(["none", "machine", "line"]),
   is_active: z.boolean(),
 })
 
