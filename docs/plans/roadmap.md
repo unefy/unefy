@@ -293,6 +293,28 @@ Zwei Sorten Dokument, und der Unterschied entschied die Bauform:
 - Briefkopf und Fußzeile kommen aus den Vereinseinstellungen, je Vorlage
   abschaltbar.
 
+**Mustervorlagen (2026-08-11):** fünf gängige Vereinsdokumente stehen als
+Entwurf bereit — Mitgliedsbescheinigung, dieselbe mit Beitragsangabe,
+Austrittsbestätigung, Bescheinigung über ehrenamtliche Tätigkeit und die
+Urkunde für langjährige Mitgliedschaft. Jedes trägt einen Hinweis, was der
+Verein daran prüfen muss, und **nichts wird von allein angelegt**: ein Klick
+öffnet den Editor mit dem Text, gespeichert wird erst nach dem Lesen. Ein Test
+hält die Muster gegen den Platzhaltersatz — eine ausgelieferte Vorlage, die
+sich nicht speichern lässt, wäre schlimmer als gar keine.
+
+Die **Zuwendungsbestätigung fehlt bewusst.** Sie folgt einem amtlichen Muster
+der Finanzverwaltung, und sie als freien Text nachzubauen wäre genau die
+Einladung, ein ungültiges Dokument zu erzeugen, die vorgeschriebene Formen aus
+diesem Feature herausgehalten hat. Ebenso fehlt eine Beitragsbescheinigung
+über die Zahlungen eines Jahres: dafür müsste beim Ausstellen ein Jahr gewählt
+werden, und dieses Feature kennt keine Eingabe je Ausstellung. Lieber keine
+als eine, die stillschweigend den falschen Zeitraum meldet.
+
+Dafür sind vier Platzhalter dazugekommen — Beitrag, Beitragsart, laufende
+Ämter und volle Mitgliedsjahre. Beitrag und Ämter werden **zum Stichtag**
+aufgelöst, nicht als neueste Zeile: eine Bescheinigung, die den erst zur
+nächsten Saison eingetragenen Beitrag nennt, ist am Tag der Übergabe falsch.
+
 **Offen:**
 
 - Das Logo bleibt draußen. `logo_url` zeigt irgendwohin, und es beim Rendern zu
