@@ -2250,6 +2250,8 @@
     "title": "Sign the document",
     "padLabel": "Area to sign in",
     "padHint": "Sign with a finger or a pen.",
+    "open": "Sign now",
+    "cancel": "Cancel",
     "clear": "Clear",
     "submit": "Sign",
     "submitting": "Sending …",

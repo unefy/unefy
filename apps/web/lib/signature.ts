@@ -24,8 +24,36 @@ export function distance(a: Point, b: Point): number {
   return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
-/** How wide the pen is allowed to get, in canvas pixels before scaling. */
+/** How wide the pen is allowed to get, in CSS pixels. */
 export type PenRange = { min: number; max: number }
+
+//: How wide the pen is, as a share of the pad's height. A share rather than a
+//: number of pixels because the drawing is scaled to a fixed height on the
+//: page: a signature drawn on a full screen is shrunk far more than one drawn
+//: in a small box, and a pen of fixed width would print thinner for it.
+const PEN_MIN_SHARE = 0.01
+const PEN_MAX_SHARE = 0.024
+//: Below this the line stops reading as ink whatever the pad's size.
+const PEN_FLOOR = 1.6
+//: Past this height nobody signs any bigger — they sign their usual size in
+//: the middle of the space and leave the rest empty. Scaling the pen with a
+//: pad that tall would draw a marker.
+const PEN_REFERENCE_CEILING = 400
+
+/**
+ * How wide the pen should be on a pad of this height.
+ *
+ * The width is tied to the pad so that the same hand movement leaves the same
+ * mark on the finished document, whether it was drawn in a dialog on a laptop
+ * or across the whole of a phone held sideways.
+ */
+export function penRange(padHeight: number): PenRange {
+  const reference = Math.min(padHeight, PEN_REFERENCE_CEILING)
+  const min = Math.max(reference * PEN_MIN_SHARE, PEN_FLOOR)
+  // The spread is what lets the stroke taper; keep it even on a pad small
+  // enough that the floor has taken over the lower end.
+  return { min, max: Math.max(reference * PEN_MAX_SHARE, min * 2) }
+}
 
 /**
  * How wide the pen should be for a stroke drawn at this speed.
@@ -65,4 +93,29 @@ export function velocityBetween(
   elapsedMs: number
 ): number {
   return distance(from, to) / Math.max(elapsedMs, 1)
+}
+
+/** The part of a DOMRect this file needs. */
+export type Rect = { left: number; top: number; right: number }
+
+/**
+ * Where a pointer landed, in the pad's own coordinates.
+ *
+ * A phone that will not turn — rotation lock is on more often than not — gets
+ * the signing surface turned a quarter turn clockwise instead, so it can still
+ * be signed the long way round. The browser goes on reporting pointers in
+ * screen coordinates, and a bounding rectangle of a rotated element is its
+ * upright box, so the usual `clientX - left` would put the ink at right angles
+ * to the finger. Turning the surface clockwise means the pad's x runs down the
+ * screen and its y runs to the left.
+ */
+export function localPoint(
+  client: Point,
+  rect: Rect,
+  quarterTurn: boolean
+): Point {
+  if (!quarterTurn) {
+    return { x: client.x - rect.left, y: client.y - rect.top }
+  }
+  return { x: client.y - rect.top, y: rect.right - client.x }
 }

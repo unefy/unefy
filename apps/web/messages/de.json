@@ -2250,6 +2250,8 @@
     "title": "Dokument unterschreiben",
     "padLabel": "Feld zum Unterschreiben",
     "padHint": "Mit dem Finger oder einem Stift unterschreiben.",
+    "open": "Jetzt unterschreiben",
+    "cancel": "Abbrechen",
     "clear": "Löschen",
     "submit": "Unterschreiben",
     "submitting": "Wird übertragen …",
