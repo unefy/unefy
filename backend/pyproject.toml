@@ -24,6 +24,8 @@ dependencies = [
     # because reportlab draws the code itself, as vector — a proof that
     # has to survive a photocopier should not carry a bitmap.
     "reportlab>=4.2",
+    "pypdf>=6.15.0",
+    "defusedxml>=0.7.1",
 ]
 
 [dependency-groups]
@@ -38,6 +40,7 @@ dev = [
     "mypy>=1.14",
     "fakeredis>=2.34.1",
     "types-aiofiles>=25.1.0.20260518",
+    "types-defusedxml>=0.7.0.20260504",
 ]
 
 [tool.ruff]

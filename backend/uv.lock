@@ -410,6 +410,15 @@ wheels = [
 ]
 
 [[package]]
+name = "defusedxml"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/d5/c66da9b79e5bdb124974bfe172b4daf3c984ebd9c2a06e2b8a4dc7331c72/defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69", size = 75520, upload-time = "2021-03-08T10:59:26.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61", size = 25604, upload-time = "2021-03-08T10:59:24.45Z" },
+]
+
+[[package]]
 name = "dnspython"
 version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1217,6 +1226,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pypdf"
+version = "6.15.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/17/ee75a92718ec7212de831e71454d702225aa5e474a805cce169806044453/pypdf-6.15.0.tar.gz", hash = "sha256:d39c4d955a76409284a905e2d65b40076d77ab76129e0faaeeb6612403ecfc79", size = 6993794, upload-time = "2026-08-06T13:06:49.929Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/72/ce3067ac31e214a66388159f8462ddb8c13dd00170f24d555a1f1ae8ee91/pypdf-6.15.0-py3-none-any.whl", hash = "sha256:14e001d6504822cb1ca9c7ed9a69bccb320f59b320730f55af804361abe4d5ee", size = 378123, upload-time = "2026-08-06T13:06:47.709Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1621,6 +1639,15 @@ wheels = [
 ]
 
 [[package]]
+name = "types-defusedxml"
+version = "0.7.0.20260504"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/d2/4553c8fa9cdebfe1e84b950cf790a4d2376a97fa016e43f7c65323fa6c7d/types_defusedxml-0.7.0.20260504.tar.gz", hash = "sha256:2ab2828a3f97111ba1c16cee273ad4124a831fc9198c41bf8368ff6ea48ad300", size = 10729, upload-time = "2026-05-04T05:22:50.192Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/2d/8a4b5ba1d732b8bc691f0efbb1c6f77cb5f6f473b2afe181d83d910773c5/types_defusedxml-0.7.0.20260504-py3-none-any.whl", hash = "sha256:a959e3a0a43b93e464bd625d91ec9193a2703ddc10443bdd627792485fae0b10", size = 13467, upload-time = "2026-05-04T05:22:49.319Z" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1660,6 +1687,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "authlib" },
+    { name = "defusedxml" },
     { name = "fastapi", extra = ["standard"] },
     { name = "google-auth" },
     { name = "httpx" },
@@ -1667,6 +1695,7 @@ dependencies = [
     { name = "pwdlib", extra = ["argon2"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pypdf" },
     { name = "redis", extra = ["hiredis"] },
     { name = "reportlab" },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -1686,6 +1715,7 @@ dev = [
     { name = "ruff" },
     { name = "testcontainers" },
     { name = "types-aiofiles" },
+    { name = "types-defusedxml" },
 ]
 
 [package.metadata]
@@ -1695,6 +1725,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "authlib", specifier = ">=1.6.9" },
+    { name = "defusedxml", specifier = ">=0.7.1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115" },
     { name = "google-auth", specifier = ">=2.40" },
     { name = "httpx", specifier = ">=0.28" },
@@ -1702,6 +1733,7 @@ requires-dist = [
     { name = "pwdlib", extras = ["argon2"], specifier = ">=0.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
+    { name = "pypdf", specifier = ">=6.15.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.2" },
     { name = "reportlab", specifier = ">=4.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
@@ -1721,6 +1753,7 @@ dev = [
     { name = "ruff", specifier = ">=0.9" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4.9" },
     { name = "types-aiofiles", specifier = ">=25.1.0.20260518" },
+    { name = "types-defusedxml", specifier = ">=0.7.0.20260504" },
 ]
 
 [[package]]
