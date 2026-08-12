@@ -466,11 +466,37 @@ Versand asynchron und in Paketen, mit Historie.
 (eigener SMTP vs. Dienst — Zustellbarkeit ist bei Vereinsmails das eigentliche
 Problem) und die Trennung von Pflichtmitteilung und Werbung.
 
-### 6.5 Auswertungen
+### 6.5 Auswertungen ✓ (2026-08-12)
 
 Mitgliederentwicklung, Beitrags-Soll/Ist, Anwesenheitsstatistik, CSV-Export
 für den Rechenschaftsbericht. Rein lesende Aggregation über vorhandene
 Tabellen — verglichen mit dem Nutzen die billigste Position der Phase.
+
+**Gebaut:** `GET /reports/annual` (alle drei Blöcke in einem Aufruf, weil sie
+zusammen gelesen und zusammen gedruckt werden) und `/reports/annual/export`
+als CSV. Web unter `/reports` mit Jahresauswahl in der URL.
+
+**Berichtszeitraum ist das Kalenderjahr.** Kein Verein im Datenmodell trägt
+bisher ein abweichendes Geschäftsjahr; wenn einer es tut, ist
+`services/report.py` die einzige Stelle, die davon erfährt.
+
+**Die Bilanzgleichung ist die eigentliche Arbeit.** `Anfangsbestand +
+Eintritte − Austritte = Endbestand` gilt exakt, und das geht nur mit zwei
+Entscheidungen: der Anfangsbestand ist der **Endbestand des Vorjahres**, nicht
+der Stand am 1. Januar, und die Mitgliedschaft endet **mit** dem Austrittsdatum.
+Andersherum wird ein Austritt zum 31.12. zweimal gezählt — einmal als Austritt
+und einmal im Endbestand — und der Bericht geht um genau diese Personen nicht
+auf. Beim Bauen zuerst falsch gemacht und vom Test gefangen.
+
+**Was nicht geschönt wird:** Storniertes ist kein Soll (es wurde nie
+geschuldet), steht aber daneben. Mitglieder ohne Geburtsdatum fehlen in den
+Altersgruppen und werden dort gezählt, sonst summiert die Tabelle still an der
+Mitgliederzahl vorbei. Wer als ausgetreten geführt wird, aber kein
+Austrittsdatum hat, zählt noch zum Bestand — mit einem Satz darunter, der das
+sagt, weil nur der Verein es beheben kann.
+
+**Offen:** eine Auswertung je Sparte (die Zahlen liegen vor, die Frage ist die
+Oberfläche) und der Vergleich mit dem Vorjahr in derselben Tabelle.
 
 ### 6.6 Dokumentenablage — erledigt 2026-08-12
 
