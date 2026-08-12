@@ -49,6 +49,54 @@
       }
     }
   },
+  "ConsentEntry": {
+    "fields": {
+      "granted": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "kind": {
+        "nullable": false
+      },
+      "note": {
+        "nullable": true
+      },
+      "recorded_at": {
+        "nullable": false
+      },
+      "source": {
+        "nullable": false
+      }
+    }
+  },
+  "ConsentOverview": {
+    "fields": {
+      "current": {
+        "nullable": false
+      },
+      "history": {
+        "nullable": false
+      }
+    }
+  },
+  "ConsentState": {
+    "fields": {
+      "granted": {
+        "nullable": true
+      },
+      "kind": {
+        "nullable": false
+      },
+      "since": {
+        "nullable": true
+      },
+      "source": {
+        "nullable": true
+      }
+    }
+  },
   "DueResponse": {
     "fields": {
       "amount": {
@@ -299,6 +347,46 @@
       }
     }
   },
+  "IssuedDocumentResponse": {
+    "fields": {
+      "body": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "issued_at": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "revoke_reason": {
+        "nullable": true
+      },
+      "revoked_at": {
+        "nullable": true
+      },
+      "signature_mode": {
+        "nullable": false
+      },
+      "signed_at": {
+        "nullable": true
+      },
+      "template_id": {
+        "nullable": true
+      },
+      "template_name": {
+        "nullable": false
+      },
+      "title": {
+        "nullable": false
+      },
+      "verification_code": {
+        "nullable": true
+      }
+    }
+  },
   "MemberDirectoryEntry": {
     "fields": {
       "category": {
@@ -312,6 +400,46 @@
       },
       "last_name": {
         "nullable": false
+      }
+    }
+  },
+  "MemberFunctionResponse": {
+    "fields": {
+      "created_at": {
+        "nullable": false
+      },
+      "division_id": {
+        "nullable": true
+      },
+      "division_name": {
+        "nullable": true
+      },
+      "function_id": {
+        "nullable": false
+      },
+      "function_name": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "level": {
+        "nullable": false
+      },
+      "member_id": {
+        "nullable": false
+      },
+      "note": {
+        "nullable": true
+      },
+      "updated_at": {
+        "nullable": false
+      },
+      "valid_from": {
+        "nullable": false
+      },
+      "valid_to": {
+        "nullable": true
       }
     }
   },
@@ -528,6 +656,43 @@
       },
       "source": {
         "nullable": true
+      }
+    }
+  },
+  "TemplateResponse": {
+    "fields": {
+      "body": {
+        "nullable": false
+      },
+      "created_at": {
+        "nullable": false
+      },
+      "id": {
+        "nullable": false
+      },
+      "include_footer": {
+        "nullable": false
+      },
+      "include_letterhead": {
+        "nullable": false
+      },
+      "is_active": {
+        "nullable": false
+      },
+      "name": {
+        "nullable": false
+      },
+      "signature_mode": {
+        "nullable": false
+      },
+      "title": {
+        "nullable": false
+      },
+      "updated_at": {
+        "nullable": false
+      },
+      "verifiable": {
+        "nullable": false
       }
     }
   },
