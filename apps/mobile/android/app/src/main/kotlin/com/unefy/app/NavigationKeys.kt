@@ -107,6 +107,26 @@ data class RecordShotsKey(
 @Serializable
 data class SeriesDetailKey(val seriesId: String) : UnefyNavKey
 
+/**
+ * What the club has issued: everything for the board, one's own otherwise.
+ *
+ * One key for both, like [AttendanceCodeKey] — the screen picks the endpoint
+ * from the role, and two destinations called "Bescheinigungen" in the shelf
+ * would be indistinguishable.
+ */
+@Serializable
+data object DocumentsKey : UnefyNavKey
+
+/**
+ * One document, rendered.
+ *
+ * Carries the name so the screen has a title before the bytes arrive; whether
+ * to ask the member's route or the board's is decided from the role at the
+ * entry, not carried here.
+ */
+@Serializable
+data class DocumentViewKey(val documentId: String, val title: String) : UnefyNavKey
+
 /** The member's own consents, and the ledger behind them. */
 @Serializable
 data object ConsentsKey : UnefyNavKey

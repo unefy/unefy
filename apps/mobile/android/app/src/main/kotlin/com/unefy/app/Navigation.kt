@@ -80,6 +80,8 @@ import com.unefy.feature.attendance.ScannerRoute
 import com.unefy.feature.competitions.CompetitionDetailRoute
 import com.unefy.feature.competitions.CompetitionsRoute
 import com.unefy.feature.competitions.ScoreboardRoute
+import com.unefy.feature.documents.DocumentViewRoute
+import com.unefy.feature.documents.DocumentsRoute
 import com.unefy.feature.dues.DuesRoute
 import com.unefy.feature.dues.MyDuesRoute
 import com.unefy.feature.events.EventDetailRoute
@@ -528,6 +530,26 @@ internal fun unefyEntryProvider(
         )
     }
     entry<ConsentsKey> { MyConsentsRoute(onBack = onBack) }
+    entry<DocumentsKey> {
+        DocumentsRoute(
+            // The board reads the club's list and issues; a member reads their
+            // own. The server draws the same line, so this only decides which
+            // of the two requests is made.
+            canAdminister = role.canAdminister,
+            actions = accountActions,
+            onOpenDocument = { id, title -> onOpen(DocumentViewKey(id, title)) },
+        )
+    }
+    entry<DocumentViewKey> { key ->
+        DocumentViewRoute(
+            documentId = key.documentId,
+            title = key.title,
+            // A plain member has a route of their own for this; the board's
+            // answers 403 for them, whosever document it is.
+            own = !role.canAdminister,
+            onBack = onBack,
+        )
+    }
     entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
     entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
     entry<AttendanceCodeKey> {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One directory, inside the cache. A document is about one person, so it is
+  written where the system may reclaim it and where nothing else in the app
+  writes: sharing out a file is the only reason a copy exists on disk at all.
+-->
+<paths>
+    <cache-path
+        name="documents"
+        path="documents/" />
+</paths>

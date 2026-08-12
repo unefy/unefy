@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Sharing a document out of the app. Declared by the feature that
+             needs it rather than in the app manifest, the same arrangement as
+             the camera permission in feature:scoring.
+
+             The authority is derived from the applicationId so the debug and
+             release builds can sit on one device without one claiming the
+             other's authority — two apps with the same authority means the
+             second install fails outright. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/unefy_document_paths" />
+        </provider>
+    </application>
+
+</manifest>

@@ -55,6 +55,7 @@
     <string name="account_theme_light">Hell</string>
     <string name="account_theme_dark">Dunkel</string>
     <string name="nav_shots">Treffer</string>
+    <string name="nav_documents">Bescheinigungen</string>
     <string name="nav_competitions">Wettkämpfe</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">Mehr</string>

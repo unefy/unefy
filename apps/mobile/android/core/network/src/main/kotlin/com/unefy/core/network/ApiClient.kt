@@ -95,6 +95,34 @@ class ApiClient @Inject constructor(
     }
 
     /**
+     * The whole body as bytes, for endpoints that answer with a file.
+     *
+     * Not generic and not an envelope: a PDF is the response, not a field
+     * inside one. Errors still arrive as the usual envelope, so a failure is
+     * decoded the same way as everywhere else and the caller keeps working in
+     * [ApiError] rather than in status codes.
+     *
+     * Loaded whole rather than streamed. A club document is one or two pages;
+     * the alternative is a handle whose lifetime the caller has to manage, and
+     * nothing here needs that yet.
+     */
+    suspend fun getBytes(path: String): ApiResult<ByteArray> = try {
+        val response = httpClient.get(path)
+        if (response.status.isSuccess()) {
+            ApiResult.Success(response.body<ByteArray>())
+        } else {
+            val body = runCatching { response.body<ApiEnvelope<Unit>>().error }.getOrNull()
+            ApiResult.Failure(errorFor(response.status.value, body))
+        }
+    } catch (e: IOException) {
+        ApiResult.Failure(ApiError.Network(e))
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
+        ApiResult.Failure(ApiError.Unknown(e))
+    }
+
+    /**
      * For endpoints that answer 204 with no body. Not inline and not generic:
      * there is nothing to decode, and calling [execute] here would try to parse
      * an envelope that was never sent.

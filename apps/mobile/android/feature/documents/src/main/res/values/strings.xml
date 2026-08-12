@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="documents_title">Bescheinigungen</string>
+    <string name="documents_back">Zurück</string>
+    <string name="documents_share">Teilen</string>
+    <string name="documents_retry">Erneut versuchen</string>
+
+    <string name="documents_empty_title">Nichts ausgestellt</string>
+    <string name="documents_empty_body_board">Hier steht, was der Verein ausgestellt hat. Mit dem Knopf unten rechts wird eine Bescheinigung ausgestellt.</string>
+    <string name="documents_empty_body_member">Der Verein hat für Sie noch keine Bescheinigung ausgestellt.</string>
+    <string name="documents_error_title">Nicht geladen</string>
+    <string name="documents_error_body">Die Liste konnte nicht abgerufen werden.</string>
+
+    <string name="documents_revoked">Widerrufen</string>
+    <string name="documents_signed">Unterschrieben</string>
+
+    <string name="documents_issue">Ausstellen</string>
+    <string name="documents_issue_title">Bescheinigung ausstellen</string>
+    <string name="documents_issue_search">Name oder Nummer …</string>
+    <string name="documents_issue_no_members">Kein Mitglied gefunden.</string>
+    <string name="documents_issue_change_member">Ändern</string>
+    <string name="documents_issue_hint">Der Text wird mit den Daten dieses Mitglieds gefüllt und so festgehalten, wie er ausgestellt wurde. Spätere Änderungen an der Vorlage ändern das Dokument nicht.</string>
+    <string name="documents_issuing">Wird ausgestellt …</string>
+    <string name="documents_issued">Bescheinigung ausgestellt.</string>
+    <string name="documents_failed">Das hat nicht geklappt.</string>
+    <string name="documents_no_templates">Es ist keine aktive Vorlage vorhanden. Vorlagen werden am Rechner in den Einstellungen angelegt.</string>
+
+    <string name="documents_open_failed_title">Nicht geöffnet</string>
+    <string name="documents_open_failed_body">Das Dokument konnte nicht geladen werden.</string>
+</resources>

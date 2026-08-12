@@ -128,6 +128,7 @@ dependencies {
     implementation(project(":feature:members"))
     implementation(project(":feature:events"))
     implementation(project(":feature:dues"))
+    implementation(project(":feature:documents"))
     implementation(project(":feature:competitions"))
     implementation(project(":feature:scoring"))
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="documents_title">Certificates</string>
+    <string name="documents_back">Back</string>
+    <string name="documents_share">Share</string>
+    <string name="documents_retry">Try again</string>
+
+    <string name="documents_empty_title">Nothing issued</string>
+    <string name="documents_empty_body_board">What the club has issued appears here. The button at the bottom right issues a certificate.</string>
+    <string name="documents_empty_body_member">The club has not issued you a certificate yet.</string>
+    <string name="documents_error_title">Not loaded</string>
+    <string name="documents_error_body">The list could not be fetched.</string>
+
+    <string name="documents_revoked">Revoked</string>
+    <string name="documents_signed">Signed</string>
+
+    <string name="documents_issue">Issue</string>
+    <string name="documents_issue_title">Issue a certificate</string>
+    <string name="documents_issue_search">Name or number …</string>
+    <string name="documents_issue_no_members">No member found.</string>
+    <string name="documents_issue_change_member">Change</string>
+    <string name="documents_issue_hint">The text is filled with this member\'s data and kept exactly as issued. Later changes to the template do not change the document.</string>
+    <string name="documents_issuing">Issuing …</string>
+    <string name="documents_issued">Certificate issued.</string>
+    <string name="documents_failed">That did not work.</string>
+    <string name="documents_no_templates">There is no active template. Templates are written on a computer, in the settings.</string>
+
+    <string name="documents_open_failed_title">Not opened</string>
+    <string name="documents_open_failed_body">The document could not be loaded.</string>
+</resources>

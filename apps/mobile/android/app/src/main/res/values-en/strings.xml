@@ -51,6 +51,7 @@
     <string name="account_theme_light">Light</string>
     <string name="account_theme_dark">Dark</string>
     <string name="nav_shots">Shots</string>
+    <string name="nav_documents">Certificates</string>
     <string name="nav_competitions">Competitions</string>
     <string name="nav_check_in">Check-in</string>
     <string name="nav_more">More</string>

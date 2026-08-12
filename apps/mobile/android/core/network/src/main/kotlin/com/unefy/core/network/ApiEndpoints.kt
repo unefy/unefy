@@ -116,6 +116,29 @@ object ApiEndpoints {
     /** A member's terms of office, newest first, ended ones included. Board-level. */
     fun memberFunctions(id: String): String = "$MEMBERS/$id/functions"
 
+    /** Issued certificates and letters. Board-level; members use [DOCUMENTS_ME]. */
+    const val DOCUMENTS = "/api/v1/documents"
+
+    /** The wordings the club may issue from. Only active ones unless asked. */
+    const val DOCUMENT_TEMPLATES = "$DOCUMENTS/templates"
+
+    /** What the club has issued to the caller. */
+    const val DOCUMENTS_ME = "$DOCUMENTS/me"
+
+    /**
+     * The caller's own document as a PDF.
+     *
+     * Its own route rather than the board's with a wider role: the session says
+     * who is asking, and somebody else's document answers 404 — a 403 would
+     * confirm that it exists.
+     */
+    fun ownDocumentPdf(documentId: String): String = "$DOCUMENTS_ME/$documentId/pdf"
+
+    fun documentPdf(documentId: String): String = "$DOCUMENTS/$documentId/pdf"
+
+    /** Issues a document for one member, freezing the rendered text. */
+    fun issueDocument(memberId: String): String = "$DOCUMENTS/members/$memberId/issue"
+
     /** The single event, with its registrations — what the detail screen shows. */
     fun event(id: String): String = "$EVENTS/$id"
 

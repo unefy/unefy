@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavKey
 import com.unefy.app.AttendanceCodeKey
 import com.unefy.app.CompetitionsKey
 import com.unefy.app.DirectoryKey
+import com.unefy.app.DocumentsKey
 import com.unefy.app.DuesKey
 import com.unefy.app.EventsKey
 import com.unefy.app.MembersKey
@@ -52,6 +53,12 @@ enum class TopLevel(
      */
     Shots("shots", ShotHistoryKey, R.string.nav_shots, DesignR.drawable.ic_target),
 
+    /**
+     * Issued certificates. A member sees their own, the board sees the club's
+     * and issues new ones — one destination, the same reading as [CheckIn].
+     */
+    Documents("documents", DocumentsKey, R.string.nav_documents, DesignR.drawable.ic_description),
+
     // Administrative
     Members("members", MembersKey, R.string.nav_members, DesignR.drawable.ic_group),
     Dues("dues", DuesKey, R.string.nav_dues, DesignR.drawable.ic_payments),
@@ -92,6 +99,7 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         // and the scanner is the other half of the same evening.
         TopLevel.CheckIn,
         TopLevel.Shots,
+        TopLevel.Documents,
     )
 } else {
     listOf(
@@ -104,5 +112,8 @@ fun permittedDestinations(role: ClubRole): List<TopLevel> = if (role.canAdminist
         // A member records their own series; the server only lets them file
         // against themselves, so this is safe to offer to everyone.
         TopLevel.Shots,
+        // Their own certificates. The list endpoint is self-scoped, so this is
+        // safe to offer to everyone too.
+        TopLevel.Documents,
     )
 }
