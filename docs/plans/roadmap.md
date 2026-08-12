@@ -432,8 +432,9 @@ Zwei Fehler kamen dabei ans Licht, beide mit Regressionstest:
 
 - Das Logo bleibt draußen. `logo_url` zeigt irgendwohin, und es beim Rendern zu
   holen hieße eine blockierende Anfrage an eine URL, die der Verein bestimmt —
-  im besten Fall langsam, im schlechtesten eine SSRF. Braucht erst die
-  Dateiablage aus 6.6.
+  im besten Fall langsam, im schlechtesten eine SSRF. Der Speicher dafür steht
+  seit 6.6 (`app/core/storage.py`); es fehlt der Upload-Weg für das Logo selbst
+  und eine Auslieferung, die ein PDF-Renderer benutzen kann.
 - Vereinfachter Zuwendungsnachweis bis 300 € (Bareinzahlungsbeleg /
   Buchungsbestätigung) — braucht kein Dokument von uns, aber ein Hinweis im
   Produkt wäre freundlich.
@@ -471,12 +472,23 @@ Mitgliederentwicklung, Beitrags-Soll/Ist, Anwesenheitsstatistik, CSV-Export
 für den Rechenschaftsbericht. Rein lesende Aggregation über vorhandene
 Tabellen — verglichen mit dem Nutzen die billigste Position der Phase.
 
-### 6.6 Dokumentenablage
+### 6.6 Dokumentenablage — erledigt 2026-08-12
 
-Satzung, Protokolle, Formulare. Braucht als Einziges neue Infrastruktur:
-Dateiablage (S3-kompatibel oder ein Volume beim Self-Hosting), Größen- und
-Typprüfung, Zugriff je Rolle. Die Entscheidung über den Speicher ist eine
-Betriebs-, keine Feature-Entscheidung.
+Satzung, Protokolle, Formulare. Gebaut in vier Phasen (Plan und Begründungen
+in `docs/plans/document-library.md`): Speicher, Modell und API, Web, Feinschliff.
+
+Im Code heißt das Modul **`library`**, im UI „Ablage" — `documents` bleibt für
+die Bescheinigungen aus 6.3 reserviert.
+
+Was steht: Ordnerbaum, zwei Sichtbarkeitsstufen (Vorstand / Mitglieder),
+Fassungen über `replaces_id`, Typprüfung an den Magic Bytes, Größen- und
+Kontingentgrenze vor dem Schreiben, Löschen nimmt die Bytes mit, Suche über
+alle Ordner, Mehrfachauswahl. Der Speicher ist ein Volume; S3 ist eine
+Einstellung, hinter der noch nichts steht, und wird beim Start abgelehnt.
+
+Offen und bewusst später: S3, öffentliche Links ohne Anmeldung, Dateien *über
+ein Mitglied* (andere Rechtslage), Android-Spiegel (die Schreib-Queue kennt
+keine Binärdaten), Public API.
 
 ### 6.7 Mannschaften
 

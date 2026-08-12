@@ -1,15 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 
 import { deleteDocumentAction, deleteFolderAction } from "@/actions/library"
 import { ConfirmDelete } from "@/components/admin/confirm-delete"
+import { BulkActions } from "@/components/library/bulk-actions"
 import { DocumentDialog } from "@/components/library/document-dialog"
 import { FolderDialog } from "@/components/library/folder-dialog"
 import { FolderTree } from "@/components/library/folder-tree"
 import { UploadDialog } from "@/components/library/upload-dialog"
+import { VersionsDialog } from "@/components/library/versions-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
@@ -20,10 +23,18 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table"
 import { DateCell } from "@/components/ui/date-cell"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
-import { folderPath, formatBytes } from "@/lib/library-tree"
+import { folderOptions, folderPath, formatBytes } from "@/lib/library-tree"
+import {
+  allSelected,
+  pruneSelection,
+  toggleAll,
+  toggleSelection,
+} from "@/lib/library-selection"
 import type {
   LibraryDocument,
   LibraryFolder,
@@ -37,6 +48,7 @@ import {
   FileSpreadsheetIcon,
   FileTextIcon,
   FileUpIcon,
+  SearchIcon,
   UploadIcon,
 } from "lucide-react"
 
@@ -53,18 +65,22 @@ export function LibraryView({
   folders,
   documents,
   currentFolderId,
+  searchTerm,
   usage,
   canEdit,
 }: {
   folders: LibraryFolder[]
   documents: LibraryDocument[]
   currentFolderId: string | null
+  /** Set while searching — the list then spans every folder. */
+  searchTerm: string
   usage: LibraryUsage | null
   canEdit: boolean
 }) {
   const t = useTranslations("library")
   const tv = useTranslations("library.visibility")
   const locale = useLocale()
+  const router = useRouter()
 
   // `key` counts openings: the dialog is remounted each time so its fields
   // start from these props instead of the previous document's.
@@ -75,16 +91,68 @@ export function LibraryView({
     key: number
   }>({ open: false, file: null, key: 0 })
   const [dragging, setDragging] = useState(false)
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const [term, setTerm] = useState(searchTerm)
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const path = folderPath(folders, currentFolderId)
   const currentFolder = path.at(-1) ?? null
   const maxUploadBytes = usage?.max_upload_bytes ?? 25 * 1024 * 1024
+  const searching = searchTerm.trim() !== ""
+
+  // Ticks only survive for rows that are still here. The page reloads after
+  // every change, and a stale id is how a bulk delete reaches a document
+  // nobody meant to touch.
+  const ticked = pruneSelection(selected, documents)
+  const folderLabels = new Map(
+    folderOptions(folders).map((option) => [option.id, option.label])
+  )
+
+  /** Search spans the whole club, so the folder stays in the URL rather than
+   * being replaced — clearing the box returns to the drawer that was open. */
+  function search(value: string) {
+    setTerm(value)
+    if (debounce.current) clearTimeout(debounce.current)
+    debounce.current = setTimeout(() => {
+      const params = new URLSearchParams()
+      if (currentFolderId) params.set("folder", currentFolderId)
+      if (value.trim()) params.set("q", value.trim())
+      const query = params.toString()
+      router.replace(query ? `/library?${query}` : "/library")
+    }, 300)
+  }
 
   function openUpload(file: File | null, replacing?: LibraryDocument) {
     setUpload((state) => ({ open: true, file, replacing, key: state.key + 1 }))
   }
 
   const columns: DataTableColumn<LibraryDocument>[] = [
+    ...(canEdit
+      ? [
+          {
+            key: "select",
+            shrink: true,
+            header: (
+              <Checkbox
+                aria-label={t("selectAll")}
+                checked={allSelected(ticked, documents)}
+                onCheckedChange={() =>
+                  setSelected(toggleAll(ticked, documents))
+                }
+              />
+            ),
+            cell: (row) => (
+              <Checkbox
+                aria-label={t("select", { title: row.title })}
+                checked={ticked.has(row.id)}
+                onCheckedChange={() =>
+                  setSelected(toggleSelection(ticked, row.id))
+                }
+              />
+            ),
+          } satisfies DataTableColumn<LibraryDocument>,
+        ]
+      : []),
     {
       key: "title",
       header: t("columns.title"),
@@ -108,6 +176,29 @@ export function LibraryView({
         </div>
       ),
     },
+    ...(searching
+      ? [
+          {
+            key: "folder",
+            header: t("columns.folder"),
+            shrink: true,
+            sortValue: (row) =>
+              row.folder_id ? (folderLabels.get(row.folder_id) ?? "") : "",
+            cellClassName: "text-muted-foreground",
+            cell: (row) =>
+              row.folder_id ? (
+                <Link
+                  href={`/library?folder=${row.folder_id}`}
+                  className="hover:underline"
+                >
+                  {folderLabels.get(row.folder_id) ?? "—"}
+                </Link>
+              ) : (
+                t("root")
+              ),
+          } satisfies DataTableColumn<LibraryDocument>,
+        ]
+      : []),
     {
       key: "size",
       header: t("columns.size"),
@@ -157,6 +248,7 @@ export function LibraryView({
               </a>
             }
           />
+          {row.replaces_id && <VersionsDialog document={row} />}
           {canEdit && (
             <>
               <Button
@@ -193,7 +285,9 @@ export function LibraryView({
             <Progress
               value={Math.min(
                 100,
-                Math.round((usage.used_bytes / Math.max(usage.quota_bytes, 1)) * 100)
+                Math.round(
+                  (usage.used_bytes / Math.max(usage.quota_bytes, 1)) * 100
+                )
               )}
               aria-label={t("usage")}
             />
@@ -210,7 +304,9 @@ export function LibraryView({
       <section
         className={cn(
           "space-y-4 rounded-lg transition-colors",
-          dragging && canEdit && "bg-accent/40 outline-2 outline-dashed outline-primary"
+          dragging &&
+            canEdit &&
+            "bg-accent/40 outline-2 outline-primary outline-dashed"
         )}
         onDragOver={(event) => {
           if (!canEdit) return
@@ -227,31 +323,42 @@ export function LibraryView({
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                {currentFolder ? (
-                  <BreadcrumbLink href="/library">{t("root")}</BreadcrumbLink>
-                ) : (
-                  <BreadcrumbPage>{t("root")}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-              {path.map((folder, index) => (
-                <span key={folder.id} className="contents">
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    {index === path.length - 1 ? (
-                      <BreadcrumbPage>{folder.name}</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink href={`/library?folder=${folder.id}`}>
-                        {folder.name}
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                </span>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
+          {searching ? (
+            // While searching the list spans every folder, so a breadcrumb
+            // would point at a drawer these results are not in.
+            <p className="text-sm text-muted-foreground">
+              {t("searchResults", {
+                count: documents.length,
+                term: searchTerm,
+              })}
+            </p>
+          ) : (
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  {currentFolder ? (
+                    <BreadcrumbLink href="/library">{t("root")}</BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>{t("root")}</BreadcrumbPage>
+                  )}
+                </BreadcrumbItem>
+                {path.map((folder, index) => (
+                  <span key={folder.id} className="contents">
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      {index === path.length - 1 ? (
+                        <BreadcrumbPage>{folder.name}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink href={`/library?folder=${folder.id}`}>
+                          {folder.name}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </span>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          )}
 
           {canEdit && (
             <div className="flex items-center gap-1">
@@ -279,19 +386,43 @@ export function LibraryView({
           )}
         </div>
 
+        {canEdit && ticked.size > 0 && (
+          <BulkActions
+            selectedIds={[...ticked]}
+            folders={folders}
+            onDone={() => setSelected(new Set())}
+          />
+        )}
+
         <DataTable
           data={documents}
           columns={columns}
           rowKey={(row) => row.id}
           locale={locale}
           defaultSort={{ key: "uploadedAt", direction: "desc" }}
-          searchPlaceholder={t("searchPlaceholder")}
-          searchFields={(row) => [
-            row.title,
-            row.description,
-            row.original_filename,
-          ]}
-          emptyText={canEdit ? t("emptyEditable") : t("empty")}
+          emptyText={
+            searching
+              ? t("noMatches")
+              : canEdit
+                ? t("emptyEditable")
+                : t("empty")
+          }
+          // The search runs in the backend across every folder, so the table
+          // does no filtering of its own — otherwise "select all" would tick
+          // rows the club cannot see, and the count in the toolbar would
+          // describe a different list from the one on screen.
+          toolbarExtra={
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={term}
+                onChange={(event) => search(event.target.value)}
+                placeholder={t("searchPlaceholder")}
+                className="w-64 ps-8"
+                aria-label={t("searchPlaceholder")}
+              />
+            </div>
+          }
         />
       </section>
 
@@ -315,8 +446,10 @@ export function LibraryView({
  * from the name it was uploaded under. */
 function DocumentIcon({ contentType }: { contentType: string }) {
   const className = "size-4 shrink-0 text-muted-foreground"
-  if (contentType.startsWith("image/")) return <FileImageIcon className={className} />
-  if (contentType === "application/pdf") return <FileTextIcon className={className} />
+  if (contentType.startsWith("image/"))
+    return <FileImageIcon className={className} />
+  if (contentType === "application/pdf")
+    return <FileTextIcon className={className} />
   if (contentType.includes("spreadsheet") || contentType === "text/csv") {
     return <FileSpreadsheetIcon className={className} />
   }

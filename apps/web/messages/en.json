@@ -2271,7 +2271,7 @@
     "newVersion": "New version",
     "usage": "Storage used",
     "usageOf": "{used} of {quota} used",
-    "searchPlaceholder": "Search this folder …",
+    "searchPlaceholder": "Search all folders …",
     "empty": "Nothing filed here yet.",
     "emptyEditable": "Nothing filed here yet. Upload a file or drop it on the list.",
     "deleteTitle": "Delete “{title}”?",
@@ -2283,7 +2283,8 @@
       "title": "Title",
       "size": "Size",
       "uploadedAt": "Filed on",
-      "visibility": "Visible to"
+      "visibility": "Visible to",
+      "folder": "Folder"
     },
     "visibility": {
       "board": "Committee",
@@ -2344,6 +2345,35 @@
       "save": "Save",
       "saving": "Saving …",
       "cancel": "Cancel"
+    },
+    "selectAll": "Select all",
+    "select": "Select “{title}”",
+    "noMatches": "No matches.",
+    "searchResults": "{count, plural, =0 {No match} one {One match} other {# matches}} for “{term}” across all folders",
+    "versions": {
+      "title": "Versions",
+      "description": "Every version of “{title}”, newest first.",
+      "current": "current",
+      "supersededOn": "replaced on",
+      "onlyOne": "There is only this one version of this document.",
+      "download": "Download",
+      "failed": "The versions could not be loaded.",
+      "close": "Close"
+    },
+    "bulk": {
+      "selected": "{count, plural, one {One document} other {# documents}} selected",
+      "moveTo": "Move to …",
+      "noFolder": "No folder",
+      "visibility": "Change visibility …",
+      "delete": "Delete",
+      "deleteTitle": "Delete {count, plural, one {one document} other {# documents}}?",
+      "deleteDescription": "The files themselves are removed, not just hidden. Earlier versions are kept.",
+      "deleteConfirm": "Delete permanently",
+      "cancel": "Cancel",
+      "clear": "Clear selection",
+      "done": "{count, plural, one {One document} other {# documents}} changed",
+      "partial": "{ok} changed, {failed} not — please check",
+      "failed": "The change failed."
     }
   }
 }

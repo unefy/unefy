@@ -241,9 +241,25 @@ Fassung. i18n de+en. Drei Punkte, die beim Bauen entschieden wurden:
 Baumlogik und Größenformat liegen rein in `lib/library-tree.ts` mit 18 Tests;
 Zyklen brechen dort ab, statt den Tab einzufrieren.
 
-**Phase 3 — Feinschliff.** Fassungshistorie im UI, Suche über Titel und
-Beschreibung (nicht über den Inhalt — Textextraktion aus PDF ist ein eigenes
-Thema), Mehrfachauswahl.
+**Phase 3 — Feinschliff. Fertig 2026-08-12.** Fassungshistorie als Dialog je
+Zeile (nur wo es eine gibt — die Kette wird beim Öffnen geholt, nicht mit
+jeder Zeile mitgeschickt), Suche über Titel, Beschreibung und Dateiname im
+Backend über *alle* Ordner, Mehrfachauswahl mit Verschieben, Sichtbarkeit und
+Löschen.
+
+Drei Dinge, die dabei entschieden wurden:
+
+- **Die Suche steht in der URL** (`?q=`) neben dem Ordner (`?folder=`). Der
+  Ordner bleibt stehen, während gesucht wird — sonst landet man beim Leeren
+  des Feldes in der Wurzel statt dort, wo man war.
+- **Die Tabelle filtert beim Suchen nichts selbst.** Sonst beschriebe „alle
+  auswählen" eine andere Liste als die auf dem Schirm.
+- **Die Auswahl wird gegen die aktuellen Zeilen beschnitten** (`pruneSelection`).
+  Nach jeder Änderung lädt die Seite neu; eine übrig gebliebene ID ist der Weg,
+  auf dem eine Sammellöschung ein Dokument erwischt, das niemand gemeint hat.
+
+Bewusst nicht dabei: Volltext *im* Dokument. Textextraktion aus PDF ist ein
+eigenes Thema mit eigener Abhängigkeit.
 
 **Später, bewusst nicht jetzt:** S3, öffentliche Links, Mitgliedsdokumente,
 Android-Spiegel (die Schreib-Queue kennt keine Binärdaten), Public API.

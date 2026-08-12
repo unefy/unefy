@@ -2271,7 +2271,7 @@
     "newVersion": "Neue Fassung",
     "usage": "Belegter Speicher",
     "usageOf": "{used} von {quota} belegt",
-    "searchPlaceholder": "In diesem Ordner suchen …",
+    "searchPlaceholder": "In allen Ordnern suchen …",
     "empty": "Hier liegt noch nichts.",
     "emptyEditable": "Hier liegt noch nichts. Dateien hochladen oder auf die Liste ziehen.",
     "deleteTitle": "„{title}“ löschen?",
@@ -2283,7 +2283,8 @@
       "title": "Titel",
       "size": "Größe",
       "uploadedAt": "Abgelegt am",
-      "visibility": "Sichtbar für"
+      "visibility": "Sichtbar für",
+      "folder": "Ordner"
     },
     "visibility": {
       "board": "Vorstand",
@@ -2344,6 +2345,35 @@
       "save": "Speichern",
       "saving": "Wird gespeichert …",
       "cancel": "Abbrechen"
+    },
+    "selectAll": "Alle auswählen",
+    "select": "„{title}“ auswählen",
+    "noMatches": "Keine Treffer.",
+    "searchResults": "{count, plural, =0 {Kein Treffer} one {Ein Treffer} other {# Treffer}} für „{term}“ in allen Ordnern",
+    "versions": {
+      "title": "Fassungen",
+      "description": "Alle Fassungen von „{title}“, neueste zuerst.",
+      "current": "aktuell",
+      "supersededOn": "abgelöst am",
+      "onlyOne": "Von diesem Dokument gibt es nur diese eine Fassung.",
+      "download": "Herunterladen",
+      "failed": "Die Fassungen konnten nicht geladen werden.",
+      "close": "Schließen"
+    },
+    "bulk": {
+      "selected": "{count, plural, one {Ein Dokument} other {# Dokumente}} ausgewählt",
+      "moveTo": "Verschieben nach …",
+      "noFolder": "Ohne Ordner",
+      "visibility": "Sichtbarkeit ändern …",
+      "delete": "Löschen",
+      "deleteTitle": "{count, plural, one {Ein Dokument} other {# Dokumente}} löschen?",
+      "deleteDescription": "Die Dateien werden dabei wirklich gelöscht, nicht nur ausgeblendet. Frühere Fassungen bleiben erhalten.",
+      "deleteConfirm": "Endgültig löschen",
+      "cancel": "Abbrechen",
+      "clear": "Auswahl aufheben",
+      "done": "{count, plural, one {Ein Dokument} other {# Dokumente}} geändert",
+      "partial": "{ok} geändert, {failed} nicht — bitte prüfen",
+      "failed": "Die Änderung ist fehlgeschlagen."
     }
   }
 }

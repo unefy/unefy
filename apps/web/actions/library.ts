@@ -126,3 +126,71 @@ export async function deleteDocumentAction(
     return toError(error)
   }
 }
+
+/** This version and everything it replaced, newest first. */
+export async function listVersionsAction(
+  documentId: string
+): Promise<ActionResult<LibraryDocument[]>> {
+  try {
+    const versions = await apiCall<LibraryDocument[]>(
+      `/api/v1/library/documents/${documentId}/versions`
+    )
+    return { success: true, data: versions }
+  } catch (error) {
+    return toError(error)
+  }
+}
+
+/**
+ * The same change to several documents.
+ *
+ * One round trip from the browser and one request per document from here.
+ * There is no bulk endpoint and there should not be: a club ticks a handful
+ * of rows, and a partial failure has to stay partial — each document either
+ * moved or did not, and the caller is told how many of each.
+ */
+export async function bulkUpdateDocumentsAction(
+  documentIds: string[],
+  input: Partial<z.input<typeof documentSchema>>
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  const ids = z.array(z.string().uuid()).max(200).safeParse(documentIds)
+  const parsed = documentSchema.partial().safeParse(input)
+  if (!ids.success || !parsed.success) {
+    return { success: false, error: "validation" }
+  }
+
+  let ok = 0
+  for (const id of ids.data) {
+    try {
+      await apiCall(`/api/v1/library/documents/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(parsed.data),
+      })
+      ok += 1
+    } catch {
+      // Kept going on purpose: one document the caller may no longer touch
+      // must not stop the other nine from moving.
+    }
+  }
+  revalidatePath(LIBRARY_PATH)
+  return { success: true, data: { ok, failed: ids.data.length - ok } }
+}
+
+export async function bulkDeleteDocumentsAction(
+  documentIds: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  const ids = z.array(z.string().uuid()).max(200).safeParse(documentIds)
+  if (!ids.success) return { success: false, error: "validation" }
+
+  let ok = 0
+  for (const id of ids.data) {
+    try {
+      await apiCall(`/api/v1/library/documents/${id}`, { method: "DELETE" })
+      ok += 1
+    } catch {
+      // Same reasoning as above.
+    }
+  }
+  revalidatePath(LIBRARY_PATH)
+  return { success: true, data: { ok, failed: ids.data.length - ok } }
+}
