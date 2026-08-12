@@ -88,6 +88,7 @@ import com.unefy.feature.events.EventsRoute
 import com.unefy.feature.members.DirectoryRoute
 import com.unefy.feature.members.MemberDetailRoute
 import com.unefy.feature.members.MemberFormRoute
+import com.unefy.feature.members.MyConsentsRoute
 import com.unefy.feature.members.MyProfileRoute
 import com.unefy.feature.members.MembersRoute
 import com.unefy.feature.scoring.RecordShotsRoute
@@ -520,7 +521,13 @@ internal fun unefyEntryProvider(
         )
     }
     entry<DuesKey> { DuesRoute(actions = accountActions) }
-    entry<ProfileKey> { MyProfileRoute(actions = accountActions) }
+    entry<ProfileKey> {
+        MyProfileRoute(
+            actions = accountActions,
+            onOpenConsents = { onOpen(ConsentsKey) },
+        )
+    }
+    entry<ConsentsKey> { MyConsentsRoute(onBack = onBack) }
     entry<DirectoryKey> { DirectoryRoute(actions = accountActions) }
     entry<MyDuesKey> { MyDuesRoute(actions = accountActions) }
     entry<AttendanceCodeKey> {

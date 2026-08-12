@@ -91,4 +91,30 @@
     <string name="revoke_codes_done">Revoked. Old codes are no longer accepted.</string>
     <string name="revoke_codes_failed">Revoking failed — the old codes still work. Try again with a connection.</string>
 
+    <!-- Consents (GDPR) -->
+    <string name="consents_title">Consents</string>
+    <string name="consents_back">Back</string>
+    <string name="consents_intro">Voluntary and revocable at any time. A withdrawal takes effect immediately and is recorded with its timestamp.</string>
+    <string name="consents_history">History</string>
+    <string name="consents_no_history">Nothing has been recorded yet.</string>
+    <string name="consents_ledger_note">The history is only appended to, never changed or deleted — otherwise it would be worthless as a record.</string>
+    <string name="consents_never_asked">Not asked yet</string>
+    <string name="consents_yes">Yes</string>
+    <string name="consents_no">No</string>
+    <string name="consents_yes_since">Yes, since %1$s</string>
+    <string name="consents_no_since">No, since %1$s</string>
+    <string name="consents_saving">Saving …</string>
+    <string name="consents_granted">Consent given.</string>
+    <string name="consents_withdrawn">Consent withdrawn.</string>
+    <string name="consents_failed">Not saved — the server could not be reached.</string>
+    <string name="consent_photos">Photos</string>
+    <string name="consent_photos_body">Photos may be published on the club website and in club media.</string>
+    <string name="consent_newsletter">Newsletter</string>
+    <string name="consent_newsletter_body">The club may send its newsletter.</string>
+    <string name="consent_directory">Directory</string>
+    <string name="consent_directory_body">The name may appear in the internal member directory. Without consent the member is not listed there.</string>
+    <string name="consent_source_application">Join form</string>
+    <string name="consent_source_self">Declared by the member</string>
+    <string name="consent_source_board">Recorded by the club</string>
+    <string name="profile_consents">Consents</string>
 </resources>

@@ -31,4 +31,11 @@ class MemberDtoDriftTest {
             "MemberFunctionResponse",
         )
     }
+
+    @Test
+    fun `ConsentDtos mirror the consent schemas`() {
+        MobileContract.assertMirrors(ConsentStateDto.serializer().descriptor, "ConsentState")
+        MobileContract.assertMirrors(ConsentEntryDto.serializer().descriptor, "ConsentEntry")
+        MobileContract.assertMirrors(ConsentOverviewDto.serializer().descriptor, "ConsentOverview")
+    }
 }

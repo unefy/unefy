@@ -190,6 +190,9 @@ private class NotUsedRepository : MembersRepository {
 
     override suspend fun functions(id: String): ApiResult<List<OfficeTerm>> = error("not used")
     override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> = error("not used")
+    override suspend fun myConsents(): ApiResult<ConsentOverview> = error("not used")
+    override suspend fun recordConsent(kind: String, granted: Boolean): ApiResult<ConsentEntry> =
+        error("not used")
 
     override suspend fun me(): ApiResult<Member> = error("not used")
     override suspend fun directory(

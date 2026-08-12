@@ -162,6 +162,70 @@ internal fun OfficeTermDto.toDomain() = OfficeTerm(
 )
 
 /**
+ * What a member has allowed the club to do, and how that came about.
+ *
+ * Three states, not two: granted, refused, and never asked — [granted] is null
+ * for the third, which is not the same as a refusal and must not collapse into
+ * one. Same distinction the backend's ledger makes.
+ */
+data class ConsentState(
+    val kind: String,
+    val granted: Boolean?,
+    val since: String?,
+    val source: String?,
+)
+
+/** One entry of the ledger. Appended only, never changed or removed. */
+data class ConsentEntry(
+    val id: String,
+    val kind: String,
+    val granted: Boolean,
+    val recordedAt: String,
+    val source: String,
+    val note: String?,
+)
+
+data class ConsentOverview(
+    val current: List<ConsentState>,
+    val history: List<ConsentEntry>,
+)
+
+@Serializable
+internal data class ConsentStateDto(
+    val kind: String,
+    val granted: Boolean? = null,
+    val since: String? = null,
+    val source: String? = null,
+)
+
+@Serializable
+internal data class ConsentEntryDto(
+    val id: String,
+    val kind: String,
+    val granted: Boolean,
+    @SerialName("recorded_at") val recordedAt: String,
+    val source: String,
+    val note: String? = null,
+)
+
+@Serializable
+internal data class ConsentOverviewDto(
+    val current: List<ConsentStateDto> = emptyList(),
+    val history: List<ConsentEntryDto> = emptyList(),
+)
+
+/** Giving and withdrawing are the same call, with `granted` the other way round. */
+@Serializable
+internal data class ConsentRecordPayload(val kind: String, val granted: Boolean)
+
+internal fun ConsentOverviewDto.toDomain() = ConsentOverview(
+    current = current.map { ConsentState(it.kind, it.granted, it.since, it.source) },
+    history = history.map {
+        ConsentEntry(it.id, it.kind, it.granted, it.recordedAt, it.source, it.note)
+    },
+)
+
+/**
  * A mirror row as the domain model.
  *
  * `iban = null` is not a gap in the mapping, it is the mirror's design: the local
@@ -258,6 +322,18 @@ interface MembersRepository {
 
     /** Self-service: the caller's own record, whatever their role. */
     suspend fun me(): ApiResult<Member>
+
+    /** What the caller has allowed, and the trail of how it got that way. */
+    suspend fun myConsents(): ApiResult<ConsentOverview>
+
+    /**
+     * Give or withdraw one consent. Never queued.
+     *
+     * A withdrawal that sits in a queue on the member's own phone has not been
+     * withdrawn — the club goes on sending the newsletter and nobody is looking.
+     * So this either reaches the server or says that it did not.
+     */
+    suspend fun recordConsent(kind: String, granted: Boolean): ApiResult<ConsentEntry>
 
     /** Member-facing: names and category of active members, nothing else. */
     suspend fun directory(
@@ -393,6 +469,20 @@ class DefaultMembersRepository @Inject constructor(
     override suspend fun me(): ApiResult<Member> = apiClient
         .get<MemberDto>(ApiEndpoints.MEMBERS_ME)
         .map(MemberDto::toDomain)
+
+    override suspend fun myConsents(): ApiResult<ConsentOverview> = apiClient
+        .get<ConsentOverviewDto>(ApiEndpoints.MEMBERS_ME_CONSENTS)
+        .map(ConsentOverviewDto::toDomain)
+
+    override suspend fun recordConsent(
+        kind: String,
+        granted: Boolean,
+    ): ApiResult<ConsentEntry> = apiClient
+        .post<ConsentEntryDto>(
+            ApiEndpoints.MEMBERS_ME_CONSENTS,
+            body = ConsentRecordPayload(kind, granted),
+        )
+        .map { ConsentEntry(it.id, it.kind, it.granted, it.recordedAt, it.source, it.note) }
 
     override suspend fun directory(
         page: Int,

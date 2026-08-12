@@ -91,4 +91,30 @@
     <string name="revoke_codes_done">Widerrufen. Alte Codes werden nicht mehr angenommen.</string>
     <string name="revoke_codes_failed">Widerruf fehlgeschlagen — die alten Codes gelten weiter. Mit Verbindung erneut versuchen.</string>
 
+    <!-- Einwilligungen (DSGVO) -->
+    <string name="consents_title">Einwilligungen</string>
+    <string name="consents_back">Zurück</string>
+    <string name="consents_intro">Freiwillig und jederzeit widerrufbar. Ein Widerruf gilt ab sofort und wird mit Zeitpunkt festgehalten.</string>
+    <string name="consents_history">Verlauf</string>
+    <string name="consents_no_history">Es wurde noch nichts festgehalten.</string>
+    <string name="consents_ledger_note">Der Verlauf wird nur ergänzt, nie geändert oder gelöscht — sonst wäre er als Nachweis wertlos.</string>
+    <string name="consents_never_asked">Noch nicht gefragt</string>
+    <string name="consents_yes">Ja</string>
+    <string name="consents_no">Nein</string>
+    <string name="consents_yes_since">Ja, seit %1$s</string>
+    <string name="consents_no_since">Nein, seit %1$s</string>
+    <string name="consents_saving">Wird gespeichert …</string>
+    <string name="consents_granted">Einwilligung erteilt.</string>
+    <string name="consents_withdrawn">Einwilligung widerrufen.</string>
+    <string name="consents_failed">Nicht gespeichert — der Server war nicht erreichbar.</string>
+    <string name="consent_photos">Fotos</string>
+    <string name="consent_photos_body">Fotos dürfen auf der Vereinsseite und in Vereinsmedien veröffentlicht werden.</string>
+    <string name="consent_newsletter">Rundmail</string>
+    <string name="consent_newsletter_body">Rundmails des Vereins dürfen zugeschickt werden.</string>
+    <string name="consent_directory">Verzeichnis</string>
+    <string name="consent_directory_body">Der Name darf im internen Mitgliederverzeichnis stehen. Ohne Einwilligung erscheint das Mitglied dort nicht.</string>
+    <string name="consent_source_application">Beitrittsformular</string>
+    <string name="consent_source_self">Selbst erklärt</string>
+    <string name="consent_source_board">Vom Verein erfasst</string>
+    <string name="profile_consents">Einwilligungen</string>
 </resources>

@@ -31,6 +31,14 @@ object ApiEndpoints {
     /** The caller's own terms of office. Empty for an account with no member record. */
     const val MEMBERS_ME_FUNCTIONS = "$MEMBERS_ME/functions"
 
+    /**
+     * The caller's own consents, current state and full trail.
+     *
+     * The POST goes to the same path: giving and withdrawing are one call, and a
+     * withdrawal that were harder to perform than the consent would not be one.
+     */
+    const val MEMBERS_ME_CONSENTS = "$MEMBERS_ME/consents"
+
     const val DUES = "/api/v1/dues"
     const val DUES_ME = "$DUES/me"
     const val DUES_SUMMARY = "$DUES/summary"

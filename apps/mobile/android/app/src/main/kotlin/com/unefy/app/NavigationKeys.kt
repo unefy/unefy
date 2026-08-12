@@ -107,5 +107,9 @@ data class RecordShotsKey(
 @Serializable
 data class SeriesDetailKey(val seriesId: String) : UnefyNavKey
 
+/** The member's own consents, and the ledger behind them. */
+@Serializable
+data object ConsentsKey : UnefyNavKey
+
 @Serializable
 data object MoreKey : UnefyNavKey

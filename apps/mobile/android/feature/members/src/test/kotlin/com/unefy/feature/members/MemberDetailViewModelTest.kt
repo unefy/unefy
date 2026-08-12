@@ -265,6 +265,12 @@ private class FakeDetailRepository(
     override suspend fun me(): ApiResult<Member> =
         ApiResult.Failure(ApiError.NotFound(null))
 
+    override suspend fun myConsents(): ApiResult<ConsentOverview> =
+        ApiResult.Failure(ApiError.NotFound(null))
+
+    override suspend fun recordConsent(kind: String, granted: Boolean): ApiResult<ConsentEntry> =
+        ApiResult.Failure(ApiError.NotFound(null))
+
     override suspend fun directory(
         page: Int,
         perPage: Int,

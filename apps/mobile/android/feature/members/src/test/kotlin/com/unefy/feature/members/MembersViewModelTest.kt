@@ -311,6 +311,11 @@ private class FakeMembersRepository(
     override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> =
         ApiResult.Success(emptyList())
 
+    override suspend fun myConsents(): ApiResult<ConsentOverview> = error("not used")
+
+    override suspend fun recordConsent(kind: String, granted: Boolean): ApiResult<ConsentEntry> =
+        error("not used")
+
     override suspend fun me(): ApiResult<Member> =
         rows.value.firstOrNull()?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure(ApiError.NotFound(null))

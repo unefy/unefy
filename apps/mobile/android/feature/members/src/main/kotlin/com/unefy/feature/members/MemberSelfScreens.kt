@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,10 +107,16 @@ class MyProfileViewModel @Inject constructor(
 @Composable
 fun MyProfileRoute(
     actions: @Composable RowScope.() -> Unit = {},
+    onOpenConsents: () -> Unit = {},
     viewModel: MyProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    MyProfileScreen(state = state, actions = actions, onRetry = viewModel::load)
+    MyProfileScreen(
+        state = state,
+        actions = actions,
+        onRetry = viewModel::load,
+        onOpenConsents = onOpenConsents,
+    )
 }
 
 @Composable
@@ -117,6 +124,7 @@ fun MyProfileScreen(
     state: MemberDetailUiState,
     actions: @Composable RowScope.() -> Unit = {},
     onRetry: () -> Unit = {},
+    onOpenConsents: () -> Unit = {},
 ) {
     UnefyListScaffold(
         title = stringResource(R.string.profile_title),
@@ -145,8 +153,20 @@ fun MyProfileScreen(
                 }
             }
 
-            is MemberDetailUiState.Content -> item {
-                MemberDetailContent(state.member, functions = state.functions)
+            is MemberDetailUiState.Content -> {
+                item { MemberDetailContent(state.member, functions = state.functions) }
+                // Under the record, not in the header: consents are about this
+                // member, and the screen they open is a rare and deliberate
+                // visit rather than something to reach for every evening.
+                item("consents") {
+                    TextButton(
+                        onClick = onOpenConsents,
+                        modifier = Modifier.padding(
+                            horizontal = UnefySpacing.sm,
+                            vertical = UnefySpacing.md,
+                        ),
+                    ) { Text(stringResource(R.string.profile_consents)) }
+                }
             }
         }
     }
