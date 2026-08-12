@@ -30,4 +30,6 @@ dependencies {
     implementation(libs.haze.materials)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
 }

@@ -35,10 +35,28 @@ object UnefyFormat {
         }.getOrElse { _ -> it }
     }.orEmpty()
 
-    fun date(iso: String?): String = iso?.let {
+    fun date(iso: String?): String = date(iso, ZoneId.systemDefault())
+
+    /**
+     * A day, from either a plain date or an instant.
+     *
+     * The two are not the same string and must not be handled the same way. A
+     * plain `2026-03-01` carries no zone and is simply that day. An instant
+     * does, and cutting it to its first ten characters prints the day it was in
+     * UTC: a consent recorded at 01:20 in Berlin was recorded on the 12th, and
+     * the trail below it said so while this line said the 11th. Only visible in
+     * the two hours after midnight, which is exactly why it is worth a branch.
+     *
+     * [zone] is a parameter so a test can assert a day without depending on the
+     * machine it runs on.
+     */
+    internal fun date(iso: String?, zone: ZoneId): String = iso?.let {
         runCatching {
+            Instant.parse(it).atZone(zone).toLocalDate()
+        }.recoverCatching { _ ->
             LocalDate.parse(it.take(DATE_LENGTH))
-                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        }.map { day ->
+            day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
         }.getOrElse { _ -> it }
     }.orEmpty()
 
