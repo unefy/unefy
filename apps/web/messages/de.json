@@ -88,7 +88,8 @@
     "applications": "Aufnahmeanträge",
     "settingsDocuments": "Bescheinigungen",
     "donations": "Zuwendungen",
-    "library": "Ablage"
+    "library": "Ablage",
+    "reports": "Auswertungen"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -2374,6 +2375,70 @@
       "done": "{count, plural, one {Ein Dokument} other {# Dokumente}} geändert",
       "partial": "{ok} geändert, {failed} nicht — bitte prüfen",
       "failed": "Die Änderung ist fehlgeschlagen."
+    }
+  },
+  "reports": {
+    "title": "Auswertungen",
+    "description": "Zahlen für den Rechenschaftsbericht {year}. Berichtszeitraum ist das Kalenderjahr.",
+    "year": "Jahr",
+    "download": "Als Tabelle laden",
+    "noValue": "ohne Angabe",
+    "membership": {
+      "title": "Mitgliederentwicklung",
+      "opening": "Bestand am Jahresanfang",
+      "joined": "Eintritte",
+      "left": "Austritte",
+      "closing": "Bestand am Jahresende",
+      "net": "{net} im Jahr",
+      "balanceNote": "Bestand am Jahresanfang plus Eintritte minus Austritte ergibt den Bestand am Jahresende. Der Anfangsbestand ist der Endbestand des Vorjahres — wer zum 31.12. austritt, zählt im Vorjahr noch mit.",
+      "byCategory": "Nach Kategorie",
+      "byGender": "Nach Geschlecht",
+      "byAge": "Nach Alter am 31.12.",
+      "withoutBirthday": "ohne Geburtsdatum",
+      "withoutLeavingDate": "{count, plural, one {# Mitglied ist als ausgetreten geführt, hat aber kein Austrittsdatum} other {# Mitglieder sind als ausgetreten geführt, haben aber kein Austrittsdatum}} — sie zählen oben noch zum Bestand."
+    },
+    "ageBands": {
+      "under_18": "unter 18",
+      "18_to_26": "18 bis 26",
+      "27_to_40": "27 bis 40",
+      "41_to_60": "41 bis 60",
+      "over_60": "über 60"
+    },
+    "dues": {
+      "title": "Beiträge",
+      "feeName": "Beitragsart",
+      "count": "Anzahl",
+      "charged": "Soll",
+      "paid": "Ist",
+      "open": "Offen",
+      "total": "Summe",
+      "empty": "Für dieses Jahr wurden keine Beiträge erhoben.",
+      "cancelled": "Zusätzlich {count, plural, one {# stornierte Sollstellung} other {# stornierte Sollstellungen}} über {amount}. Storniertes ist nicht Soll — es wurde nie geschuldet."
+    },
+    "attendance": {
+      "title": "Anwesenheit",
+      "sessions": "Einheiten",
+      "records": "Besuche",
+      "members": "Mitglieder",
+      "average": "Schnitt je Einheit",
+      "guests": "{count, plural, one {davon # Gast} other {davon # Gäste}}",
+      "selfKept": "{count, plural, one {# Selbsteintrag} other {# Selbsteinträge}}",
+      "month": "Monat",
+      "visits": "Besuche"
+    },
+    "months": {
+      "1": "Januar",
+      "2": "Februar",
+      "3": "März",
+      "4": "April",
+      "5": "Mai",
+      "6": "Juni",
+      "7": "Juli",
+      "8": "August",
+      "9": "September",
+      "10": "Oktober",
+      "11": "November",
+      "12": "Dezember"
     }
   }
 }

@@ -88,7 +88,8 @@
     "applications": "Applications",
     "settingsDocuments": "Certificates",
     "donations": "Donations",
-    "library": "Library"
+    "library": "Library",
+    "reports": "Reports"
   },
   "dashboard": {
     "title": "Overview",
@@ -2374,6 +2375,70 @@
       "done": "{count, plural, one {One document} other {# documents}} changed",
       "partial": "{ok} changed, {failed} not — please check",
       "failed": "The change failed."
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "description": "Figures for the {year} annual report. The reporting period is the calendar year.",
+    "year": "Year",
+    "download": "Download as spreadsheet",
+    "noValue": "not stated",
+    "membership": {
+      "title": "Membership",
+      "opening": "At the start of the year",
+      "joined": "Joined",
+      "left": "Left",
+      "closing": "At the end of the year",
+      "net": "{net} over the year",
+      "balanceNote": "Opening plus joined minus left gives the closing figure. The opening figure is last year's closing one — somebody leaving on 31 December still counts in the year before.",
+      "byCategory": "By category",
+      "byGender": "By gender",
+      "byAge": "By age on 31 December",
+      "withoutBirthday": "no date of birth",
+      "withoutLeavingDate": "{count, plural, one {# member is recorded as resigned but has no leaving date} other {# members are recorded as resigned but have no leaving date}} — they still count towards the figures above."
+    },
+    "ageBands": {
+      "under_18": "under 18",
+      "18_to_26": "18 to 26",
+      "27_to_40": "27 to 40",
+      "41_to_60": "41 to 60",
+      "over_60": "over 60"
+    },
+    "dues": {
+      "title": "Dues",
+      "feeName": "Fee type",
+      "count": "Count",
+      "charged": "Charged",
+      "paid": "Paid",
+      "open": "Open",
+      "total": "Total",
+      "empty": "No dues were charged for this year.",
+      "cancelled": "Plus {count, plural, one {# cancelled charge} other {# cancelled charges}} of {amount}. Cancelled is not charged — it was never owed."
+    },
+    "attendance": {
+      "title": "Attendance",
+      "sessions": "Sessions",
+      "records": "Visits",
+      "members": "Members",
+      "average": "Average per session",
+      "guests": "{count, plural, one {including # guest} other {including # guests}}",
+      "selfKept": "{count, plural, one {# self-kept entry} other {# self-kept entries}}",
+      "month": "Month",
+      "visits": "Visits"
+    },
+    "months": {
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
     }
   }
 }

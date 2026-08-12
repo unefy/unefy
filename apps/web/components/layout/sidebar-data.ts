@@ -1,5 +1,6 @@
 import {
   AwardIcon,
+  ChartNoAxesColumnIcon,
   CalendarIcon,
   CircleUserIcon,
   ClipboardCheckIcon,
@@ -131,6 +132,14 @@ export const sidebarData: SidebarData = {
             { titleKey: "feeTypes", url: "/dues/fee-types" },
             { titleKey: "donations", url: "/donations" },
           ],
+        },
+        {
+          titleKey: "reports",
+          url: "/reports",
+          icon: ChartNoAxesColumnIcon,
+          // The club's own figures, member by member and euro by euro. Board
+          // work: the backend refuses the endpoint for anyone else.
+          roles: ["owner", "admin", "board"],
         },
       ],
     },
