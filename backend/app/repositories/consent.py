@@ -5,6 +5,27 @@ from sqlalchemy import Select, select
 from app.models.consent import MemberConsent
 
 
+def newest_answers(tenant_id: uuid.UUID, kind: str) -> Select[tuple[uuid.UUID, bool]]:
+    """Every member who ever answered this question, with their latest answer.
+
+    The same `DISTINCT ON` as `members_who_refused`, but keeping the answer
+    rather than filtering on it — a caller that has to tell "said no" from
+    "was never asked" needs both sides, and the absence of a row here is the
+    second of those.
+    """
+    return (
+        select(MemberConsent.member_id, MemberConsent.granted)
+        .where(MemberConsent.tenant_id == tenant_id)
+        .where(MemberConsent.kind == kind)
+        .order_by(
+            MemberConsent.member_id,
+            MemberConsent.recorded_at.desc(),
+            MemberConsent.id.desc(),
+        )
+        .distinct(MemberConsent.member_id)
+    )
+
+
 def members_who_refused(tenant_id: uuid.UUID, kind: str) -> Select[tuple[uuid.UUID]]:
     """Ids of members whose *newest* answer for this kind is no.
 

@@ -90,15 +90,31 @@ Adresse ist eine Entscheidung (keine Einwilligung, keine Adresse hinterlegt),
 kein Fehler. Wer beides zusammenwirft, kann dem Vorstand nicht erklären, warum
 40 von 300 nichts bekommen haben.
 
+**Drei Gründe fürs Überspringen, nicht zwei**, weil 6.2 drei Zustände kennt:
+`no_email` (keine Adresse hinterlegt), `refused` (widersprochen) und
+`not_asked` (nie gefragt). Der Unterschied zwischen den letzten beiden ist die
+einzige Zahl auf diesem Bildschirm, aus der ein Vorstand etwas machen kann:
+„28 wurden nie gefragt" heißt *fragt sie*, „12 haben widersprochen" heißt
+*lasst sie in Ruhe*. Zusammengezählt wäre beides nur „40 nicht erreicht".
+
 ### Die Auswahl (`audience`)
 
 ```json
 {"type": "all"}
-{"type": "division", "id": "…"}
 {"type": "function", "id": "…"}
-{"type": "event", "id": "…", "state": "registered"}
+{"type": "event", "id": "…", "include_waitlist": false}
 {"type": "debtors", "year": 2026}
 ```
+
+**„An eine Sparte" fehlt, und zwar aus einem Grund, der nicht in diesem Modul
+liegt: es gibt keine Spartenmitgliedschaft.** Sparten existieren
+(`divisions`), Anwesenheitseinheiten und Ämter zeigen darauf, der
+Aufnahmeantrag fragt sogar danach — aber `applications.division_id` wandert bei
+der Aufnahme nirgendwohin, und am Mitglied steht keine Sparte. Diese Auswahl
+hier zu erfinden hieße, die Mitgliedschaft in einer Sparte nebenbei im
+Mailmodul zu definieren. Sie kommt als eigene Änderung (Mitglied ↔ Sparte,
+inklusive Übernahme aus dem Antrag) und ist danach *eine weitere Zeile* in
+dieser Aufzählung — die Form der Auswahl ist genau dafür gebaut.
 
 Gespeichert wird die Auswahl, verschickt wird die aufgelöste Liste. Die
 Auflösung ist eine reine Funktion über die vorhandenen Repositories und lässt
