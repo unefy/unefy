@@ -42,6 +42,7 @@ from app.schemas.library import (
     LibraryFolderUpdate,
 )
 from app.services.audit import diff, jsonable, record_tenant_action
+from app.services.storage_usage import stored_bytes
 
 #: Roles that may write, and that see everything.
 BOARD_ROLES = ("owner", "admin", "board")
@@ -345,7 +346,14 @@ class LibraryService:
         return self.storage.open(document.storage_key)
 
     async def usage(self, settings: Settings) -> tuple[int, int]:
-        return await self.documents.total_bytes(), settings.TENANT_STORAGE_QUOTA_BYTES
+        """The club's whole footprint, not the library's.
+
+        The quota is a share of a disk, and the invoice register writes into
+        the same store — a library reporting 3% used while the volume is full
+        would be telling the truth about itself and lying about the club.
+        """
+        used = await stored_bytes(self.session, self.tenant_id)
+        return used, settings.TENANT_STORAGE_QUOTA_BYTES
 
     # --- Helpers ---
 

@@ -16,6 +16,7 @@ from app.api.v1.donations import router as donations_router
 from app.api.v1.dues import router as dues_router
 from app.api.v1.events import router as events_router
 from app.api.v1.functions import router as functions_router
+from app.api.v1.incoming_invoices import router as incoming_invoices_router
 from app.api.v1.library import router as library_router
 from app.api.v1.members import router as members_router
 from app.api.v1.push import router as push_router
@@ -49,6 +50,9 @@ router.include_router(dues_router, prefix="/dues", tags=["dues"])
 router.include_router(shot_entries_router, prefix="/entries", tags=["entries"])
 router.include_router(events_router, prefix="/events", tags=["events"])
 router.include_router(functions_router, prefix="/functions", tags=["functions"])
+router.include_router(
+    incoming_invoices_router, prefix="/incoming-invoices", tags=["incoming-invoices"]
+)
 router.include_router(library_router, prefix="/library", tags=["library"])
 router.include_router(members_router, prefix="/members", tags=["members"])
 router.include_router(push_router, prefix="/push", tags=["push"])

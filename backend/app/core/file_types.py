@@ -48,6 +48,7 @@ ALLOWED_TYPES: dict[str, tuple[str, ...]] = {
     "text/plain": (".txt",),
     "text/csv": (".csv",),
     "text/calendar": (".ics",),
+    "application/xml": (".xml",),
 }
 
 #: Types whose first bytes name them outright.
@@ -77,6 +78,13 @@ _TEXT_BY_EXTENSION = {
     ".txt": "text/plain",
     ".csv": "text/csv",
     ".ics": "text/calendar",
+    # An XRechnung arrives as a bare `.xml`, so the register has to take one.
+    # **Never served inline.** XML may carry an `<?xml-stylesheet?>` that turns
+    # it into HTML in the browser, which from our own origin is the same
+    # problem SVG has above — the difference is only that this one is easy to
+    # contain: delivery is `attachment` with `nosniff` for everything outside
+    # the inline list, and XML is not on it.
+    ".xml": "application/xml",
 }
 
 
