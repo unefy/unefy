@@ -516,6 +516,51 @@ Offen und bewusst später: S3, öffentliche Links ohne Anmeldung, Dateien *über
 ein Mitglied* (andere Rechtslage), Android-Spiegel (die Schreib-Queue kennt
 keine Binärdaten), Public API.
 
+### 6.9 Eingangsrechnungen ✓ (2026-08-12)
+
+Nicht aus der ursprünglichen Phasenplanung — vom Nutzer angefordert. Die
+Finanzseite kannte bisher nur Geld, das hereinkommt (Beiträge, Spenden); das
+hier ist die andere Hälfte, die auf dem Schreibtisch liegt.
+
+**Entschieden vor dem Bauen (zwei Fragen, beide vom Nutzer beantwortet):**
+
+- **Rechnungseingangsbuch, keine Kasse.** Hochladen, auslesen, erfassen, als
+  bezahlt melden, Liste und Summe. Keine Konten, keine Buchungssätze,
+  keine Zahlungen nach außen. Das Datenmodell ist eine Teilmenge dessen, was
+  eine Kasse später bräuchte.
+- **Auslesen nur aus der E-Rechnung, der Rest von Hand.** ZUGFeRD/Factur-X
+  (XML im PDF) und XRechnung (blankes XML, UBL oder CII) werden exakt gelesen;
+  ein Scan wird gespeichert und getippt. Kein OCR, keine KI — beides hätte
+  entweder einen weiteren Container oder die Rechnungen des Vereins bei einem
+  Dritten bedeutet, und das ist keine Nebenbei-Entscheidung.
+
+**Zwei Dinge, die den Bau geprägt haben:**
+
+- **Die Datei zuerst, die Zahlen danach.** Alle Felder sind nullable und die
+  Zeile gilt als unvollständig, bis jemand sie füllt. Ein Upload, der an einer
+  Formularprüfung scheitert, verliert das Dokument, das der Vorstand gerade in
+  der Hand hatte — und die Rechnung existiert so oder so.
+- **Die Dublettenprüfung ist der eigentliche Zweck.** Lieferant plus
+  Rechnungsnummer zweimal wird abgewiesen, in der Anfrage und über einen
+  partiellen Unique-Index. Partiell, weil er erst greifen darf, wenn beide
+  Teile bekannt sind: zwei ungetippte Scans haben keines von beidem, und sonst
+  wäre jeder Scan nach dem ersten abgelehnt.
+
+Wer eine Zahl übertippt, setzt die Herkunft auf „von Hand" zurück. Eine Zahl,
+die der Absender maschinenlesbar erklärt hat, und eine, die jemand vom Scan
+abgelesen hat, sind nicht dasselbe wert, und die Liste muss sagen welche.
+
+Speicher und Kontingent sind die der Dateiablage aus 6.6 — ein Verein, eine
+Platte. Die Anzeige zählt jetzt beides, sonst meldet die Ablage 3 % belegt auf
+einem vollen Volume. XML ist neu in der Positivliste (für die XRechnung) und
+wird **nie** inline ausgeliefert: es kann ein Stylesheet mitbringen, das es im
+Browser zu HTML macht, und das wäre aus der eigenen Herkunft ein Skript mit der
+Sitzung des Lesenden.
+
+**Offen:** Rechnungen, die per Mail ankommen (heute lädt jemand sie hoch);
+Zahlungsvorschlag/SEPA-Überweisung; die Ausgabenseite in den Auswertungen aus
+6.5 — die Zahlen liegen vor, die Tabelle fehlt.
+
 ### 6.7 Mannschaften
 
 Wettkämpfe kennen heute nur Einzelpersonen. Ein Rundenwettkampf wird als
