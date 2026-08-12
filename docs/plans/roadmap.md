@@ -232,6 +232,12 @@ wird, und der einzige, in dem es unaufwendig ist.
   Verbände, Ämter, Beiträge, Sollstellungen, Anwesenheit, Anmeldungen.
   Selbstbedienung ohne Umweg über den Vorstand, und für Anfragen auf Papier
   zusätzlich am Mitglied.
+- **In der App (2026-08-12):** Erteilen und Widerrufen im eigenen Bereich, mit
+  dem Verlauf darunter. Bewusst nichts davon optimistisch und nichts in der
+  Schreib-Queue: ein Widerruf, der auf dem Telefon des Mitglieds liegen bleibt
+  und trotzdem als erledigt aussieht, ist der eine Ausgang, den dieser Bildschirm
+  nicht haben darf — der Verein schickt die Rundmail weiter, das Mitglied hält
+  sie für abbestellt, und beide sehen dieselbe App an.
 
 **Offen:**
 
@@ -247,7 +253,7 @@ Nicht baubar, und das gehört im Produkt auch so benannt: Datenschutzerklärung,
 Verarbeitungsverzeichnis und Auftragsverarbeitungsverträge sind Vereinstext.
 Ein Gerüst mit Platzhaltern können wir liefern, Rechtsberatung nicht.
 
-### 6.3 Mitgliedsbescheinigungen ✓ (2026-08-11)
+### 6.3 Mitgliedsbescheinigungen ✓ (2026-08-11, App 2026-08-12)
 
 Zwei Sorten Dokument, und der Unterschied entschied die Bauform:
 
@@ -431,6 +437,23 @@ Zwei Fehler kamen dabei ans Licht, beide mit Regressionstest:
 - Vereinfachter Zuwendungsnachweis bis 300 € (Bareinzahlungsbeleg /
   Buchungsbestätigung) — braucht kein Dokument von uns, aber ein Hinweis im
   Produkt wäre freundlich.
+
+**In der App (2026-08-12):** ein Bildschirm für beide Rollen — das Mitglied
+sieht seine Bescheinigungen, der Vorstand die des Vereins und stellt neue aus
+(Mitglied aus dem Spiegel, Vorlage vom Server). Das PDF wird **in der App**
+gerendert statt an einen PDF-Betrachter übergeben: auf einem nackten Android ist
+oft keiner installiert, und eine Bescheinigung, die auf dem einen Telefon
+aufgeht und auf dem anderen „keine App kann das" sagt, ist nichts, worauf sich
+ein Verein verlassen kann. Teilen bleibt für die Fälle, in denen jemand sie in
+seiner Mail haben will.
+
+Dafür im Backend ergänzt: `GET /documents/me` und `GET /documents/me/{id}/pdf`.
+Eine eigene Route statt einer aufgeweichten Rollenprüfung — die id im Pfad ist
+hier keine Berechtigung, die Sitzung ist es, und das Dokument eines anderen
+antwortet 404 statt 403, weil 403 bestätigen würde, dass es existiert.
+
+Widerrufen und der Vorlagen-Editor bleiben bewusst Web: das eine ist selten und
+begründungspflichtig, das andere ist Schreiben.
 
 ### 6.4 Kommunikation
 

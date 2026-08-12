@@ -1,6 +1,7 @@
 # Plan: Android-App
 
-Stand 2026-08-02. Zweck dieses Dokuments: die App ist weit gekommen, aber die
+Stand 2026-08-12 (Bestandsaufnahme vom 2026-08-02, seither fortgeschrieben).
+Zweck dieses Dokuments: die App ist weit gekommen, aber die
 Orientierung steckte bisher im Gesprächsverlauf. Hier steht, was existiert, was
 nachweislich fehlt und in welcher Reihenfolge es weitergeht.
 
@@ -19,6 +20,7 @@ compileSdk 37, targetSdk 36, minSdk 31. Läuft auf dem Testgerät.
 | `feature:events` | Liste, Detail (Beschreibung, Zeitraum, Typ/Status-Pills, Teilnehmerliste inkl. Warteliste, An-/Abmelden), Selbst-An-/Abmeldung auch in der Liste |
 | `feature:dues` | Übersicht, Liste, eigene Beiträge |
 | `feature:competitions` | Liste, Detail (offline aus dem Spiegel: Beschreibung, Wertung, Disziplinen), Scoreboard mit Disziplin-Filter und Ø-Schnitt |
+| `feature:documents` | Ausgestellte Bescheinigungen: eigene bzw. alle je Rolle, Ausstellen (BOARD+), PDF-Anzeige per `PdfRenderer` und Teilen |
 | App-Shell | Nav3, Glass-Leiste, pro Rolle konfigurierbare Navigation per Drag & Drop |
 
 Backend-seitig ergänzt: Mitglieder-Selfservice (`/members/me`, `/members/directory`,
@@ -182,14 +184,30 @@ Regeln.
   auf die Konten des Geräts zu) stehen. Passkeys und biometrisches Entsperren
   fehlen. Der Google-Knopf erscheint nur, wenn der Build eine Client-ID
   mitbringt — siehe `unefy.googleServerClientId` in `app/build.gradle.kts`.
-- **Anwesenheit.** Das Backend hat Sessions und Check-in (Commit `8897d40`), die
-  App nichts davon. Naheliegendster nächster Feature-Block, weil das Backend
-  fertig ist.
+- ~~**Anwesenheit.**~~ Gebaut: Scanner, rotierender Mitglieds-Code,
+  Anwesenheitsliste, Selbsteintrag für den eigenen Stand, Offline-Check-in-Queue
+  (`feature:attendance`).
 - **Schießnachweis / Waffenbesitz** nach `docs/plans/attendance-and-shooting-proof.md`
-  — Backend geplant, App noch gar nicht.
-- **Push (FCM)** fehlt.
-- **Zielscheiben-Scan** (CameraX + LiteRT) — Phase 1 laut CLAUDE.md, noch nicht
-  begonnen.
+  — die eigenen Schießtage stehen in der App (`MyRangeDaysScreen`), der
+  Nachweis-Stand („noch X Tage bis zur Bescheinigung“, `/shooting/readiness`)
+  fehlt dort noch.
+- ~~**Push (FCM)** fehlt.~~ Verdrahtet, siehe oben.
+- **Zielscheiben-Scan** (CameraX + LiteRT) — Foto-Erfassung und Serien stehen
+  (`feature:scoring`), die Erkennung ohne Handantippen ist Phase 3 in
+  `project_shot_recording`.
+- ~~**Ämter/Funktionen**~~ stehen seit 2026-08-12 lesend im Mitglieds-Detail und
+  im eigenen Profil (`GET /members/{id}/functions`, `/members/me/functions`).
+  Vergeben und Beenden bleibt Web — das ist Schreibtischarbeit mit Stichtagen.
+- ~~**Einwilligungen**~~ stehen seit 2026-08-12 im eigenen Bereich: erteilen und
+  widerrufen über `POST /members/me/consents`, mit dem Verlauf darunter. Nichts
+  davon ist optimistisch oder queued; siehe `MyConsentsScreen`.
+- ~~**Bescheinigungen**~~ seit 2026-08-12: eigene Dokumente für jedes Mitglied,
+  die ganze Liste plus Ausstellen für BOARD+, PDF im eigenen Renderer
+  (`feature:documents`). Widerrufen und der Vorlagen-Editor bleiben Web.
+- **Aufnahmeanträge** (`/api/v1/applications`) hat die App nicht. Annehmen und
+  Ablehnen wäre ein echter mobiler Moment, ist aber ein neuer Screen.
+- **Zugesagt vs. da gewesen** (Web seit `7600271`) fehlt im Termin-Detail,
+  obwohl die App beide Listen schon hält.
 - **Mitgliederverzeichnis** ist nur über „Mehr“ erreichbar; ein Einstieg vom
   eigenen Profil wäre naheliegend.
 - **Sportarten-Auswahl im Web-Admin fehlt**, deshalb ist `PUT /club/sports`
