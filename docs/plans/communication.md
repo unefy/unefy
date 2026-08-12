@@ -194,8 +194,33 @@ GET-Aufruf darf nicht widerrufen — Mailprogramme laden Links vor.
 fünf Auswahlarten, Einwilligungsfilter je Nachrichtenart, Mitglieder ohne
 Adresse als `skipped`. Kein Versand, kein UI.
 
-**Phase 1 — Modell, Warteschlange, API.** Migration, Modelle, Versandschleife,
-Endpunkte, Abmeldelink.
+**Phase 1 — Modell, Warteschlange, API. Fertig 2026-08-12.** Migration
+`a71c3f5e8d24`, `email_messages` + `email_recipients`, Versandschleife im
+Lifespan, `/api/v1/messages/…`, Abmeldelink unter `/unsubscribe/{token}`,
+30 Tests.
+
+Vier Dinge, die unterwegs entschieden wurden:
+
+- **Eine Adresse wird nie zweimal beliefert, beide Mitglieder bleiben im
+  Protokoll.** Das Ehepaar mit einem Postfach bekommt eine Einladung; das
+  zweite Mitglied steht als `skipped`/`duplicate` in der Liste. Möglich über
+  einen *partiellen* Unique-Index (`WHERE status <> 'skipped'`) — die Zusage
+  lautet „keine Adresse doppelt beliefert", nicht „kein Mitglied doppelt
+  aufgeführt".
+- **Abmelde-Token abgeleitet statt gespeichert**: Mitglieds-ID plus
+  HMAC über `SESSION_SECRET`. Kein Ablauf (die Mail liegt Jahre im Postfach),
+  keine Tabelle, die mit jedem Versand wächst. Preis: eine Rotation des
+  Secrets entwertet alle je verschickten Links — dokumentiert in
+  `app/core/unsubscribe.py`.
+- **`List-Unsubscribe` samt One-Click**, weil ohne den Header der
+  Abmeldeknopf in Gmail und Outlook verschwindet und die Leute stattdessen
+  „Spam" drücken. Der Header zeigt aufs Backend (Maschine), der Link im Text
+  auf die Weboberfläche (Mensch).
+- **Der Drosselschalter gilt auch mitten im Versand.** Wer `EMAIL_DELIVERY`
+  umlegt, während eine Rundmail läuft, stoppt den Rest: die verbleibenden
+  Zeilen werden `skipped`/`held_back`, nicht `sent`. Beim Einstellen wird mit
+  eigenem Code `EMAIL_HELD_BACK` abgelehnt — „erreicht niemanden" hätte den
+  Vorstand in die Einwilligungen geschickt statt in die Einstellungen.
 
 **Phase 2 — Web.** Liste, Verfassen mit Vorschau und Testversand, Detailseite.
 
