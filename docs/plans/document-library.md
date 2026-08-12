@@ -222,8 +222,24 @@ Vier Dinge sind unterwegs anders entschieden worden als oben skizziert:
 Nicht auditiert werden Ordner-Umbenennungen; protokolliert sind Upload,
 Löschung, neue Fassung und Sichtbarkeitswechsel.
 
-**Phase 2 — Web.** Ordnerbaum, Liste, Upload, Download, Umbenennen,
-Verschieben, Löschen. Ab hier ist es für einen Verein benutzbar.
+**Phase 2 — Web. Fertig 2026-08-12.** `/library` unter *Vereinsleben*:
+Ordnerbaum links, Breadcrumb oben, Liste über die geteilte Data-Table, Upload
+per Klick und per Ziehen, Download, Umbenennen, Verschieben, Löschen, neue
+Fassung. i18n de+en. Drei Punkte, die beim Bauen entschieden wurden:
+
+- **Upload über `XMLHttpRequest`**, nicht `fetch`: nur XHR meldet den
+  Fortschritt, und ein Balken, der sich nicht bewegt, wird ein zweites Mal
+  gedrückt. Der Route Handler `app/api/library/upload/route.ts` streamt
+  weiter (`duplex: "half"`), eine Server Action wäre bei 1 MB am Ende.
+- **Welcher Ordner offen ist, steht in der URL** (`?folder=`), nicht im
+  Client-State — sonst ist „schick mir die Protokolle von 2026" ein Link auf
+  die Wurzel.
+- **Der Upload-Dialog wird beim Öffnen neu gemountet** (`key`), statt seine
+  Felder in einem Effekt zurückzusetzen: React 19 verbietet Letzteres per
+  Lint, und ein Frame mit dem Titel des vorigen Dokuments wäre ohnehin falsch.
+
+Baumlogik und Größenformat liegen rein in `lib/library-tree.ts` mit 18 Tests;
+Zyklen brechen dort ab, statt den Tab einzufrieren.
 
 **Phase 3 — Feinschliff.** Fassungshistorie im UI, Suche über Titel und
 Beschreibung (nicht über den Inhalt — Textextraktion aus PDF ist ein eigenes

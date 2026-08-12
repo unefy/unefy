@@ -3,6 +3,7 @@ import {
   CalendarIcon,
   CircleUserIcon,
   ClipboardCheckIcon,
+  FolderIcon,
   HouseIcon,
   ReceiptIcon,
   SettingsIcon,
@@ -96,6 +97,13 @@ export const sidebarData: SidebarData = {
           titleKey: "competitions",
           url: "/competitions",
           icon: TrophyIcon,
+        },
+        {
+          titleKey: "library",
+          url: "/library",
+          icon: FolderIcon,
+          // No role limit: a member reads what is filed for members, and the
+          // backend decides which documents that is.
         },
         {
           titleKey: "shooting",

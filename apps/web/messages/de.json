@@ -87,7 +87,8 @@
     "settingsDivisions": "Sparten",
     "applications": "Aufnahmeanträge",
     "settingsDocuments": "Bescheinigungen",
-    "donations": "Zuwendungen"
+    "donations": "Zuwendungen",
+    "library": "Ablage"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -2259,5 +2260,90 @@
     "failed": "Die Unterschrift konnte nicht übertragen werden.",
     "expiredTitle": "Dieser Link gilt nicht mehr",
     "expiredHint": "Links zum Unterschreiben laufen nach kurzer Zeit ab und gelten nur einmal. Bitten Sie um einen neuen."
+  },
+  "library": {
+    "title": "Ablage",
+    "description": "Die Dateien des Vereins: Satzung, Protokolle, Formulare. Abgelegt in Ordnern, sichtbar für den Vorstand oder für alle Mitglieder.",
+    "folders": "Ordner",
+    "root": "Alle Dokumente",
+    "noFolders": "Noch keine Ordner.",
+    "download": "Herunterladen",
+    "newVersion": "Neue Fassung",
+    "usage": "Belegter Speicher",
+    "usageOf": "{used} von {quota} belegt",
+    "searchPlaceholder": "In diesem Ordner suchen …",
+    "empty": "Hier liegt noch nichts.",
+    "emptyEditable": "Hier liegt noch nichts. Dateien hochladen oder auf die Liste ziehen.",
+    "deleteTitle": "„{title}“ löschen?",
+    "deleteDescription": "Die Datei wird dabei wirklich gelöscht, nicht nur ausgeblendet. Frühere Fassungen bleiben erhalten.",
+    "deleteFolderTitle": "Ordner „{name}“ löschen?",
+    "deleteFolderDescription": "Nur leere Ordner lassen sich löschen.",
+    "folderNotEmpty": "Der Ordner ist nicht leer. Erst den Inhalt verschieben oder löschen.",
+    "columns": {
+      "title": "Titel",
+      "size": "Größe",
+      "uploadedAt": "Abgelegt am",
+      "visibility": "Sichtbar für"
+    },
+    "visibility": {
+      "board": "Vorstand",
+      "members": "Mitglieder",
+      "boardHint": "Nur Vorstand und Verwaltung sehen die Datei.",
+      "membersHint": "Jedes angemeldete Mitglied sieht die Datei."
+    },
+    "upload": {
+      "title": "Dokument ablegen",
+      "description": "PDF, Bilder, Office- und Textdateien. Was es ist, entscheidet der Inhalt, nicht die Endung.",
+      "versionTitle": "Neue Fassung ablegen",
+      "versionDescription": "Ersetzt „{title}“. Die bisherige Fassung bleibt abrufbar.",
+      "versionHint": "Ordner und Sichtbarkeit werden von der bisherigen Fassung übernommen.",
+      "file": "Datei",
+      "documentTitle": "Titel",
+      "titlePlaceholder": "z. B. Satzung 2026",
+      "note": "Notiz",
+      "notePlaceholder": "Optional, z. B. beschlossen in der MV vom 14.03.2026",
+      "folder": "Ordner",
+      "noFolder": "Ohne Ordner",
+      "visibility": "Sichtbar für",
+      "submit": "Hochladen",
+      "cancel": "Abbrechen",
+      "uploading": "Wird hochgeladen …",
+      "uploadingPercent": "{percent}%",
+      "filed": "Dokument abgelegt",
+      "versionFiled": "Neue Fassung abgelegt",
+      "errors": {
+        "type": "Dieser Dateityp wird nicht angenommen.",
+        "tooLarge": "Die Datei ist größer als das Limit von {limit}.",
+        "quota": "Der Speicherplatz des Vereins ist erschöpft. Erst etwas löschen.",
+        "forbidden": "Dafür fehlt die Berechtigung.",
+        "superseded": "Diese Fassung wurde bereits ersetzt. Neue Fassung zur aktuellen ablegen.",
+        "unreachable": "Der Server ist gerade nicht erreichbar.",
+        "unknown": "Das Hochladen ist fehlgeschlagen."
+      }
+    },
+    "edit": {
+      "title": "Dokument bearbeiten",
+      "documentTitle": "Titel",
+      "note": "Notiz",
+      "folder": "Ordner",
+      "noFolder": "Ohne Ordner",
+      "visibility": "Sichtbar für",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "cancel": "Abbrechen"
+    },
+    "folderDialog": {
+      "createTitle": "Ordner anlegen",
+      "editTitle": "Ordner bearbeiten",
+      "name": "Name",
+      "namePlaceholder": "z. B. Protokolle",
+      "parent": "Übergeordneter Ordner",
+      "root": "Oberste Ebene",
+      "moveHint": "Ein Ordner lässt sich nicht in sich selbst verschieben.",
+      "nameTaken": "An dieser Stelle gibt es den Namen schon.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "cancel": "Abbrechen"
+    }
   }
 }

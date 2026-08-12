@@ -87,7 +87,8 @@
     "settingsDivisions": "Divisions",
     "applications": "Applications",
     "settingsDocuments": "Certificates",
-    "donations": "Donations"
+    "donations": "Donations",
+    "library": "Library"
   },
   "dashboard": {
     "title": "Overview",
@@ -2259,5 +2260,90 @@
     "failed": "The signature could not be sent.",
     "expiredTitle": "This link is no longer valid",
     "expiredHint": "Signing links expire after a short while and work only once. Please ask for a new one."
+  },
+  "library": {
+    "title": "Library",
+    "description": "The club's files: statutes, minutes, forms. Filed in folders, visible to the committee or to every member.",
+    "folders": "Folders",
+    "root": "All documents",
+    "noFolders": "No folders yet.",
+    "download": "Download",
+    "newVersion": "New version",
+    "usage": "Storage used",
+    "usageOf": "{used} of {quota} used",
+    "searchPlaceholder": "Search this folder …",
+    "empty": "Nothing filed here yet.",
+    "emptyEditable": "Nothing filed here yet. Upload a file or drop it on the list.",
+    "deleteTitle": "Delete “{title}”?",
+    "deleteDescription": "The file itself is removed, not just hidden. Earlier versions are kept.",
+    "deleteFolderTitle": "Delete folder “{name}”?",
+    "deleteFolderDescription": "Only empty folders can be deleted.",
+    "folderNotEmpty": "The folder is not empty. Move or delete its contents first.",
+    "columns": {
+      "title": "Title",
+      "size": "Size",
+      "uploadedAt": "Filed on",
+      "visibility": "Visible to"
+    },
+    "visibility": {
+      "board": "Committee",
+      "members": "Members",
+      "boardHint": "Only the committee and administrators see this file.",
+      "membersHint": "Every signed-in member sees this file."
+    },
+    "upload": {
+      "title": "File a document",
+      "description": "PDF, images, office and text files. What it is comes from the content, not the extension.",
+      "versionTitle": "File a new version",
+      "versionDescription": "Replaces “{title}”. The previous version stays available.",
+      "versionHint": "Folder and visibility are taken from the previous version.",
+      "file": "File",
+      "documentTitle": "Title",
+      "titlePlaceholder": "e.g. Statutes 2026",
+      "note": "Note",
+      "notePlaceholder": "Optional, e.g. adopted at the AGM on 14 March 2026",
+      "folder": "Folder",
+      "noFolder": "No folder",
+      "visibility": "Visible to",
+      "submit": "Upload",
+      "cancel": "Cancel",
+      "uploading": "Uploading …",
+      "uploadingPercent": "{percent}%",
+      "filed": "Document filed",
+      "versionFiled": "New version filed",
+      "errors": {
+        "type": "This file type is not accepted.",
+        "tooLarge": "The file is larger than the {limit} limit.",
+        "quota": "The club's storage is full. Delete something first.",
+        "forbidden": "You are not allowed to do that.",
+        "superseded": "This version has already been replaced. File the new version against the current one.",
+        "unreachable": "The server cannot be reached right now.",
+        "unknown": "The upload failed."
+      }
+    },
+    "edit": {
+      "title": "Edit document",
+      "documentTitle": "Title",
+      "note": "Note",
+      "folder": "Folder",
+      "noFolder": "No folder",
+      "visibility": "Visible to",
+      "save": "Save",
+      "saving": "Saving …",
+      "cancel": "Cancel"
+    },
+    "folderDialog": {
+      "createTitle": "New folder",
+      "editTitle": "Edit folder",
+      "name": "Name",
+      "namePlaceholder": "e.g. Minutes",
+      "parent": "Parent folder",
+      "root": "Top level",
+      "moveHint": "A folder cannot be moved into itself.",
+      "nameTaken": "That name already exists here.",
+      "save": "Save",
+      "saving": "Saving …",
+      "cancel": "Cancel"
+    }
   }
 }
