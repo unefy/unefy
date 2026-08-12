@@ -89,7 +89,8 @@
     "settingsDocuments": "Certificates",
     "donations": "Donations",
     "library": "Library",
-    "reports": "Reports"
+    "reports": "Reports",
+    "incomingInvoices": "Incoming invoices"
   },
   "dashboard": {
     "title": "Overview",
@@ -2439,6 +2440,93 @@
       "10": "October",
       "11": "November",
       "12": "December"
+    }
+  },
+  "invoices": {
+    "title": "Incoming invoices",
+    "description": "{count, plural, =0 {No invoice} one {# invoice} other {# invoices}} on file.",
+    "back": "Back to the list",
+    "upload": "Upload invoice",
+    "uploading": "Uploading …",
+    "uploaded": "{count, plural, one {# invoice filed} other {# invoices filed}}.",
+    "uploadedAt": "{file} · uploaded {when}",
+    "searchPlaceholder": "Supplier, number or file …",
+    "empty": "No invoice on file yet.",
+    "noMatch": "No invoice matches the search.",
+    "openFile": "Open file",
+    "markPaid": "Mark as paid",
+    "payNeedsAmount": "Without an amount there is nothing to record as paid.",
+    "paid": "Recorded as paid.",
+    "paidOn": "Paid on {date}",
+    "reopen": "Reopen",
+    "reopened": "Open again.",
+    "cancelInvoice": "Cancel",
+    "cancelled": "Invoice cancelled.",
+    "delete": "Delete",
+    "deleted": "Invoice deleted.",
+    "save": "Save",
+    "saved": "Saved.",
+    "discard": "Discard",
+    "editingLeavesElectronic": "Typed figures are your reading, no longer the sender's — the marking goes when you save.",
+    "columns": {
+      "supplier": "Supplier",
+      "number": "Invoice no.",
+      "date": "Date",
+      "amount": "Gross",
+      "due": "Due",
+      "source": "Source",
+      "status": "Status"
+    },
+    "fields": {
+      "supplier": "Supplier",
+      "number": "Invoice number",
+      "date": "Invoice date",
+      "due": "Due on",
+      "gross": "Gross amount",
+      "net": "Net amount",
+      "tax": "VAT",
+      "vatId": "Supplier VAT ID",
+      "note": "Note"
+    },
+    "status": {
+      "open": "Open",
+      "overdue": "Overdue",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "incomplete": "Incomplete"
+    },
+    "sources": {
+      "electronic": "E-invoice"
+    },
+    "filters": {
+      "allStatuses": "All statuses"
+    },
+    "summary": {
+      "open": "Open",
+      "openCount": "{count, plural, one {# invoice} other {# invoices}}",
+      "paid": "Paid",
+      "paidCount": "{count, plural, one {# invoice} other {# invoices}}",
+      "total": "Total",
+      "incomplete": "{count, plural, one {# invoice is still incomplete and missing from the total} other {# invoices are still incomplete and missing from the total}}."
+    },
+    "confirmCancel": {
+      "title": "Cancel this invoice?",
+      "description": "It stays in the register and drops out of the total. For an invoice the supplier withdrew or replaced."
+    },
+    "confirmDelete": {
+      "title": "Delete this invoice?",
+      "description": "The record and the uploaded file are removed. For an invoice that ended up here by mistake — a wrong invoice is cancelled, not deleted."
+    },
+    "errors": {
+      "duplicate": "This supplier's invoice number is already on file.",
+      "tooLarge": "The file is too large.",
+      "quota": "The club's storage is full.",
+      "unsupported": "This file type is not accepted.",
+      "forbidden": "You do not have permission for that.",
+      "notFound": "Not found.",
+      "validation": "Please check the entries.",
+      "unknown": "That did not work.",
+      "unreachable": "The server could not be reached."
     }
   }
 }

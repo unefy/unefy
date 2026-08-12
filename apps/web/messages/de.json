@@ -89,7 +89,8 @@
     "settingsDocuments": "Bescheinigungen",
     "donations": "Zuwendungen",
     "library": "Ablage",
-    "reports": "Auswertungen"
+    "reports": "Auswertungen",
+    "incomingInvoices": "Eingangsrechnungen"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -2439,6 +2440,93 @@
       "10": "Oktober",
       "11": "November",
       "12": "Dezember"
+    }
+  },
+  "invoices": {
+    "title": "Eingangsrechnungen",
+    "description": "{count, plural, =0 {Keine Rechnung} one {# Rechnung} other {# Rechnungen}} erfasst.",
+    "back": "Zurück zur Übersicht",
+    "upload": "Rechnung hochladen",
+    "uploading": "Wird hochgeladen …",
+    "uploaded": "{count, plural, one {# Rechnung abgelegt} other {# Rechnungen abgelegt}}.",
+    "uploadedAt": "{file} · hochgeladen {when}",
+    "searchPlaceholder": "Lieferant, Nummer oder Datei …",
+    "empty": "Noch keine Rechnung abgelegt.",
+    "noMatch": "Keine Rechnung passt zur Suche.",
+    "openFile": "Datei öffnen",
+    "markPaid": "Als bezahlt markieren",
+    "payNeedsAmount": "Ohne Betrag lässt sich nicht festhalten, was bezahlt wurde.",
+    "paid": "Als bezahlt festgehalten.",
+    "paidOn": "Bezahlt am {date}",
+    "reopen": "Wieder öffnen",
+    "reopened": "Wieder als offen geführt.",
+    "cancelInvoice": "Stornieren",
+    "cancelled": "Rechnung storniert.",
+    "delete": "Löschen",
+    "deleted": "Rechnung gelöscht.",
+    "save": "Speichern",
+    "saved": "Gespeichert.",
+    "discard": "Verwerfen",
+    "editingLeavesElectronic": "Getippte Zahlen sind Ihre Lesart, nicht mehr die des Absenders — die Kennzeichnung entfällt beim Speichern.",
+    "columns": {
+      "supplier": "Lieferant",
+      "number": "Rechnungsnr.",
+      "date": "Datum",
+      "amount": "Brutto",
+      "due": "Fällig",
+      "source": "Herkunft",
+      "status": "Status"
+    },
+    "fields": {
+      "supplier": "Lieferant",
+      "number": "Rechnungsnummer",
+      "date": "Rechnungsdatum",
+      "due": "Fällig am",
+      "gross": "Bruttobetrag",
+      "net": "Nettobetrag",
+      "tax": "Umsatzsteuer",
+      "vatId": "USt-IdNr. des Lieferanten",
+      "note": "Notiz"
+    },
+    "status": {
+      "open": "Offen",
+      "overdue": "Überfällig",
+      "paid": "Bezahlt",
+      "cancelled": "Storniert",
+      "incomplete": "Unvollständig"
+    },
+    "sources": {
+      "electronic": "E-Rechnung"
+    },
+    "filters": {
+      "allStatuses": "Alle Status"
+    },
+    "summary": {
+      "open": "Offen",
+      "openCount": "{count, plural, one {# Rechnung} other {# Rechnungen}}",
+      "paid": "Bezahlt",
+      "paidCount": "{count, plural, one {# Rechnung} other {# Rechnungen}}",
+      "total": "Summe",
+      "incomplete": "{count, plural, one {# Rechnung ist noch unvollständig und fehlt in der Summe} other {# Rechnungen sind noch unvollständig und fehlen in der Summe}}."
+    },
+    "confirmCancel": {
+      "title": "Rechnung stornieren?",
+      "description": "Die Rechnung bleibt im Verzeichnis und zählt nicht mehr zur Summe. Für eine Rechnung, die der Lieferant zurückgezogen oder ersetzt hat."
+    },
+    "confirmDelete": {
+      "title": "Rechnung löschen?",
+      "description": "Der Eintrag und die hochgeladene Datei werden entfernt. Für eine Rechnung, die versehentlich hier gelandet ist — eine falsche Rechnung wird storniert, nicht gelöscht."
+    },
+    "errors": {
+      "duplicate": "Diese Rechnungsnummer ist von diesem Lieferanten schon erfasst.",
+      "tooLarge": "Die Datei ist zu groß.",
+      "quota": "Der Speicherplatz des Vereins ist erschöpft.",
+      "unsupported": "Dieser Dateityp wird nicht angenommen.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
     }
   }
 }

@@ -1,5 +1,6 @@
 import {
   AwardIcon,
+  FileTextIcon,
   ChartNoAxesColumnIcon,
   CalendarIcon,
   CircleUserIcon,
@@ -132,6 +133,13 @@ export const sidebarData: SidebarData = {
             { titleKey: "feeTypes", url: "/dues/fee-types" },
             { titleKey: "donations", url: "/donations" },
           ],
+        },
+        {
+          titleKey: "incomingInvoices",
+          url: "/incoming-invoices",
+          icon: FileTextIcon,
+          // What the club owes, with the paperwork behind it. Board work.
+          roles: ["owner", "admin", "board"],
         },
         {
           titleKey: "reports",
