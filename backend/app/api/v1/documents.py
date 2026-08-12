@@ -8,11 +8,13 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.core.exceptions import ConflictError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.database import get_db_session
-from app.dependencies import AuthContext, require_role
+from app.dependencies import AuthContext, get_current_user, require_role
+from app.models.document import IssuedDocument
 from app.models.member import Member
 from app.models.tenant import Tenant
+from app.repositories.member import MemberRepository
 from app.schemas.document import (
     IssuedDocumentResponse,
     IssueRequest,
@@ -171,6 +173,59 @@ async def delete_template(
 
 
 # --- Issued documents ---
+#
+# `/me/...` before the parameterised routes: `/{document_id}` would parse "me"
+# as a UUID and reject it before the self-service handler ever ran. The same
+# ordering rule as in members.py.
+
+
+async def _own_member_id(session: AsyncSession, auth: AuthContext) -> uuid.UUID:
+    member = await MemberRepository(session, auth.tenant).get_by_user_id(auth.user_id)
+    if member is None:
+        raise NotFoundError("No member record is linked to this account")
+    return member.id
+
+
+@router.get("/me")
+async def list_own_documents(
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> dict[str, Any]:
+    """What the club has issued to the caller, newest first.
+
+    Revoked documents stay in the list rather than disappearing from it. A
+    member who was handed a certificate and can no longer find it would have to
+    ask why, and "it is here, marked invalid" is the honest answer — the club
+    withdrew it, it did not cease to exist.
+    """
+    member_id = await _own_member_id(session, auth)
+    documents = await DocumentService(session, auth.tenant).list_documents(member_id=member_id)
+    return {
+        "data": [
+            IssuedDocumentResponse.model_validate(d).model_dump(mode="json") for d in documents
+        ]
+    }
+
+
+@router.get("/me/{document_id}/pdf")
+async def download_own_document(
+    document_id: uuid.UUID,
+    auth: AuthContext = Depends(get_current_user),  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+) -> Response:
+    """The caller's own document, as it was issued.
+
+    A separate route rather than a role check inside the board one: the id in
+    the path is not authorisation here, the session is, and a member asking for
+    somebody else's document gets the same 404 as for one that does not exist.
+    Answering 403 would confirm that the document is real.
+    """
+    member_id = await _own_member_id(session, auth)
+    service = DocumentService(session, auth.tenant)
+    document = await service.get_document(document_id)
+    if document.member_id != member_id:
+        raise NotFoundError("Document not found")
+    return await _document_pdf_response(session, auth.tenant, document)
 
 
 @router.get("")
@@ -262,7 +317,18 @@ async def download_document(
     """
     service = DocumentService(session, auth.tenant)
     document = await service.get_document(document_id)
-    tenant = await session.get(Tenant, auth.tenant)
+    return await _document_pdf_response(session, auth.tenant, document)
+
+
+async def _document_pdf_response(
+    session: AsyncSession, tenant_id: uuid.UUID, document: IssuedDocument
+) -> Response:
+    """The bytes, shared by the board's route and the member's own.
+
+    One renderer for both: a member's copy that could differ from the board's
+    would make the verification code meaningless.
+    """
+    tenant = await session.get(Tenant, tenant_id)
     member = await session.get(Member, document.member_id)
 
     settings = get_settings()

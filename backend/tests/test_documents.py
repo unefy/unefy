@@ -6,15 +6,16 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db_session
 from app.models.document import DocumentTemplate, IssuedDocument
 from app.models.due import FeeType
 from app.models.member import Member
 from app.models.tenant import Tenant
-from app.models.user import User
+from app.models.user import TenantMembership, User
 from app.services import document_variables as variables
 
 if TYPE_CHECKING:  # The letters are only ever inspected, never built here.
@@ -846,3 +847,148 @@ async def test_a_member_without_a_fee_or_office_prints_a_dash(
         json={"template_id": template["id"]},
     )
     assert issued.json()["data"]["body"] == f"{variables.EMPTY}|{variables.EMPTY}"
+
+
+# --- The member's own copy ---
+
+
+async def _member_client(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+) -> AsyncClient:
+    """A client whose session says "member" — no board rights anywhere."""
+    import json as _json
+
+    import app.redis as redis_module
+    from app.main import app
+
+    async def override_db():  # type: ignore[no-untyped-def]
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_db
+    redis_module._redis_client = fake_redis
+
+    token = uuid.uuid4().hex
+    await fake_redis.set(
+        f"session:{token}",
+        _json.dumps({"user_id": str(user_id), "tenant_id": str(tenant_id), "role": "member"}),
+        ex=604800,
+    )
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"unefy_session": token},
+    )
+
+
+async def test_a_member_sees_what_was_issued_to_them(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    mine = await a_member(db_session, test_tenant, test_user, user_id=test_user.id)
+    other = await a_member(db_session, test_tenant, test_user, member_number="0099")
+    template = await a_template(auth_client)
+
+    for member in (mine, other):
+        issued = await auth_client.post(
+            f"/api/v1/documents/members/{member.id}/issue",
+            json={"template_id": template["id"]},
+        )
+        assert issued.status_code == 201, issued.text
+
+    client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        response = await ac.get("/api/v1/documents/me")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert [d["member_id"] for d in data] == [str(mine.id)]
+
+
+async def test_a_member_can_open_their_own_document_but_not_anothers(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """A 404 for somebody else's, not a 403 — a 403 would confirm it exists."""
+    mine = await a_member(db_session, test_tenant, test_user, user_id=test_user.id)
+    other = await a_member(db_session, test_tenant, test_user, member_number="0099")
+    template = await a_template(auth_client)
+
+    ids = {}
+    for name, member in (("mine", mine), ("other", other)):
+        issued = await auth_client.post(
+            f"/api/v1/documents/members/{member.id}/issue",
+            json={"template_id": template["id"]},
+        )
+        ids[name] = issued.json()["data"]["id"]
+
+    client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        own = await ac.get(f"/api/v1/documents/me/{ids['mine']}/pdf")
+        foreign = await ac.get(f"/api/v1/documents/me/{ids['other']}/pdf")
+        board_route = await ac.get(f"/api/v1/documents/{ids['mine']}/pdf")
+
+    assert own.status_code == 200
+    assert own.content.startswith(b"%PDF")
+    assert foreign.status_code == 404
+    # The board's route stays the board's, even for one's own document.
+    assert board_route.status_code == 403
+
+
+async def test_a_revoked_document_stays_in_the_members_list(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """Withdrawn, not vanished: the member is entitled to know which it was."""
+    mine = await a_member(db_session, test_tenant, test_user, user_id=test_user.id)
+    template = await a_template(auth_client)
+    issued = (
+        await auth_client.post(
+            f"/api/v1/documents/members/{mine.id}/issue",
+            json={"template_id": template["id"]},
+        )
+    ).json()["data"]
+    await auth_client.post(
+        f"/api/v1/documents/{issued['id']}/revoke", json={"reason": "Tippfehler"}
+    )
+
+    client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        response = await ac.get("/api/v1/documents/me")
+
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["revoked_at"] is not None
+
+
+async def test_an_account_without_a_member_record_gets_a_404(
+    db_session: AsyncSession,
+    fake_redis,  # type: ignore[no-untyped-def]
+    test_tenant: Tenant,
+    test_user: User,
+    test_membership: TenantMembership,
+) -> None:
+    """An admin who administers a club they do not belong to. A state, not a bug."""
+    client = await _member_client(db_session, fake_redis, test_user.id, test_tenant.id)
+    async with client as ac:
+        response = await ac.get("/api/v1/documents/me")
+
+    assert response.status_code == 404
+
+
+async def test_own_documents_need_a_signed_in_caller(anon_client: AsyncClient) -> None:
+    assert (await anon_client.get("/api/v1/documents/me")).status_code == 403
