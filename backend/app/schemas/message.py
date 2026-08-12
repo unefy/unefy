@@ -73,7 +73,7 @@ class RecipientPreview(BaseSchema):
     last_name: str
     email: str | None = None
     status: Literal["pending", "skipped"]
-    reason: Literal["no_email", "refused", "not_asked"] | None = None
+    reason: Literal["no_email", "refused", "not_asked", "duplicate", "held_back"] | None = None
 
 
 class AudienceSummary(BaseSchema):
@@ -88,3 +88,8 @@ class AudienceSummary(BaseSchema):
     skipped_no_email: int
     skipped_refused: int
     skipped_not_asked: int
+    #: One address, two members — a couple sharing a mailbox.
+    skipped_duplicate: int = 0
+    #: The installation is not sending member mail (`EMAIL_DELIVERY`). Shown
+    #: above the send button, or the board reads "sent to 143" when three left.
+    skipped_held_back: int = 0

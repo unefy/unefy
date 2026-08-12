@@ -31,6 +31,7 @@ from app.models.incoming_invoice import (
 from app.models.invitation import Invitation
 from app.models.library import LIBRARY_VISIBILITIES, LibraryDocument, LibraryFolder
 from app.models.member import Member, MemberFederationMembership
+from app.models.message import EmailMessage, EmailRecipient
 from app.models.proof_chain import ProofChainAnchor, ProofChainEntry
 from app.models.push_device import PushDevice
 from app.models.shooting import (
@@ -68,6 +69,8 @@ __all__ = [
     "DocumentTemplate",
     "DonationReceipt",
     "Due",
+    "EmailMessage",
+    "EmailRecipient",
     "Entry",
     "Event",
     "EventRegistration",

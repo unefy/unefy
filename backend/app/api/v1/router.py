@@ -19,6 +19,7 @@ from app.api.v1.functions import router as functions_router
 from app.api.v1.incoming_invoices import router as incoming_invoices_router
 from app.api.v1.library import router as library_router
 from app.api.v1.members import router as members_router
+from app.api.v1.messages import router as messages_router
 from app.api.v1.push import router as push_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.shooting import router as shooting_router
@@ -55,6 +56,7 @@ router.include_router(
 )
 router.include_router(library_router, prefix="/library", tags=["library"])
 router.include_router(members_router, prefix="/members", tags=["members"])
+router.include_router(messages_router, prefix="/messages", tags=["messages"])
 router.include_router(push_router, prefix="/push", tags=["push"])
 router.include_router(reports_router, prefix="/reports", tags=["reports"])
 router.include_router(shooting_router, prefix="/modules/shooting", tags=["shooting"])

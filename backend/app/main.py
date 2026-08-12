@@ -11,6 +11,7 @@ from app.api.health import router as health_router
 from app.api.join import router as join_router
 from app.api.middleware.logging import RequestLoggingMiddleware
 from app.api.sign import router as sign_router
+from app.api.unsubscribe import router as unsubscribe_router
 from app.api.v1.router import router as v1_router
 from app.api.verify import router as verify_router
 from app.config import get_settings
@@ -124,6 +125,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     retention_task = asyncio.create_task(run_retention_loop(get_redis()))
     logger.info("retention_loop_started")
 
+    # The round mail. Unconditional like retention: a queued message that
+    # waits for somebody to enable a worker is a message the club believes it
+    # sent. What it may actually deliver is `EMAIL_DELIVERY`'s business, not
+    # this task's.
+    from app.tasks.mail_queue import run_mail_queue
+
+    mail_task = asyncio.create_task(run_mail_queue(get_redis()))
+    logger.info("mail_queue_started")
+
     # Proof-chain anchoring, only with a configured TSA: an anchor without a
     # real external token would be a claim with nothing behind it.
     anchor_task = None
@@ -136,7 +146,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
     yield
 
-    for task in (push_task, retention_task, anchor_task):
+    for task in (push_task, retention_task, anchor_task, mail_task):
         if task is not None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -200,6 +210,9 @@ def create_app() -> FastAPI:
     # URL, and a printed thing must outlive API versioning.
     app.include_router(join_router)
     app.include_router(sign_router)
+    # Outside /api/v1 with join and verify: this URL is printed into mail
+    # that outlives any API version.
+    app.include_router(unsubscribe_router)
     app.include_router(verify_router)
     app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
 

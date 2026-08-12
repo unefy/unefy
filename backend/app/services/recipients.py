@@ -40,7 +40,11 @@ from app.schemas.message import Audience, AudienceSummary, MessageKind
 #: The consent a newsletter needs. One of `CONSENT_KINDS`.
 NEWSLETTER_CONSENT = "newsletter"
 
-SkipReason = Literal["no_email", "refused", "not_asked"]
+#: Why somebody is not written to. The first three come from the member and
+#: their consent, the last two from the message they are on: an address a
+#: colleague on the same message already has, and an installation that is
+#: holding member mail back (`EMAIL_DELIVERY`).
+SkipReason = Literal["no_email", "refused", "not_asked", "duplicate", "held_back"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +92,8 @@ def summarize(recipients: list[ResolvedRecipient]) -> AudienceSummary:
         skipped_no_email=sum(1 for r in recipients if r.reason == "no_email"),
         skipped_refused=sum(1 for r in recipients if r.reason == "refused"),
         skipped_not_asked=sum(1 for r in recipients if r.reason == "not_asked"),
+        skipped_duplicate=sum(1 for r in recipients if r.reason == "duplicate"),
+        skipped_held_back=sum(1 for r in recipients if r.reason == "held_back"),
     )
 
 

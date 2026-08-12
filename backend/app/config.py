@@ -93,6 +93,18 @@ class Settings(BaseSettings):
     # a round mail against your own inbox. `@example.org` matches a domain.
     EMAIL_ALLOWLIST: list[str] = []
 
+    # Round mail. Sent in batches because a mail server that sees 300
+    # connections in ten seconds starts refusing them — and because the
+    # sending loop shares a process with the requests it must not block.
+    EMAIL_BATCH_SIZE: int = 25
+    EMAIL_SEND_INTERVAL_SECONDS: int = 10
+    #: After this many tries a recipient is `failed` rather than retried for
+    #: ever. Three covers a restart and a mail server having a bad minute.
+    EMAIL_MAX_ATTEMPTS: int = 3
+    #: Per message. Not a technical limit — a guard against the wrong click,
+    #: which in this module means an unrecallable mail to the whole club.
+    EMAIL_MAX_RECIPIENTS: int = 1000
+
     # How long a magic link stays valid. Short by design: the link is a bearer
     # credential sitting in an inbox.
     MAGIC_LINK_TTL_SECONDS: int = 900  # 15 min

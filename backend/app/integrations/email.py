@@ -97,11 +97,19 @@ def _on_allowlist(to: str, allowlist: list[str]) -> bool:
     return False
 
 
-def _build(to: str, subject: str, body: str, settings: Settings) -> EmailMessage:
+def _build(
+    to: str,
+    subject: str,
+    body: str,
+    settings: Settings,
+    headers: dict[str, str] | None = None,
+) -> EmailMessage:
     message = EmailMessage()
     message["From"] = settings.SMTP_FROM
     message["To"] = to
     message["Subject"] = subject
+    for name, value in (headers or {}).items():
+        message[name] = value
     message.set_content(body)
     return message
 
@@ -113,6 +121,7 @@ async def send_email(
     body: str,
     category: EmailCategory,
     settings: Settings | None = None,
+    headers: dict[str, str] | None = None,
 ) -> bool:
     """Send a plain-text message. Returns False when it was held back.
 
@@ -144,7 +153,7 @@ async def send_email(
         logger.warning("email_not_sent_no_smtp_host", to=to, subject=subject, body=body)
         return False
 
-    message = _build(to, subject, body, settings)
+    message = _build(to, subject, body, settings, headers)
 
     try:
         await aiosmtplib.send(
