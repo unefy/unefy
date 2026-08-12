@@ -85,6 +85,7 @@ async def send_magic_link(email: str, token: str, settings: Settings) -> None:
                 "Wenn Sie keine Anmeldung angefordert haben, ignorieren Sie diese "
                 "E-Mail — ohne den Link passiert nichts.\n"
             ),
+            category="auth",
             settings=settings,
         )
     except EmailError:
@@ -166,6 +167,7 @@ async def send_login_code(email: str, code: str, settings: Settings) -> None:
                 "Wenn Sie keine Anmeldung angefordert haben, ignorieren Sie diese "
                 "E-Mail — ohne den Code passiert nichts.\n"
             ),
+            category="auth",
             settings=settings,
         )
     except EmailError:

@@ -356,6 +356,9 @@ class ClubAccessService:
     ) -> None:
         try:
             await send_email(
+                # Not `auth`: an invitation arrives unannounced, and while a
+                # test system is holding mail back it must be held back too.
+                category="member",
                 to=email,
                 subject=f"Einladung zu {club_name} bei unefy",
                 body=(

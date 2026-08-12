@@ -144,6 +144,19 @@ def test_mail_is_configurable_in_production() -> None:
     assert not missing, f"SMTP settings not forwarded by docker-compose.prod.yml: {missing}"
 
 
+def test_sending_mail_is_something_production_switches_on() -> None:
+    """The backend holds member mail back unless told otherwise.
+
+    Both halves matter. The default has to be the careful one, because an
+    installation carries a club's real addresses while it is still being set
+    up and one accidental round mail cannot be recalled. And the production
+    stack has to say the opposite out loud, or a live club would silently
+    stop reaching its members.
+    """
+    assert Settings(_env_file=None, DEBUG=True).EMAIL_DELIVERY == "auth_only"  # type: ignore[call-arg]
+    assert _backend_environment()["EMAIL_DELIVERY"] == "${EMAIL_DELIVERY:-all}"
+
+
 def test_uploaded_documents_survive_a_redeploy() -> None:
     """STORAGE_PATH has to land on a volume, not in the container.
 

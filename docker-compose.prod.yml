@@ -52,6 +52,11 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-unefy <noreply@localhost>}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      # A production stack sends. The backend's own default is `auth_only`,
+      # so an installation that is still being set up — and is holding a
+      # club's real addresses — writes to nobody until somebody says so here.
+      EMAIL_DELIVERY: ${EMAIL_DELIVERY:-all}
+      EMAIL_ALLOWLIST: ${EMAIL_ALLOWLIST:-[]}
       # Uploaded documents. The path is fixed rather than interpolated: it has
       # to match the volume mounted below, and a STORAGE_PATH pointing at the
       # container's own filesystem is a document library that empties itself

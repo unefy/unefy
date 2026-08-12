@@ -77,6 +77,22 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "unefy <noreply@localhost>"
     SMTP_STARTTLS: bool = True
 
+    # Whether mail actually leaves the building.
+    #
+    # `auth_only` by default, and that default is the point: an installation
+    # holds real member addresses long before anybody means to write to them,
+    # and one accidental round mail to 300 people cannot be recalled. Login
+    # links and login codes still go out, because a system nobody can sign in
+    # to cannot be tested at all.
+    #
+    # A production stack sets `all` explicitly (docker-compose.prod.yml).
+    # `none` stops everything including the login mail — for the moment when
+    # the answer has to be "definitely nothing".
+    EMAIL_DELIVERY: Literal["auth_only", "all", "none"] = "auth_only"
+    # Addresses that receive member mail even in `auth_only` — the way to test
+    # a round mail against your own inbox. `@example.org` matches a domain.
+    EMAIL_ALLOWLIST: list[str] = []
+
     # How long a magic link stays valid. Short by design: the link is a bearer
     # credential sitting in an inbox.
     MAGIC_LINK_TTL_SECONDS: int = 900  # 15 min

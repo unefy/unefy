@@ -74,6 +74,20 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     await init_redis()
     logger.info("redis_connected")
 
+    # Said out loud on every boot: which mail this installation lets out. A
+    # system holding real member addresses back is the safe state, and an
+    # operator has to be able to see at a glance which state they are in —
+    # in both directions.
+    delivery = get_settings().EMAIL_DELIVERY
+    if delivery == "all":
+        logger.info("email_delivery", mode=delivery)
+    else:
+        logger.warning(
+            "email_delivery_restricted",
+            mode=delivery,
+            allowlist=len(get_settings().EMAIL_ALLOWLIST),
+        )
+
     # The discipline catalog is *not* seeded here any more. It is now master
     # data maintained by platform admins through `/api/v1/admin/catalog/…`,
     # and re-running the seed on every boot would resurrect entries an admin

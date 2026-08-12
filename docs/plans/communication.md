@@ -120,6 +120,23 @@ Gespeichert wird die Auswahl, verschickt wird die aufgelöste Liste. Die
 Auflösung ist eine reine Funktion über die vorhandenen Repositories und lässt
 sich damit einzeln testen — sie ist der Teil, der still falsch sein kann.
 
+## Der Schalter davor
+
+Seit 2026-08-12 hat das Backend `EMAIL_DELIVERY` (`auth_only` als Standard,
+dazu `all` und `none`) mit `EMAIL_ALLOWLIST`. Eine Installation hält also
+standardmäßig alles zurück außer Anmeldelink und Anmeldecode — genau deshalb,
+weil sie echte Mitgliedsadressen zum Testen enthält, lange bevor jemand sie
+anschreiben will.
+
+**Für die Rundmail heißt das zweierlei.** Erstens: eine zurückgehaltene
+Adresse ist kein Fehler, sondern bekommt `skipped` mit dem Grund `held_back` —
+derselbe Zustand wie „keine Einwilligung", weil in beiden Fällen eine
+Entscheidung der Installation greift und nicht ein Mailserver streikt.
+Zweitens: das Verfassen-Formular muss es sagen. Ein Vorstand, der „an 143
+gesendet" liest, während drei davon rausgingen, glaubt eine Zahl, die nicht
+stimmt. Steht der Schalter nicht auf `all`, gehört ein Hinweis über den
+Absende-Knopf.
+
 ## Versand
 
 Eine Schleife im Lifespan, in der Bauform von `app/tasks/retention.py`:
