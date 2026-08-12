@@ -188,6 +188,9 @@ private class NotUsedRepository : MembersRepository {
     override suspend fun federations(id: String): ApiResult<List<FederationMembership>> =
         error("not used")
 
+    override suspend fun functions(id: String): ApiResult<List<OfficeTerm>> = error("not used")
+    override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> = error("not used")
+
     override suspend fun me(): ApiResult<Member> = error("not used")
     override suspend fun directory(
         page: Int,

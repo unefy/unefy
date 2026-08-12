@@ -78,6 +78,17 @@ class MyProfileViewModel @Inject constructor(
                 is ApiResult.Success -> MemberDetailUiState.Content(result.data)
                 is ApiResult.Failure -> MemberDetailUiState.Failure(result.error)
             }
+            // After the record rather than beside it: the offices belong to the
+            // member this call just resolved, and an account with none — which
+            // is most of them — should not hold the screen up for a second call.
+            // A failure leaves the section absent; not holding an office and not
+            // being able to ask look the same here on purpose.
+            val offices = (repository.myFunctions() as? ApiResult.Success)?.data.orEmpty()
+            if (offices.isNotEmpty()) {
+                _uiState.update { state ->
+                    (state as? MemberDetailUiState.Content)?.copy(functions = offices) ?: state
+                }
+            }
         }
     }
 }
@@ -134,7 +145,9 @@ fun MyProfileScreen(
                 }
             }
 
-            is MemberDetailUiState.Content -> item { MemberDetailContent(state.member) }
+            is MemberDetailUiState.Content -> item {
+                MemberDetailContent(state.member, functions = state.functions)
+            }
         }
     }
 }

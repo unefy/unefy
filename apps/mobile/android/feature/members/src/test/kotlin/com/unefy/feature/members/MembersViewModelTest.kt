@@ -305,6 +305,12 @@ private class FakeMembersRepository(
     override suspend fun federations(id: String): ApiResult<List<FederationMembership>> =
         ApiResult.Success(emptyList())
 
+    override suspend fun functions(id: String): ApiResult<List<OfficeTerm>> =
+        ApiResult.Success(emptyList())
+
+    override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> =
+        ApiResult.Success(emptyList())
+
     override suspend fun me(): ApiResult<Member> =
         rows.value.firstOrNull()?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure(ApiError.NotFound(null))

@@ -47,6 +47,9 @@
     <string name="detail_section_banking">Bankverbindung</string>
     <string name="detail_section_federations">Verbandsmitgliedschaften</string>
     <string name="federation_since">seit %1$s</string>
+    <string name="detail_section_functions">Ämter</string>
+    <string name="office_since">seit %1$s</string>
+    <string name="office_range">%1$s – %2$s</string>
     <string name="directory_title">Verzeichnis</string>
     <string name="profile_title">Mein Profil</string>
     <string name="profile_none_title">Kein Mitgliedsdatensatz</string>
@@ -87,4 +90,5 @@
     <string name="revoke_codes_working">Wird widerrufen …</string>
     <string name="revoke_codes_done">Widerrufen. Alte Codes werden nicht mehr angenommen.</string>
     <string name="revoke_codes_failed">Widerruf fehlgeschlagen — die alten Codes gelten weiter. Mit Verbindung erneut versuchen.</string>
+
 </resources>

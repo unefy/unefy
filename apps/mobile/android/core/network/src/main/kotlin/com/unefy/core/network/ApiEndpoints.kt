@@ -28,6 +28,9 @@ object ApiEndpoints {
     const val MEMBERS_ME = "$MEMBERS/me"
     const val MEMBERS_DIRECTORY = "$MEMBERS/directory"
 
+    /** The caller's own terms of office. Empty for an account with no member record. */
+    const val MEMBERS_ME_FUNCTIONS = "$MEMBERS_ME/functions"
+
     const val DUES = "/api/v1/dues"
     const val DUES_ME = "$DUES/me"
     const val DUES_SUMMARY = "$DUES/summary"
@@ -101,6 +104,9 @@ object ApiEndpoints {
 
     /** A member's federation memberships (DSB, BDS, …). Board-level, read-only. */
     fun memberFederations(id: String): String = "$MEMBERS/$id/federations"
+
+    /** A member's terms of office, newest first, ended ones included. Board-level. */
+    fun memberFunctions(id: String): String = "$MEMBERS/$id/functions"
 
     /** The single event, with its registrations — what the detail screen shows. */
     fun event(id: String): String = "$EVENTS/$id"

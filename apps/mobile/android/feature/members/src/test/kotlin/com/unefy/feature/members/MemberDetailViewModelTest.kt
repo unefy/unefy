@@ -87,6 +87,65 @@ class MemberDetailViewModelTest {
         assertEquals(emptyList<FederationMembership>(), state.federations)
     }
 
+    @Test
+    fun `terms of office arrive alongside the member`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            FakeDetailRepository(
+                members = listOf(member("1")),
+                functions = ApiResult.Success(listOf(office("o1"), office("o2", validTo = null))),
+            ),
+        )
+        viewModel.load("1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MemberDetailUiState.Content
+        assertEquals(listOf("o1", "o2"), state.functions.map { it.id })
+    }
+
+    /**
+     * The same degradation as the federations above: a plain member gets 403
+     * here and an offline phone gets nothing, and neither may turn a member the
+     * mirror can show perfectly well into an error screen.
+     */
+    @Test
+    fun `a failed office fetch leaves the member intact`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            FakeDetailRepository(
+                members = listOf(member("1")),
+                functions = ApiResult.Failure(ApiError.Forbidden),
+            ),
+        )
+        viewModel.load("1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as MemberDetailUiState.Content
+        assertEquals("1", state.member.id)
+        assertEquals(emptyList<OfficeTerm>(), state.functions)
+    }
+
+    /**
+     * Opening a second member must not show the first one's offices. The
+     * ViewModel is per-entry, but `load` is also called again on a
+     * configuration change, and the lists are cleared there for that reason.
+     */
+    @Test
+    fun `switching member drops the previous offices`() = runTest(dispatcher) {
+        val repository = FakeDetailRepository(
+            members = listOf(member("1"), member("2")),
+            functions = ApiResult.Success(listOf(office("o1"))),
+        )
+        val viewModel = viewModel(repository)
+        viewModel.load("1")
+        advanceUntilIdle()
+        assertEquals(1, content(viewModel).functions.size)
+
+        repository.functionsResult = ApiResult.Failure(ApiError.Forbidden)
+        viewModel.load("2")
+        advanceUntilIdle()
+
+        assertEquals(emptyList<OfficeTerm>(), content(viewModel).functions)
+    }
+
     /**
      * Revoking is the only answer to a lost phone that does not mean waiting
      * three days for the grace window to run out.
@@ -155,11 +214,29 @@ private fun member(id: String) = Member(
     iban = null,
 )
 
+private fun office(
+    id: String,
+    validFrom: String = "2024-03-01",
+    validTo: String? = null,
+) = OfficeTerm(
+    id = id,
+    functionName = "Kassenwart",
+    level = "club",
+    divisionName = null,
+    validFrom = validFrom,
+    validTo = validTo,
+    note = null,
+)
+
 private class FakeDetailRepository(
     members: List<Member> = emptyList(),
     private val federations: ApiResult<List<FederationMembership>> =
         ApiResult.Success(emptyList()),
+    functions: ApiResult<List<OfficeTerm>> = ApiResult.Success(emptyList()),
 ) : MembersRepository {
+
+    /** A var, so a test can change the answer between two `load` calls. */
+    var functionsResult: ApiResult<List<OfficeTerm>> = functions
 
     private val rows = MutableStateFlow(members)
 
@@ -180,6 +257,10 @@ private class FakeDetailRepository(
 
     override suspend fun federations(id: String): ApiResult<List<FederationMembership>> =
         federations
+
+    override suspend fun functions(id: String): ApiResult<List<OfficeTerm>> = functionsResult
+
+    override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> = functionsResult
 
     override suspend fun me(): ApiResult<Member> =
         ApiResult.Failure(ApiError.NotFound(null))

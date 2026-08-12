@@ -91,6 +91,8 @@ sealed interface MemberDetailUiState {
     data class Content(
         val member: Member,
         val federations: List<FederationMembership> = emptyList(),
+        /** Terms of office, newest first — ended ones included. */
+        val functions: List<OfficeTerm> = emptyList(),
         /**
          * What the fields currently show — the record, with anything typed on
          * top. There is no "edit mode": the screen is always the record, and
@@ -141,6 +143,17 @@ class MemberDetailViewModel @Inject constructor(
     private val federations = MutableStateFlow<List<FederationMembership>>(emptyList())
 
     /**
+     * Terms of office, likewise from the server only. A plain member's 403 and
+     * an offline phone both leave the section absent rather than empty.
+     */
+    private val functions = MutableStateFlow<List<OfficeTerm>>(emptyList())
+
+    /** Two server-only lists as one source: `combine` tops out at five of them. */
+    private val related = combine(federations, functions) { memberships, offices ->
+        memberships to offices
+    }
+
+    /**
      * What has been typed, or null while the screen still shows the record
      * untouched.
      *
@@ -160,16 +173,17 @@ class MemberDetailViewModel @Inject constructor(
     val uiState: StateFlow<MemberDetailUiState> = combine(
         memberId.flatMapLatest { id -> id?.let(repository::byIdStream) ?: flowOf(null) },
         remote,
-        federations,
+        related,
         draft,
         progress,
-    ) { mirrored, result, federationList, typed, (isSaving, revoking) ->
+    ) { mirrored, result, (federationList, officeList), typed, (isSaving, revoking) ->
         val fetched = (result as? ApiResult.Success)?.data
         val member = mirrored?.copy(iban = fetched?.iban) ?: fetched
         when {
             member != null -> MemberDetailUiState.Content(
                 member = member,
                 federations = federationList,
+                functions = officeList,
                 draft = typed ?: member.toDraft(),
                 // Compared against the record rather than merely "has been
                 // touched": typing a letter and deleting it again should put
@@ -247,6 +261,7 @@ class MemberDetailViewModel @Inject constructor(
         memberId.value = id
         remote.value = null
         federations.value = emptyList()
+        functions.value = emptyList()
         // A different member: whatever was typed belonged to the previous one.
         draft.value = null
 
@@ -256,6 +271,9 @@ class MemberDetailViewModel @Inject constructor(
         viewModelScope.launch {
             federations.value =
                 (repository.federations(id) as? ApiResult.Success)?.data.orEmpty()
+        }
+        viewModelScope.launch {
+            functions.value = (repository.functions(id) as? ApiResult.Success)?.data.orEmpty()
         }
     }
 
@@ -342,7 +360,7 @@ fun MemberDetailScreen(
                 if (canEdit) {
                     MemberEditableContent(state, onChange)
                 } else {
-                    MemberDetailContent(state.member, state.federations)
+                    MemberDetailContent(state.member, state.federations, state.functions)
                 }
                 // Board only: it takes a credential away from somebody, and the
                 // server refuses it for anyone else anyway.
@@ -372,7 +390,7 @@ private fun ColumnScope.MemberEditableContent(
 
     MemberFormFields(draft = state.draft, onChange = onChange)
 
-    ReadOnlyTail(state.member, state.federations)
+    ReadOnlyTail(state.member, state.federations, state.functions)
 
     // Clears the save bar, which floats over the foot of the content.
     Spacer(modifier = Modifier.height(SAVE_BAR_CLEARANCE))
@@ -406,14 +424,20 @@ private fun ContactActions(member: Member) {
 }
 
 /**
- * Federations and banking, which stay read-only even while editing.
+ * Offices, federations and banking, which stay read-only even while editing.
  *
- * Neither is mirrored and neither is editable on mobile — federations have
- * their own screens on the web, and bank details are never written to this
- * device at all.
+ * None of the three is mirrored and none is editable on mobile — offices and
+ * federations have their own screens on the web, and bank details are never
+ * written to this device at all.
  */
 @Composable
-private fun ReadOnlyTail(member: Member, federations: List<FederationMembership>) {
+private fun ReadOnlyTail(
+    member: Member,
+    federations: List<FederationMembership>,
+    functions: List<OfficeTerm> = emptyList(),
+) {
+    OfficeSection(functions)
+
     UnefyDetailSection(
         title = stringResource(R.string.detail_section_federations),
         fields = federations.map { federation ->
@@ -438,6 +462,40 @@ private fun ReadOnlyTail(member: Member, federations: List<FederationMembership>
     )
 }
 
+/**
+ * Terms of office, running ones first.
+ *
+ * Ended terms stay on the list rather than being filtered away: somebody who
+ * was treasurer until March still was, and the year it ended is half of what
+ * makes the entry worth showing. The distinction is carried by the value —
+ * "seit …" for a running term, a closed range for a finished one — because a
+ * second pill per row in a list of two-line fields reads as noise.
+ */
+@Composable
+private fun OfficeSection(functions: List<OfficeTerm>) {
+    UnefyDetailSection(
+        title = stringResource(R.string.detail_section_functions),
+        fields = functions
+            .sortedWith(compareByDescending<OfficeTerm> { it.isCurrent }.thenByDescending { it.validFrom })
+            .map { term ->
+                Field(
+                    label = listOfNotNull(term.functionName, term.divisionName)
+                        .joinToString(" · "),
+                    value = if (term.validTo == null) {
+                        stringResource(R.string.office_since, UnefyFormat.date(term.validFrom))
+                    } else {
+                        stringResource(
+                            R.string.office_range,
+                            UnefyFormat.date(term.validFrom),
+                            UnefyFormat.date(term.validTo),
+                        )
+                    },
+                    mono = true,
+                )
+            },
+    )
+}
+
 /** Roughly the save bar's height — content must be scrollable past it. */
 private val SAVE_BAR_CLEARANCE = 96.dp
 
@@ -445,6 +503,7 @@ private val SAVE_BAR_CLEARANCE = 96.dp
 internal fun MemberDetailContent(
     member: Member,
     federations: List<FederationMembership> = emptyList(),
+    functions: List<OfficeTerm> = emptyList(),
 ) {
     Header(member)
     ContactActions(member)
@@ -489,7 +548,7 @@ internal fun MemberDetailContent(
         ),
     )
 
-    ReadOnlyTail(member, federations)
+    ReadOnlyTail(member, federations, functions)
 }
 
 /**

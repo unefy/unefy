@@ -23,4 +23,12 @@ class MemberDtoDriftTest {
             "FederationMembershipResponse",
         )
     }
+
+    @Test
+    fun `OfficeTermDto mirrors MemberFunctionResponse`() {
+        MobileContract.assertMirrors(
+            OfficeTermDto.serializer().descriptor,
+            "MemberFunctionResponse",
+        )
+    }
 }

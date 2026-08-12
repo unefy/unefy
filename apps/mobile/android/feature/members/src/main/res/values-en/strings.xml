@@ -47,6 +47,9 @@
     <string name="detail_section_banking">Bank details</string>
     <string name="detail_section_federations">Federation memberships</string>
     <string name="federation_since">since %1$s</string>
+    <string name="detail_section_functions">Offices</string>
+    <string name="office_since">since %1$s</string>
+    <string name="office_range">%1$s – %2$s</string>
     <string name="directory_title">Directory</string>
     <string name="profile_title">My profile</string>
     <string name="profile_none_title">No member record</string>
@@ -87,4 +90,5 @@
     <string name="revoke_codes_working">Revoking …</string>
     <string name="revoke_codes_done">Revoked. Old codes are no longer accepted.</string>
     <string name="revoke_codes_failed">Revoking failed — the old codes still work. Try again with a connection.</string>
+
 </resources>

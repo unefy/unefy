@@ -120,6 +120,48 @@ internal fun FederationMembershipDto.toDomain() = FederationMembership(
 )
 
 /**
+ * A term of office — a member holding a function for a stretch of time.
+ *
+ * The whole history arrives, ended terms included, and the screen says which
+ * are current: somebody who was treasurer until March still was, and a list
+ * that quietly drops the past reads as if they never had been.
+ */
+data class OfficeTerm(
+    val id: String,
+    val functionName: String,
+    /** `club` or `division` — a divisional office also names its division. */
+    val level: String,
+    val divisionName: String?,
+    val validFrom: String,
+    /** Null while the term is running. */
+    val validTo: String?,
+    val note: String?,
+) {
+    val isCurrent: Boolean get() = validTo == null
+}
+
+@Serializable
+internal data class OfficeTermDto(
+    val id: String,
+    @SerialName("function_name") val functionName: String,
+    val level: String = "club",
+    @SerialName("division_name") val divisionName: String? = null,
+    @SerialName("valid_from") val validFrom: String,
+    @SerialName("valid_to") val validTo: String? = null,
+    val note: String? = null,
+)
+
+internal fun OfficeTermDto.toDomain() = OfficeTerm(
+    id = id,
+    functionName = functionName,
+    level = level,
+    divisionName = divisionName,
+    validFrom = validFrom,
+    validTo = validTo,
+    note = note,
+)
+
+/**
  * A mirror row as the domain model.
  *
  * `iban = null` is not a gap in the mapping, it is the mirror's design: the local
@@ -201,6 +243,18 @@ interface MembersRepository {
      * section reads better than a stale one.
      */
     suspend fun federations(id: String): ApiResult<List<FederationMembership>>
+
+    /**
+     * A member's terms of office, from the server. Board-level.
+     *
+     * Not mirrored, for the same reasons as [federations]: one screen shows it,
+     * it changes about once a year, and offline an absent section reads better
+     * than a stale one that names last year's treasurer.
+     */
+    suspend fun functions(id: String): ApiResult<List<OfficeTerm>>
+
+    /** The caller's own terms of office. Empty is a normal answer, not an error. */
+    suspend fun myFunctions(): ApiResult<List<OfficeTerm>>
 
     /** Self-service: the caller's own record, whatever their role. */
     suspend fun me(): ApiResult<Member>
@@ -327,6 +381,14 @@ class DefaultMembersRepository @Inject constructor(
     override suspend fun federations(id: String): ApiResult<List<FederationMembership>> = apiClient
         .get<List<FederationMembershipDto>>(ApiEndpoints.memberFederations(id))
         .map { dtos -> dtos.map(FederationMembershipDto::toDomain) }
+
+    override suspend fun functions(id: String): ApiResult<List<OfficeTerm>> = apiClient
+        .get<List<OfficeTermDto>>(ApiEndpoints.memberFunctions(id))
+        .map { dtos -> dtos.map(OfficeTermDto::toDomain) }
+
+    override suspend fun myFunctions(): ApiResult<List<OfficeTerm>> = apiClient
+        .get<List<OfficeTermDto>>(ApiEndpoints.MEMBERS_ME_FUNCTIONS)
+        .map { dtos -> dtos.map(OfficeTermDto::toDomain) }
 
     override suspend fun me(): ApiResult<Member> = apiClient
         .get<MemberDto>(ApiEndpoints.MEMBERS_ME)
