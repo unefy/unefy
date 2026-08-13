@@ -23,7 +23,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from app.schemas.consent import ConsentEntry, ConsentOverview, ConsentState
 from app.schemas.competition import (
     CompetitionResponse,
     EntryDetails,
@@ -32,10 +31,11 @@ from app.schemas.competition import (
     SessionResponse,
     ShotDetail,
 )
+from app.schemas.consent import ConsentEntry, ConsentOverview, ConsentState
 from app.schemas.document import IssuedDocumentResponse, TemplateResponse
 from app.schemas.due import DueResponse, DueSummaryResponse
-from app.schemas.function import MemberFunctionResponse
 from app.schemas.event import EventRegistrationResponse, EventResponse
+from app.schemas.function import MemberFunctionResponse
 from app.schemas.member import (
     FederationMembershipResponse,
     MemberDirectoryEntry,
