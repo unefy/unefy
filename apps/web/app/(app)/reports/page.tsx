@@ -6,6 +6,7 @@ import { HeaderScrollTitle } from "@/components/layout/header-scroll-title"
 import {
   AttendanceSection,
   DuesSection,
+  ExpensesSection,
   MembershipSection,
 } from "@/components/reports/report-sections"
 import { YearPicker } from "@/components/reports/year-picker"
@@ -67,6 +68,7 @@ export default async function ReportsPage({
 
       <MembershipSection report={report.membership} />
       <DuesSection report={report.dues} locale={locale} />
+      <ExpensesSection report={report.expenses} locale={locale} />
       <AttendanceSection report={report.attendance} locale={locale} />
     </>
   )

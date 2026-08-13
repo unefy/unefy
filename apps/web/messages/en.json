@@ -2416,6 +2416,16 @@
       "empty": "No dues were charged for this year.",
       "cancelled": "Plus {count, plural, one {# cancelled charge} other {# cancelled charges}} of {amount}. Cancelled is not charged — it was never owed."
     },
+    "expenses": {
+      "title": "Expenses",
+      "supplier": "Supplier",
+      "count": "Invoices",
+      "total": "Amount",
+      "open": "of which open",
+      "sum": "Total",
+      "empty": "No invoices are on file for this year.",
+      "incomplete": "{count, plural, one {# invoice is still incomplete and missing from the total} other {# invoices are still incomplete and missing from the total}} — see incoming invoices."
+    },
     "attendance": {
       "title": "Attendance",
       "sessions": "Sessions",

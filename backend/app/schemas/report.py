@@ -65,6 +65,27 @@ class DuesReport(BaseSchema):
     totals: DuesReportTotals
 
 
+class ExpenseRow(BaseSchema):
+    """One supplier's year. `supplier_name` is null for rows nobody has named."""
+
+    supplier_name: str | None = None
+    count: int
+    total: Decimal
+    #: Of that, still unpaid.
+    open: Decimal
+
+
+class ExpensesReport(BaseSchema):
+    year: int
+    by_supplier: list[ExpenseRow]
+    count: int
+    total: Decimal
+    open: Decimal
+    #: Invoices the totals cannot see — no amount, no date, no supplier or no
+    #: number yet. Counted across all years, because a row with no date has none.
+    incomplete_count: int
+
+
 class MonthCount(BaseSchema):
     month: int
     count: int
@@ -89,4 +110,5 @@ class AnnualReport(BaseSchema):
     years: list[int]
     membership: MembershipReport
     dues: DuesReport
+    expenses: ExpensesReport
     attendance: AttendanceReport

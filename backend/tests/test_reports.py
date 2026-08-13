@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.due import Due, FeeType
+from app.models.incoming_invoice import IncomingInvoice
 from app.models.member import Member
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -382,3 +383,137 @@ async def test_the_year_picker_stops_at_the_current_year(
     assert data["years"][0] == data["year"]
     assert data["years"][-1] == 2019
     assert data["years"] == sorted(data["years"], reverse=True)
+
+
+# --- Expenses ---
+
+
+async def an_invoice(
+    db_session: AsyncSession,
+    tenant: Tenant,
+    user: User,
+    *,
+    supplier: str | None = "Sportgeräte Müller",
+    number: str | None = "RE-1",
+    on: date | None = date(YEAR, 5, 4),
+    gross: str | None = "100.00",
+    status: str = "open",
+) -> IncomingInvoice:
+    invoice = IncomingInvoice(
+        tenant_id=tenant.id,
+        supplier_name=supplier,
+        invoice_number=number,
+        invoice_date=on,
+        gross_amount=Decimal(gross) if gross is not None else None,
+        status=status,
+        storage_key=f"{tenant.id}/{uuid.uuid4().hex}",
+        original_filename="rechnung.pdf",
+        content_type="application/pdf",
+        byte_size=10,
+        checksum_sha256="0" * 64,
+        uploaded_at=datetime.now(UTC),
+        created_by=user.id,
+        updated_by=user.id,
+    )
+    db_session.add(invoice)
+    await db_session.flush()
+    return invoice
+
+
+async def test_expenses_are_grouped_by_supplier_biggest_first(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """A report says what the money went on, not what forty invoices said."""
+    await an_invoice(
+        db_session, test_tenant, test_user, supplier="Klein", number="K-1", gross="50.00"
+    )
+    await an_invoice(
+        db_session, test_tenant, test_user, supplier="Groß", number="G-1", gross="300.00"
+    )
+    await an_invoice(
+        db_session,
+        test_tenant,
+        test_user,
+        supplier="Groß",
+        number="G-2",
+        gross="200.00",
+        status="paid",
+    )
+
+    data = (await auth_client.get(f"/api/v1/reports/annual?year={YEAR}")).json()["data"]
+    expenses = data["expenses"]
+
+    assert [row["supplier_name"] for row in expenses["by_supplier"]] == ["Groß", "Klein"]
+    assert expenses["by_supplier"][0]["total"] == "500.00"
+    # Only what is still owed, not the whole supplier.
+    assert expenses["by_supplier"][0]["open"] == "300.00"
+    assert expenses["total"] == "550.00"
+    assert expenses["count"] == 3
+
+
+async def test_a_cancelled_invoice_is_not_an_expense(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """The club decided it does not owe it — the same rule the register uses."""
+    await an_invoice(db_session, test_tenant, test_user, number="A-1", gross="100.00")
+    await an_invoice(
+        db_session, test_tenant, test_user, number="A-2", gross="900.00", status="cancelled"
+    )
+
+    data = (await auth_client.get(f"/api/v1/reports/annual?year={YEAR}")).json()["data"]
+    assert data["expenses"]["total"] == "100.00"
+    assert data["expenses"]["count"] == 1
+
+
+async def test_an_invoice_of_another_year_is_not_in_this_one(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    await an_invoice(db_session, test_tenant, test_user, number="B-1", on=date(YEAR - 1, 12, 31))
+
+    data = (await auth_client.get(f"/api/v1/reports/annual?year={YEAR}")).json()["data"]
+    assert data["expenses"]["count"] == 0
+
+
+async def test_an_untyped_scan_is_counted_rather_than_summed(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    """It has no date, so it belongs to no year — and it is exactly the row
+    that would otherwise never be chased."""
+    await an_invoice(
+        db_session,
+        test_tenant,
+        test_user,
+        supplier=None,
+        number=None,
+        on=None,
+        gross=None,
+    )
+
+    data = (await auth_client.get(f"/api/v1/reports/annual?year={YEAR}")).json()["data"]
+    assert data["expenses"]["count"] == 0
+    assert data["expenses"]["incomplete_count"] == 1
+
+
+async def test_the_export_carries_the_expenses_too(
+    auth_client: AsyncClient,
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_user: User,
+) -> None:
+    await an_invoice(db_session, test_tenant, test_user, gross="120.50")
+
+    body = (await auth_client.get(f"/api/v1/reports/annual/export?year={YEAR}")).text
+    assert "Ausgaben;2025" in body
+    assert "Sportgeräte Müller;1;120,50;120,50" in body

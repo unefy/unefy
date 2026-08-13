@@ -41,6 +41,26 @@ export type DuesReport = {
   totals: Omit<DuesReportRow, "fee_name">
 }
 
+export type ExpenseRow = {
+  /** Null for invoices nobody has named yet. */
+  supplier_name: string | null
+  count: number
+  total: string
+  /** Of that, still unpaid. */
+  open: string
+}
+
+export type ExpensesReport = {
+  year: number
+  by_supplier: ExpenseRow[]
+  count: number
+  total: string
+  open: string
+  /** Invoices the totals cannot see. Counted across all years — a row with
+   *  no date belongs to none. */
+  incomplete_count: number
+}
+
 export type AttendanceReport = {
   year: number
   sessions: number
@@ -59,5 +79,6 @@ export type AnnualReport = {
   years: number[]
   membership: MembershipReport
   dues: DuesReport
+  expenses: ExpensesReport
   attendance: AttendanceReport
 }

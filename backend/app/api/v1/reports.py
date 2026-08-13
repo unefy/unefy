@@ -66,6 +66,8 @@ async def export_annual_report(
     writer.writerow([])
     _write_dues(writer, report["dues"])
     writer.writerow([])
+    _write_expenses(writer, report["expenses"])
+    writer.writerow([])
     _write_attendance(writer, report["attendance"])
 
     return Response(
@@ -123,6 +125,25 @@ def _write_dues(writer: Any, data: dict[str, Any]) -> None:
             _money(totals["cancelled"]),
         ]
     )
+
+
+def _write_expenses(writer: Any, data: dict[str, Any]) -> None:
+    writer.writerow(["Ausgaben", data["year"]])
+    writer.writerow(["Lieferant", "Rechnungen", "Betrag", "davon offen"])
+    for row in data["by_supplier"]:
+        writer.writerow(
+            [
+                row["supplier_name"] or "ohne Angabe",
+                row["count"],
+                _money(row["total"]),
+                _money(row["open"]),
+            ]
+        )
+    writer.writerow(["Summe", data["count"], _money(data["total"]), _money(data["open"])])
+    if data["incomplete_count"]:
+        # In the file as well as on the page: whoever pastes this into the
+        # report should not have to remember that four scans were missing.
+        writer.writerow(["noch unvollständig", data["incomplete_count"]])
 
 
 def _write_attendance(writer: Any, data: dict[str, Any]) -> None:

@@ -495,6 +495,14 @@ Mitgliederzahl vorbei. Wer als ausgetreten geführt wird, aber kein
 Austrittsdatum hat, zählt noch zum Bestand — mit einem Satz darunter, der das
 sagt, weil nur der Verein es beheben kann.
 
+**Ausgabenseite (2026-08-12):** ein vierter Block aus dem
+Rechnungseingangsbuch (6.9) — je Lieferant, was der Verein in Rechnung gestellt
+bekam und was davon noch offen ist. Nach Betrag sortiert, weil der Leser sucht,
+wofür das Geld hinging. Stornierte Rechnungen bleiben außen vor, dieselbe Regel
+wie im Register; noch unvollständige Rechnungen werden gezählt statt summiert
+und stehen als Satz darunter — sonst fehlt Geld in einem Bericht, in dem es
+niemandem auffällt.
+
 **Offen:** eine Auswertung je Sparte (die Zahlen liegen vor, die Frage ist die
 Oberfläche) und der Vergleich mit dem Vorjahr in derselben Tabelle.
 
@@ -557,9 +565,9 @@ wird **nie** inline ausgeliefert: es kann ein Stylesheet mitbringen, das es im
 Browser zu HTML macht, und das wäre aus der eigenen Herkunft ein Skript mit der
 Sitzung des Lesenden.
 
-**Offen:** Rechnungen, die per Mail ankommen (heute lädt jemand sie hoch);
-Zahlungsvorschlag/SEPA-Überweisung; die Ausgabenseite in den Auswertungen aus
-6.5 — die Zahlen liegen vor, die Tabelle fehlt.
+**Offen:** Rechnungen, die per Mail ankommen (heute lädt jemand sie hoch) und
+Zahlungsvorschlag/SEPA-Überweisung. ~~Die Ausgabenseite in den Auswertungen~~
+steht seit 2026-08-12 (siehe 6.5).
 
 ### 6.7 Mannschaften
 

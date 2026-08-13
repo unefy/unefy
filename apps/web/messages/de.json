@@ -2416,6 +2416,16 @@
       "empty": "Für dieses Jahr wurden keine Beiträge erhoben.",
       "cancelled": "Zusätzlich {count, plural, one {# stornierte Sollstellung} other {# stornierte Sollstellungen}} über {amount}. Storniertes ist nicht Soll — es wurde nie geschuldet."
     },
+    "expenses": {
+      "title": "Ausgaben",
+      "supplier": "Lieferant",
+      "count": "Rechnungen",
+      "total": "Betrag",
+      "open": "davon offen",
+      "sum": "Summe",
+      "empty": "Für dieses Jahr sind keine Rechnungen erfasst.",
+      "incomplete": "{count, plural, one {# Rechnung ist noch unvollständig und fehlt in der Summe} other {# Rechnungen sind noch unvollständig und fehlen in der Summe}} — siehe Eingangsrechnungen."
+    },
     "attendance": {
       "title": "Anwesenheit",
       "sessions": "Einheiten",

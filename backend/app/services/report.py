@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.due import Due
+from app.models.incoming_invoice import IncomingInvoice
 from app.models.member import Member
 from app.models.tenant import Tenant
 
@@ -302,6 +303,89 @@ class ReportService:
             AttendanceRecord.occurred_on <= last_day,
         )
 
+    # --- Expenses ---
+
+    async def expenses(self, year: int) -> dict[str, Any]:
+        """What the club was invoiced, by supplier.
+
+        The register's side of the year. Cancelled invoices are left out — the
+        club decided it does not owe them — and rows that are still incomplete
+        have no amount to add, so they are counted instead. A report that
+        silently omitted four untyped scans would be a wrong report, and this
+        is the one place where nobody would notice.
+
+        Grouped by supplier rather than listed invoice by invoice: a
+        Rechenschaftsbericht says what the club spent and roughly on what, and
+        forty rows of individual invoices is the register's job, not this one.
+        """
+        first_day = date(year, 1, 1)
+        last_day = date(year, 12, 31)
+
+        scope = and_(
+            IncomingInvoice.tenant_id == self.tenant_id,
+            IncomingInvoice.deleted_at.is_(None),
+            IncomingInvoice.status != "cancelled",
+            IncomingInvoice.invoice_date >= first_day,
+            IncomingInvoice.invoice_date <= last_day,
+        )
+
+        rows = await self.session.execute(
+            select(
+                IncomingInvoice.supplier_name,
+                func.count(),
+                func.coalesce(func.sum(IncomingInvoice.gross_amount), 0),
+                func.coalesce(
+                    func.sum(IncomingInvoice.gross_amount).filter(IncomingInvoice.status == "open"),
+                    0,
+                ),
+            )
+            .where(scope)
+            .group_by(IncomingInvoice.supplier_name)
+        )
+
+        by_supplier = [
+            {
+                "supplier_name": supplier,
+                "count": int(count),
+                "total": Decimal(total),
+                "open": Decimal(still_open),
+            }
+            for supplier, count, total, still_open in rows.all()
+        ]
+        # Biggest first: the reader is looking for what the money went on.
+        by_supplier.sort(key=lambda row: (-row["total"], row["supplier_name"] or ""))
+
+        incomplete = await self.session.execute(
+            select(func.count())
+            .select_from(IncomingInvoice)
+            .where(
+                and_(
+                    IncomingInvoice.tenant_id == self.tenant_id,
+                    IncomingInvoice.deleted_at.is_(None),
+                    IncomingInvoice.status != "cancelled",
+                )
+            )
+            .where(
+                or_(
+                    IncomingInvoice.gross_amount.is_(None),
+                    IncomingInvoice.invoice_date.is_(None),
+                    IncomingInvoice.supplier_name.is_(None),
+                    IncomingInvoice.invoice_number.is_(None),
+                )
+            )
+        )
+
+        return {
+            "year": year,
+            "by_supplier": by_supplier,
+            "total": sum((row["total"] for row in by_supplier), Decimal("0")),
+            "open": sum((row["open"] for row in by_supplier), Decimal("0")),
+            "count": sum(row["count"] for row in by_supplier),
+            # Not year-filtered: a row with no date belongs to no year, and it
+            # is exactly the row that would otherwise never be chased.
+            "incomplete_count": int(incomplete.scalar_one()),
+        }
+
     # --- The whole report ---
 
     async def annual(self, year: int) -> dict[str, Any]:
@@ -310,6 +394,7 @@ class ReportService:
             "years": await self.available_years(),
             "membership": await self.membership(year),
             "dues": await self.dues(year),
+            "expenses": await self.expenses(year),
             "attendance": await self.attendance(year),
         }
 

@@ -20,6 +20,7 @@ import type {
   AttendanceReport,
   CountByValue,
   DuesReport,
+  ExpensesReport,
   MembershipReport,
 } from "@/lib/types/reports"
 
@@ -263,6 +264,85 @@ export async function DuesSection({
             count: report.totals.cancelled_count,
             amount: euro(report.totals.cancelled, locale),
           })}
+        </p>
+      )}
+    </section>
+  )
+}
+
+export async function ExpensesSection({
+  report,
+  locale,
+}: {
+  report: ExpensesReport
+  locale: string
+}) {
+  const t = await getTranslations("reports")
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-medium">{t("expenses.title")}</h2>
+
+      {report.by_supplier.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("expenses.empty")}</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("expenses.supplier")}</TableHead>
+              <TableHead className="text-right">
+                {t("expenses.count")}
+              </TableHead>
+              <TableHead className="text-right">
+                {t("expenses.total")}
+              </TableHead>
+              <TableHead className="text-right">{t("expenses.open")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {report.by_supplier.map((row) => (
+              <TableRow key={row.supplier_name ?? "__none__"}>
+                <TableCell
+                  className={
+                    row.supplier_name === null
+                      ? "text-muted-foreground"
+                      : undefined
+                  }
+                >
+                  {row.supplier_name ?? t("noValue")}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {row.count}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {euro(row.total, locale)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {Number(row.open) > 0 ? euro(row.open, locale) : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="font-medium">
+              <TableCell>{t("expenses.sum")}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {report.count}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {euro(report.total, locale)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {Number(report.open) > 0 ? euro(report.open, locale) : "—"}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      )}
+
+      {report.incomplete_count > 0 && (
+        // The rows the total cannot see. Stated here rather than only on the
+        // register, because this is the figure that gets read out.
+        <p className="text-sm text-muted-foreground">
+          {t("expenses.incomplete", { count: report.incomplete_count })}
         </p>
       )}
     </section>
