@@ -1,5 +1,6 @@
 import {
   AwardIcon,
+  MailIcon,
   FileTextIcon,
   ChartNoAxesColumnIcon,
   CalendarIcon,
@@ -99,6 +100,14 @@ export const sidebarData: SidebarData = {
           titleKey: "competitions",
           url: "/competitions",
           icon: TrophyIcon,
+        },
+        {
+          titleKey: "messages",
+          url: "/messages",
+          icon: MailIcon,
+          // What the club sent to whom is committee business; the backend has
+          // no read access for members at all.
+          roles: ["owner", "admin", "board"],
         },
         {
           titleKey: "library",

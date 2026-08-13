@@ -14,7 +14,8 @@
         "notFound": "Nicht gefunden.",
         "validation": "Bitte die Eingaben prüfen.",
         "unknown": "Da ist etwas schiefgelaufen.",
-        "unreachable": "Server nicht erreichbar."
+        "unreachable": "Server nicht erreichbar.",
+        "heldBack": "Diese Installation verschickt gerade keine Mitglieder-Mails. Der Schalter dafür steht in der Serverkonfiguration (EMAIL_DELIVERY), nicht in den Einwilligungen."
       }
     }
   },
@@ -90,7 +91,8 @@
     "donations": "Zuwendungen",
     "library": "Ablage",
     "reports": "Auswertungen",
-    "incomingInvoices": "Eingangsrechnungen"
+    "incomingInvoices": "Eingangsrechnungen",
+    "messages": "Nachrichten"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -2532,6 +2534,139 @@
       "tooLarge": "Die Datei ist zu groß.",
       "quota": "Der Speicherplatz des Vereins ist erschöpft.",
       "unsupported": "Dieser Dateityp wird nicht angenommen.",
+      "forbidden": "Dafür fehlt die Berechtigung.",
+      "notFound": "Nicht gefunden.",
+      "validation": "Bitte die Eingaben prüfen.",
+      "unknown": "Das hat nicht geklappt.",
+      "unreachable": "Der Server ist nicht erreichbar."
+    }
+  },
+  "messages": {
+    "title": "Nachrichten",
+    "description": "{count, plural, =0 {Keine Nachricht} one {# Nachricht} other {# Nachrichten}} verschickt.",
+    "compose": "Rundmail verfassen",
+    "composeHint": "Der Versand läuft im Hintergrund und in Paketen. Wer die Mail bekommt, steht vor dem Absenden fest — prüfen Sie es unten.",
+    "back": "Zurück zur Übersicht",
+    "send": "Absenden",
+    "queued": "Die Rundmail ist in der Warteschlange.",
+    "choose": "Bitte wählen",
+    "searchPlaceholder": "Betreff oder Text …",
+    "empty": "Es wurde noch keine Rundmail verschickt.",
+    "noMatch": "Keine Nachricht passt zur Suche.",
+    "noFunctions": "Es sind keine Ämter angelegt.",
+    "noEvents": "Es sind keine Termine angelegt.",
+    "queuedAt": "eingereiht {when}",
+    "bodyTitle": "Text",
+    "bodyHint": "Reiner Text. Leerzeilen trennen Absätze; sonst ist nichts an diesem Text Auszeichnung.",
+    "columns": {
+      "subject": "Betreff",
+      "kind": "Art",
+      "queued": "Eingereiht",
+      "tally": "Zugestellt / übersprungen / fehlgeschlagen",
+      "status": "Status"
+    },
+    "fields": {
+      "kind": "Art der Nachricht",
+      "audience": "Empfänger",
+      "function": "Amt",
+      "event": "Termin",
+      "includeWaitlist": "Warteliste einbeziehen",
+      "year": "Jahr",
+      "subject": "Betreff",
+      "body": "Text"
+    },
+    "kinds": {
+      "notice": "Pflichtmitteilung",
+      "newsletter": "Rundmail"
+    },
+    "kindHints": {
+      "notice": "Geht an alle, die die Auswahl ergibt — die Einladung zur Mitgliederversammlung schuldet der Verein auch dem, der in nichts eingewilligt hat.",
+      "newsletter": "Geht nur an Mitglieder, die dem Rundmail-Empfang zugestimmt haben."
+    },
+    "audiences": {
+      "all": "Alle Mitglieder",
+      "function": "Träger eines Amtes",
+      "event": "Angemeldete eines Termins",
+      "debtors": "Schuldner eines Jahres"
+    },
+    "statuses": {
+      "queued": "In der Warteschlange",
+      "sending": "Wird verschickt",
+      "done": "Verschickt",
+      "failed": "Fehlgeschlagen"
+    },
+    "recipientStatuses": {
+      "pending": "Offen",
+      "sent": "Zugestellt",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen"
+    },
+    "reasons": {
+      "no_email": "keine Adresse hinterlegt",
+      "refused": "Einwilligung verweigert",
+      "not_asked": "nie gefragt",
+      "duplicate": "Adresse schon beliefert",
+      "held_back": "Versand ist abgeschaltet"
+    },
+    "filters": {
+      "allKinds": "Alle Arten"
+    },
+    "counts": {
+      "total": "Empfänger",
+      "sent": "Zugestellt",
+      "skipped": "Übersprungen",
+      "failed": "Fehlgeschlagen"
+    },
+    "preview": {
+      "title": "Wer bekommt sie?",
+      "hint": "Dieselbe Auflösung wie beim Absenden — die Zahl hier ist die Zahl, die rausgeht.",
+      "check": "Empfänger prüfen",
+      "count": "{count, plural, one {# Empfänger} other {# Empfänger}}",
+      "names": "Namen anzeigen",
+      "truncated": "Es werden nur die ersten Namen angezeigt.",
+      "advice": "Ohne Prüfung wissen Sie die Zahl erst nach dem Absenden.",
+      "heldBackHint": "Diese Installation verschickt gerade keine Mitglieder-Mails (EMAIL_DELIVERY). Die betroffenen Zeilen werden übersprungen, nicht zugestellt.",
+      "skipped": {
+        "noEmail": "{count} ohne Adresse",
+        "refused": "{count} haben widersprochen",
+        "notAsked": "{count} nie gefragt",
+        "duplicate": "{count} doppelte Adresse",
+        "heldBack": "{count} zurückgehalten"
+      },
+      "skippedShort": {
+        "no_email": "keine Adresse",
+        "refused": "widersprochen",
+        "not_asked": "nie gefragt",
+        "duplicate": "doppelte Adresse",
+        "held_back": "zurückgehalten"
+      }
+    },
+    "test": {
+      "title": "Testversand",
+      "hint": "Dieselbe Mail an eine Adresse, damit sie jemand liest, bevor 200 es tun.",
+      "to": "An",
+      "send": "Test verschicken",
+      "sent": "Testmail verschickt.",
+      "heldBack": "Nicht verschickt — diese Installation hält Mails zurück (EMAIL_DELIVERY)."
+    },
+    "recipients": {
+      "title": "Empfänger",
+      "email": "Adresse",
+      "status": "Status",
+      "reason": "Grund",
+      "sentAt": "Zugestellt",
+      "allStatuses": "Alle Status",
+      "search": "Adresse oder Fehler …",
+      "empty": "Keine Empfängerzeilen.",
+      "unavailable": "Die Empfängerliste konnte nicht geladen werden."
+    },
+    "confirmSend": {
+      "title": "Rundmail absenden?",
+      "description": "Sie geht an {count} Empfänger. Ein Versand lässt sich nicht zurücknehmen.",
+      "withoutPreview": "Die Empfängerzahl wurde nicht geprüft. Ein Versand lässt sich nicht zurücknehmen."
+    },
+    "errors": {
+      "heldBack": "Diese Installation verschickt gerade keine Mitglieder-Mails (EMAIL_DELIVERY).",
       "forbidden": "Dafür fehlt die Berechtigung.",
       "notFound": "Nicht gefunden.",
       "validation": "Bitte die Eingaben prüfen.",

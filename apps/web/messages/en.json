@@ -14,7 +14,8 @@
         "notFound": "Not found.",
         "validation": "Please check your input.",
         "unknown": "Something went wrong.",
-        "unreachable": "Server unreachable."
+        "unreachable": "Server unreachable.",
+        "heldBack": "This installation is not sending member mail at the moment. The switch for it is in the server configuration (EMAIL_DELIVERY), not in the consents."
       }
     }
   },
@@ -90,7 +91,8 @@
     "donations": "Donations",
     "library": "Library",
     "reports": "Reports",
-    "incomingInvoices": "Incoming invoices"
+    "incomingInvoices": "Incoming invoices",
+    "messages": "Messages"
   },
   "dashboard": {
     "title": "Overview",
@@ -2532,6 +2534,139 @@
       "tooLarge": "The file is too large.",
       "quota": "The club's storage is full.",
       "unsupported": "This file type is not accepted.",
+      "forbidden": "You do not have permission for that.",
+      "notFound": "Not found.",
+      "validation": "Please check the entries.",
+      "unknown": "That did not work.",
+      "unreachable": "The server could not be reached."
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "description": "{count, plural, =0 {No message} one {# message} other {# messages}} sent.",
+    "compose": "Compose a message",
+    "composeHint": "Sending happens in the background, in batches. Who receives it is settled before you send — check it below.",
+    "back": "Back to the list",
+    "send": "Send",
+    "queued": "The message is queued.",
+    "choose": "Please choose",
+    "searchPlaceholder": "Subject or text …",
+    "empty": "No message has been sent yet.",
+    "noMatch": "No message matches the search.",
+    "noFunctions": "No offices have been set up.",
+    "noEvents": "No events have been set up.",
+    "queuedAt": "queued {when}",
+    "bodyTitle": "Text",
+    "bodyHint": "Plain text. Blank lines separate paragraphs; nothing else about this text is markup.",
+    "columns": {
+      "subject": "Subject",
+      "kind": "Kind",
+      "queued": "Queued",
+      "tally": "Sent / skipped / failed",
+      "status": "Status"
+    },
+    "fields": {
+      "kind": "Kind of message",
+      "audience": "Recipients",
+      "function": "Office",
+      "event": "Event",
+      "includeWaitlist": "Include the waiting list",
+      "year": "Year",
+      "subject": "Subject",
+      "body": "Text"
+    },
+    "kinds": {
+      "notice": "Notice",
+      "newsletter": "Newsletter"
+    },
+    "kindHints": {
+      "notice": "Goes to everyone the selection resolves to — the invitation to the general meeting is owed even to a member who consented to nothing.",
+      "newsletter": "Goes only to members who consented to receiving the newsletter."
+    },
+    "audiences": {
+      "all": "All members",
+      "function": "Holders of an office",
+      "event": "Registrants of an event",
+      "debtors": "Debtors of a year"
+    },
+    "statuses": {
+      "queued": "Queued",
+      "sending": "Sending",
+      "done": "Sent",
+      "failed": "Failed"
+    },
+    "recipientStatuses": {
+      "pending": "Pending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "reasons": {
+      "no_email": "no address on file",
+      "refused": "consent refused",
+      "not_asked": "never asked",
+      "duplicate": "address already served",
+      "held_back": "sending is switched off"
+    },
+    "filters": {
+      "allKinds": "All kinds"
+    },
+    "counts": {
+      "total": "Recipients",
+      "sent": "Sent",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "preview": {
+      "title": "Who receives it?",
+      "hint": "The same resolution the sending does — the number here is the number that goes out.",
+      "check": "Check recipients",
+      "count": "{count, plural, one {# recipient} other {# recipients}}",
+      "names": "Show names",
+      "truncated": "Only the first names are shown.",
+      "advice": "Without checking you will learn the number only after sending.",
+      "heldBackHint": "This installation is not sending member mail (EMAIL_DELIVERY). The affected rows are skipped, not delivered.",
+      "skipped": {
+        "noEmail": "{count} without an address",
+        "refused": "{count} refused",
+        "notAsked": "{count} never asked",
+        "duplicate": "{count} duplicate address",
+        "heldBack": "{count} held back"
+      },
+      "skippedShort": {
+        "no_email": "no address",
+        "refused": "refused",
+        "not_asked": "never asked",
+        "duplicate": "duplicate address",
+        "held_back": "held back"
+      }
+    },
+    "test": {
+      "title": "Test send",
+      "hint": "The same mail to one address, so somebody reads it before 200 do.",
+      "to": "To",
+      "send": "Send test",
+      "sent": "Test mail sent.",
+      "heldBack": "Not sent — this installation holds mail back (EMAIL_DELIVERY)."
+    },
+    "recipients": {
+      "title": "Recipients",
+      "email": "Address",
+      "status": "Status",
+      "reason": "Reason",
+      "sentAt": "Sent",
+      "allStatuses": "All statuses",
+      "search": "Address or error …",
+      "empty": "No recipient rows.",
+      "unavailable": "The recipient list could not be loaded."
+    },
+    "confirmSend": {
+      "title": "Send this message?",
+      "description": "It goes to {count} recipients. A send cannot be taken back.",
+      "withoutPreview": "The recipient count has not been checked. A send cannot be taken back."
+    },
+    "errors": {
+      "heldBack": "This installation is not sending member mail (EMAIL_DELIVERY).",
       "forbidden": "You do not have permission for that.",
       "notFound": "Not found.",
       "validation": "Please check the entries.",
