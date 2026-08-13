@@ -222,7 +222,23 @@ Vier Dinge, die unterwegs entschieden wurden:
   eigenem Code `EMAIL_HELD_BACK` abgelehnt — „erreicht niemanden" hätte den
   Vorstand in die Einwilligungen geschickt statt in die Einstellungen.
 
-**Phase 2 — Web.** Liste, Verfassen mit Vorschau und Testversand, Detailseite.
+**Phase 2 — Web. Fertig 2026-08-12.** Liste (`/messages`), Verfassen mit
+Empfängerprüfung und Testversand, Detailseite mit den Empfängerzeilen. i18n
+de+en, Navigation unter *Vereinsleben*, nur Vorstand.
+
+Drei Dinge, die dabei entschieden wurden:
+
+- **Die Zählung kommt vom Backend, nicht aus der Oberfläche.** Es ist dieselbe
+  Auflösung, die der Versand nimmt — sonst nennt das Formular eine Zahl, die
+  nur ihm gehört. Sie verfällt bei jeder Änderung an Auswahl *oder* Art:
+  dieselbe Auswahl trifft als Pflichtmitteilung andere Leute als als Rundmail.
+- **Jeder Übersprungen-Grund steht einzeln.** „12 übersprungen" verschweigt,
+  ob zwölf widersprochen haben oder zwölf nie gefragt wurden — und das sind
+  gegenteilige Aufgaben. Zurückgehalten ist rot und bekommt einen eigenen
+  Satz, der auf `EMAIL_DELIVERY` zeigt statt in die Einwilligungen.
+- **`delivered: false` beim Testversand ist eine Antwort, kein Fehler.** Die
+  Oberfläche sagt „nicht verschickt, die Installation hält zurück" statt
+  „verschickt" — Letzteres merkt der Vorstand erst beim Warten.
 
 **Phase 3 — Feinschliff.** Erneut versuchen für fehlgeschlagene Zeilen,
 Bounce-Verarbeitung als optionaler Webhook, Platzhalter je Empfänger.

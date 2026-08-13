@@ -456,11 +456,15 @@ antwortet 404 statt 403, weil 403 bestätigen würde, dass es existiert.
 Widerrufen und der Vorlagen-Editor bleiben bewusst Web: das eine ist selten und
 begründungspflichtig, das andere ist Schreiben.
 
-### 6.4 Kommunikation
+### 6.4 Kommunikation ✓ (2026-08-12)
 
-Rundmail an Mitglieder, Sparte, Amt, Angemeldete eines Termins, Schuldner
-eines Jahres. Vorhanden ist nur ein Ein-Empfänger-Versand für Magic Links.
-Versand asynchron und in Paketen, mit Historie.
+Rundmail an Mitglieder, Amt, Angemeldete eines Termins, Schuldner eines
+Jahres — Backend, Warteschlange und Oberfläche stehen; Einzelheiten und die
+unterwegs getroffenen Entscheidungen in `docs/plans/communication.md`.
+„An eine Sparte" fehlt bewusst: es gibt keine Spartenmitgliedschaft am
+Mitglied, und sie im Mailmodul zu erfinden hieße, sie nebenbei zu definieren.
+
+Offen bleibt Phase 3 (erneut versuchen, Bounces, Platzhalter je Empfänger).
 
 **Setzt 6.2 voraus** (Einwilligungen). Offene Entscheidungen: Versandweg
 (eigener SMTP vs. Dienst — Zustellbarkeit ist bei Vereinsmails das eigentliche
